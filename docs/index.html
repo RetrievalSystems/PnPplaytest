@@ -441,11 +441,15 @@ function initOnlinePanel() {
     <div style="font-weight:700; font-size:13px; margin-bottom:6px;">Online</div>
     <div id="hw-net-status" style="opacity:.9; margin-bottom:8px;">Not connected</div>
 
-    <div style="display:flex; gap:8px; margin-bottom:8px;">
-      <button id="hw-host" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Host</button>
-      <input id="hw-code" placeholder="Room code" style="flex:1; padding:6px 8px; border-radius:8px; border:0; outline:none;" />
-      <button id="hw-join" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Join</button>
-    </div>
+   <div style="display:flex; gap:8px; margin-bottom:8px;">
+    <button id="hw-host" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Host</button>
+
+
+    <input id="hw-code" placeholder="Room code" style="flex:1; padding:6px 8px; border-radius:8px; border:0; outline:none; user-select:text; pointer-events:auto;" />
+    <button id="hw-join" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Join</button>
+    <button id="hw-ping" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Ping</button>
+  </div>
+
 
     <div id="hw-room-status" style="opacity:.9;">Create or join a room</div>
   `;
@@ -457,6 +461,8 @@ function initOnlinePanel() {
   const hostBtn = panel.querySelector("#hw-host");
   const joinBtn = panel.querySelector("#hw-join");
   const codeInput = panel.querySelector("#hw-code");
+const pingBtn = panel.querySelector("#hw-ping");
+
 
   let socket = null;
   let roomCode = "";
