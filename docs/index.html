@@ -1073,6 +1073,40 @@ const ABODE_BYPASS = {
 
 function HerbalistWizards() {
             const [gameState, setGameState] = useState(null);
+// === Online: receive full game state snapshots (attach when socket becomes available) ===
+useEffect(() => {
+  let detach = null;
+
+  const attachIfReady = () => {
+    const net = window.HW_NET;
+    if (!net?.socket) return false;
+
+    const s = net.socket;
+
+    const onSync = (payload) => {
+      if (!payload?.state) return;
+      ignoreNextSendRef.current = true;
+      setGameState(payload.state);
+    };
+
+    s.on("state_sync", onSync);
+    detach = () => s.off("state_sync", onSync);
+    return true;
+  };
+
+  if (attachIfReady()) {
+    return () => { if (detach) detach(); };
+  }
+
+  const iv = setInterval(() => {
+    if (attachIfReady()) clearInterval(iv);
+  }, 250);
+
+  return () => {
+    clearInterval(iv);
+    if (detach) detach();
+  };
+}, []);
 
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
