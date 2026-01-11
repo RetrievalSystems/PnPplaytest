@@ -492,6 +492,9 @@ HW_NET.connected = true;
     socket.on("room_ready", () => {
       roomStatusEl.textContent = "Opponent connected ✅";
     });
+socket.on("ping", () => {
+  alert("Ping received ✅");
+});
 
     socket.on("player_left", () => {
       roomStatusEl.textContent = "Opponent left the room";
@@ -551,6 +554,15 @@ HW_NET.seat = seat;
   };
 }
 
+// Press P to send a ping to the room (simple sync test)
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "p") return;
+  if (!socket || !socket.connected || !roomCode) {
+    alert("Not in a room yet (Host/Join first).");
+    return;
+  }
+  socket.emit("ping", { code: roomCode });
+});
 
         const IMAGES = {
             hud: './images/HUDs with board marked.jpg',
