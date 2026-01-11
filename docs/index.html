@@ -447,7 +447,7 @@ function initOnlinePanel() {
 
     <input id="hw-code" placeholder="Room code" style="flex:1; padding:6px 8px; border-radius:8px; border:0; outline:none; user-select:text; pointer-events:auto;" />
     <button id="hw-join" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Join</button>
-    <button id="hw-ping" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Ping</button>
+    <button id="hw-ping" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer!important;">Ping</button>
   </div>
 
 
@@ -499,7 +499,7 @@ HW_NET.connected = true;
       roomStatusEl.textContent = "Opponent connected ✅";
     });
 socket.on("ping", () => {
-  alert("Ping received ✅");
+  roomStatusEl.textContent = "Ping received ✅";
 });
 
     socket.on("player_left", () => {
@@ -557,6 +557,19 @@ HW_NET.seat = seat;
       setStatus();
       roomStatusEl.textContent = "Connected ✅";
     });
+  };
+ pingBtn.onclick = () => {
+    roomStatusEl.textContent = "Ping sent…";
+
+    const s2 = ensureSocket();
+    if (!s2) return;
+
+    if (!roomCode) {
+      alert("Not in a room yet (Host/Join first).");
+      return;
+    }
+
+    s2.emit("ping", { code: roomCode });
   };
 }
 
