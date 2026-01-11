@@ -476,6 +476,8 @@ function initOnlinePanel() {
       return null;
     }
     socket = window.io(HW_SERVER_URL, { transports: ["websocket"] });
+HW_NET.socket = socket;
+HW_NET.connected = true;
 
     socket.on("connect", () => {
       setStatus();
@@ -517,6 +519,9 @@ function initOnlinePanel() {
       }
       roomCode = res.code;
       seat = res.seat; // "Y"
+HW_NET.code = roomCode;
+HW_NET.seat = seat;
+
       codeInput.value = roomCode;
       setStatus();
       roomStatusEl.textContent = "Waiting for opponent…";
@@ -537,6 +542,9 @@ function initOnlinePanel() {
       }
       roomCode = res.code;
       seat = res.seat; // "B"
+HW_NET.code = roomCode;
+HW_NET.seat = seat;
+
       setStatus();
       roomStatusEl.textContent = "Connected ✅";
     });
