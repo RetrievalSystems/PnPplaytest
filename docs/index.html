@@ -1110,6 +1110,35 @@ useEffect(() => {
 
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
+// === Online: broadcast game state when it changes (JSON-safe) ===
+useEffect(() => {
+  const net = window.HW_NET;
+  if (!net?.socket || !net.code) return;
+  if (!gameState) return;
+
+  // Don't echo back a state we just received
+  if (ignoreNextSendRef.current) {
+    ignoreNextSendRef.current = false;
+    return;
+  }
+
+  // Make a JSON-safe copy (and detect circular/unserialisable state)
+  let safeState;
+  try {
+    safeState = JSON.parse(JSON.stringify(gameState));
+  } catch (e) {
+    console.error("SYNC FAIL: gameState not serialisable", e);
+    const roomEl = document.getElementById("hw-room-status");
+    if (roomEl) roomEl.textContent = "SYNC FAIL: state not serialisable";
+    return;
+  }
+
+  net.socket.emit("state_sync", {
+    code: net.code,
+    state: safeState
+  });
+}, [gameState]);
+
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
                 if (!gameState) return;
