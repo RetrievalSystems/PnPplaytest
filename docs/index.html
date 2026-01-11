@@ -1073,42 +1073,9 @@ const ABODE_BYPASS = {
 
 function HerbalistWizards() {
             const [gameState, setGameState] = useState(null);
-const ignoreNextSendRef = useRef(false);
-
-// === Online: receive full game state snapshots ===
-useEffect(() => {
-  const net = window.HW_NET;
-  if (!net?.socket) return;
-
-  const onSync = (payload) => {
-    if (!payload?.state) return;
-    setGameState(payload.state);
-  };
-
-  net.socket.on("state_sync", onSync);
-  return () => net.socket.off("state_sync", onSync);
-}, []);
 
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
-// === Online: broadcast game state when it changes ===
-useEffect(() => {
-  const net = window.HW_NET;
-  if (!net?.socket || !net.code) return;
-  if (!gameState) return;
-
-  // Don't echo back a state we just received
-  if (ignoreNextSendRef.current) {
-    ignoreNextSendRef.current = false;
-    return;
-  }
-
-  net.socket.emit("state_sync", {
-    code: net.code,
-    state: gameState
-  });
-}, [gameState]);
-
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
                 if (!gameState) return;
