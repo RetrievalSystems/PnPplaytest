@@ -407,6 +407,17 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 const HW_SERVER_URL = "https://pnplive.onrender.com";
 window.HW_BUILD = "syncfix-" + new Date().toISOString();
 console.log("HW_BUILD", window.HW_BUILD);
+// === On-screen sync counters (debug) ===
+window.__HW_SYNC = window.__HW_SYNC || { sent: 0, recv: 0 };
+setInterval(() => {
+  try {
+    const el = document.getElementById("hw-room-status");
+    if (!el) return;
+    const net = window.HW_NET || {};
+    el.textContent =
+      `Room:${net.code || "-"} Seat:${net.seat || "-"} sent:${window.__HW_SYNC.sent} recv:${window.__HW_SYNC.recv}`;
+  } catch (e) {}
+}, 500);
 
 // === Emergency error banner (so crashes don't look like "black screen") ===
 (function () {
@@ -1163,6 +1174,8 @@ const ABODE_BYPASS = {
 
 function HerbalistWizards() {
             const [gameState, setGameState] = useState(null);
+const ignoreNextSendRef = useRef(false);
+
 // === Online: receive full game state snapshots (attach when socket becomes available) ===
 useEffect(() => {
   let detach = null;
@@ -1173,7 +1186,7 @@ useEffect(() => {
 
     const s = net.socket;
 
-   const onSync = (payload) => {
+const onSync = (payload) => {
   // Ignore bad or empty messages
   if (!payload || typeof payload.json !== "string") return;
 
@@ -1183,10 +1196,11 @@ useEffect(() => {
   // Turn safe text back into a real game state
   const remoteState = deserializeGameState(payload.json);
 
+  window.__HW_SYNC.recv++;
   setGameState(remoteState);
 };
 
-    s.on("state_sync", onSync);
+   s.on("state_sync", onSync);
     detach = () => s.off("state_sync", onSync);
     return true;
   };
@@ -1205,7 +1219,7 @@ useEffect(() => {
   };
 }, []);
 
-const ignoreNextSendRef = useRef(false);
+
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
 // === Online: broadcast game state when it changes (JSON-safe) ===
@@ -1238,7 +1252,7 @@ try {
   return;
 }
 
-
+window.__HW_SYNC.sent++;
 net.socket.emit("state_sync", {
   code: net.code,
   json: jsonToSend
