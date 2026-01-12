@@ -473,8 +473,47 @@ function deserializeGameState(json) {
     return value;
   });
 }
+// ===== Image preloader (stops flicker / late loads) =====
+function preloadImagesOnce(urls) {
+  let started = false;
+  return {
+    start() {
+      if (started) return;
+      started = true;
+      urls.forEach((url) => {
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          img.loading = "eager";
+          img.src = url;
+        } catch (e) {}
+      });
+    }
+  };
+}
+
+// List of crop PNGs (paths must match where your files actually are)
+const HW_CROP_IMAGE_URLS = [
+  "Aloe.png",
+  "Balm.png",
+  "Chamomile.png",
+  "Eucalyptus.png",
+  "Foxglove.png",
+  "Ginseng.png",
+  "Lily.png",
+  "Marigold.png",
+  "Nasturtium.png",
+  "Oleander.png",
+  "Peppermint.png",
+  "St Johns Wort.png",
+  "Valerian.png",
+];
+
+const HW_PRELOAD = preloadImagesOnce(HW_CROP_IMAGE_URLS);
 
         const { useState, useEffect, useRef, useMemo } = React;
+try { HW_PRELOAD.start(); } catch (e) {}
+
 
 // --- Online panel (Stage 1: Host/Join + status) ---
 function initOnlinePanel() {
@@ -701,54 +740,42 @@ window.addEventListener("keydown", (e) => {
         };
         // Prefer individual crop PNGs (one file per herb) instead of the sprite sheet.
 // We now link directly to: ./images/<CropName>.png (no multi-path fallback to avoid flashing).
-const buildCropIconCandidates = (name) => {
-    const base = String(name || '').trim();
-    const noApos = base.replace(/[’']/g, '');
-    const noSpace = noApos.replace(/\s+/g, '');
-    const dash = noApos.replace(/\s+/g, '-');
-    const underscore = noApos.replace(/\s+/g, '_');
-    const lowerNoSpace = noSpace.toLowerCase();
-    const lowerDash = dash.toLowerCase();
-    const lowerUnderscore = underscore.toLowerCase();
-    const cands = [
-        `./images/${base}.png`,
-        `./images/${noApos}.png`,
-        `./images/${noSpace}.png`,
-        `./images/${dash}.png`,
-        `./images/${underscore}.png`,
-        `./images/${lowerNoSpace}.png`,
-        `./images/${lowerDash}.png`,
-        `./images/${lowerUnderscore}.png`,
-    ];
-    return Array.from(new Set(cands));
+
+// Use one exact filename per crop to prevent onError cycling/flicker
+const CROP_IMG = {
+  Aloe: "Aloe.png",
+  Balm: "Balm.png",
+  Chamomile: "Chamomile.png",
+  Eucalyptus: "Eucalyptus.png",
+  Foxglove: "Foxglove.png",
+  Ginseng: "Ginseng.png",
+  Lily: "Lily.png",
+  Marigold: "Marigold.png",
+  Nasturtium: "Nasturtium.png",
+  Oleander: "Oleander.png",
+  Peppermint: "Peppermint.png",
+  "St Johns Wort": "St Johns Wort.png",
+  Valerian: "Valerian.png",
 };
 
-// Crop icon (PNG per herb). Tries multiple filename variants so it works even if
-// your files omit spaces/apostrophes or use kebab/underscore/lowercase names.
+// Stable crop icon (no filename cycling, no flicker)
 const CropIcon = ({ type, style, className }) => {
-    const name = (CROPS[type]?.name || type);
-    const candidates = buildCropIconCandidates(name);
-    return (
-        <img
-            className={className}
-            src={candidates[0]}
-            alt={name}
-            data-ci="0"
-            style={{ ...style, objectFit: 'contain' }}
-            draggable="false"
-            onError={(e) => {
-                try {
-                    const img = e.currentTarget;
-                    const i = Number(img.dataset.ci || '0') + 1;
-                    if (i < candidates.length) {
-                        img.dataset.ci = String(i);
-                        img.src = candidates[i];
-                    }
-                } catch (_) {}
-            }}
-        />
-    );
+  const name = (CROPS[type]?.name || type);
+  const src = "./images/" + (CROP_IMG[name] || (name + ".png")); // folder + filename
+
+  return (
+    <img
+      className={className}
+      src={src}
+      alt={name}
+      style={{ ...style, objectFit: "contain" }}
+      draggable="false"
+      decoding="async"
+      loading="eager"
+    />
+  );
 };
+
 
 
         const CROPS = {
