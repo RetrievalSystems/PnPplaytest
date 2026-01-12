@@ -1211,6 +1211,13 @@ useEffect(() => {
   if (!net?.socket || !net.code) return;
   if (!gameState) return;
 
+  // Only the current player is allowed to broadcast state.
+  // Prevents crossed turns and desynced wheels.
+  const seat = net.seat; // "yellow" or "blue"
+  const current = gameState.currentPlayer;
+  if (seat && current && seat !== current) return;
+
+
   // Don't echo back a state we just received
   if (ignoreNextSendRef.current) {
     ignoreNextSendRef.current = false;
