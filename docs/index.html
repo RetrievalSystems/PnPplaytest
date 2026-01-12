@@ -615,25 +615,6 @@ HW_NET.connected = true;
 
     socket.on("room_ready", () => {
       roomStatusEl.textContent = "Opponent connected ✅";
-
-      // If I'm the host, immediately send a snapshot so the joiner starts aligned.
-      // The React game state might not be ready yet (intro still playing), so we retry a few times.
-      try {
-        if (seat === "Y") {
-          let tries = 0;
-          const sendIfReady = () => {
-            tries += 1;
-            const json = window.HW_GET_STATE_JSON ? window.HW_GET_STATE_JSON() : null;
-            if (typeof json === "string" && json.length > 0) {
-              try { window.__HW_SYNC.sent++; } catch (e) {}
-              socket.emit("state_sync", { code: roomCode, json });
-              return;
-            }
-            if (tries < 8) setTimeout(sendIfReady, 400);
-          };
-          sendIfReady();
-        }
-      } catch (e) {}
     });
 socket.on("ping", () => {
   roomStatusEl.textContent = "Ping received ✅";
@@ -665,6 +646,8 @@ socket.on("ping", () => {
       }
       roomCode = res.code;
       seat = res.seat; // "Y"
+HW_NET.code = roomCode;
+HW_NET.seat = seat;
 
       codeInput.value = roomCode;
       setStatus();
@@ -1237,22 +1220,6 @@ const onSync = (payload) => {
 
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
-
-// Provide a safe getter so the Online panel (outside React) can request a snapshot.
-useEffect(() => {
-  try {
-    window.HW_GET_STATE_JSON = () => {
-      try {
-        const st = latestStateRef.current;
-        return serializeGameState(st);
-      } catch (e) {
-        return null;
-      }
-    };
-  } catch (e) {}
-  return () => {};
-}, []);
-
 // === Online: broadcast game state when it changes (JSON-safe) ===
 useEffect(() => {
   const net = window.HW_NET;
@@ -1453,17 +1420,7 @@ useEffect(() => {
                 const isFirst = !!gameState.firstMove?.[pkey];
                 if (isFirst) return;
 
-                // If we're online, only the active player's device is allowed to spin the occurrence wheel.
-                try {
-                    const net = window.HW_NET;
-                    const online = !!(net && net.socket && net.code);
-                    if (online) {
-                        const seatNow = String(net.seat || '').toLowerCase(); // "yellow" or "blue"
-                        if (seatNow && seatNow !== String(pkey || '').toLowerCase()) return;
-                    }
-                } catch (e) {}
-
-// If an occurrence hasn't been spun for this turn yet, spin it automatically.
+                // If an occurrence hasn't been spun for this turn yet, spin it automatically.
                 if (!wheelSpunThisTurn && !spinning && !showSpellChart && !showCropPickOption && !selectingTeleport && !gameState.awaitingCropPickDecision) {
                     setWheelSpunThisTurn(true);
                     window.setTimeout(() => { try { spinOccurrenceWheel(); } catch(e) {} }, 0);
@@ -3031,15 +2988,6 @@ const handleWheelClick = (e) => {
                     const nextKey = st.currentPlayer;
                     const isFirst = !!st.firstMove?.[nextKey];
                     if (!isFirst) {
-                        // If we're online, only the active player's device is allowed to spin the occurrence wheel.
-                        try {
-                            const net = window.HW_NET;
-                            const online = !!(net && net.socket && net.code);
-                            if (online) {
-                                const seatNow = String(net.seat || '').toLowerCase(); // "yellow" or "blue"
-                                if (seatNow && seatNow !== String(nextKey || '').toLowerCase()) return;
-                            }
-                        } catch (e) {}
                         setWheelSpunThisTurn(true);
                         spinOccurrenceWheel();
                     } else {
@@ -4760,7 +4708,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
 /*__WIN_OVERLAY_REPLACED__*/
 
 
-/* Portrait hotspots: click your portrait to end turn (after you have moved). */}
+{/* Portrait hotspots: click your portrait to end turn (after you have moved). */}
                         <div
                             onClick={(e) => {
                                 e.stopPropagation();
