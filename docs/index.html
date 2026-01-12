@@ -413,6 +413,30 @@ window.HW_NET = window.HW_NET || {
   seat: null,
   connected: false
 };
+// ===== Map/Set safe JSON helpers (client) =====
+function serializeGameState(state) {
+  return JSON.stringify(state, (key, value) => {
+    if (value instanceof Map) {
+      return { __type: "Map", value: Array.from(value.entries()) };
+    }
+    if (value instanceof Set) {
+      return { __type: "Set", value: Array.from(value.values()) };
+    }
+    if (value instanceof Date) {
+      return { __type: "Date", value: value.toISOString() };
+    }
+    return value;
+  });
+}
+
+function deserializeGameState(json) {
+  return JSON.parse(json, (key, value) => {
+    if (value && value.__type === "Map") return new Map(value.value);
+    if (value && value.__type === "Set") return new Set(value.value);
+    if (value && value.__type === "Date") return new Date(value.value);
+    return value;
+  });
+}
 
         const { useState, useEffect, useRef, useMemo } = React;
 
@@ -1083,11 +1107,18 @@ useEffect(() => {
 
     const s = net.socket;
 
-    const onSync = (payload) => {
-      if (!payload?.state) return;
-      ignoreNextSendRef.current = true;
-      setGameState(payload.state);
-    };
+   const onSync = (payload) => {
+  // Ignore bad or empty messages
+  if (!payload || typeof payload.json !== "string") return;
+
+  // Prevent echo / feedback loop
+  ignoreNextSendRef.current = true;
+
+  // Turn safe text back into a real game state
+  const remoteState = deserializeGameState(payload.json);
+
+  setGameState(remoteState);
+};
 
     s.on("state_sync", onSync);
     detach = () => s.off("state_sync", onSync);
@@ -1121,23 +1152,25 @@ useEffect(() => {
     ignoreNextSendRef.current = false;
     return;
   }
+// Make a Map/Set-safe JSON string (and detect circular/unserialisable state)
+let jsonToSend = "";
+try {
+  jsonToSend = serializeGameState(gameState);
+} catch (e) {
+  console.error("SYNC FAIL: cannot make safe JSON", e);
+  const roomEl = document.getElementById("hw-room-status");
+  if (roomEl) roomEl.textContent = "SYNC FAIL: cannot make safe JSON";
+  return;
+}
 
-  // Make a JSON-safe copy (and detect circular/unserialisable state)
-  let safeState;
-  try {
-    safeState = JSON.parse(JSON.stringify(gameState));
-  } catch (e) {
-    console.error("SYNC FAIL: gameState not serialisable", e);
-    const roomEl = document.getElementById("hw-room-status");
-    if (roomEl) roomEl.textContent = "SYNC FAIL: state not serialisable";
-    return;
-  }
 
-  net.socket.emit("state_sync", {
-    code: net.code,
-    state: safeState
-  });
-}, [gameState]);
+net.socket.emit("state_sync", {
+  code: net.code,
+  json: jsonToSend
+
+});
+}, [gameState, window.HW_NET?.code, window.HW_NET?.socket]);
+
 
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
