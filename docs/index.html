@@ -1139,6 +1139,7 @@ useEffect(() => {
   };
 }, []);
 
+const ignoreNextSendRef = useRef(false);
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
 // === Online: broadcast game state when it changes (JSON-safe) ===
