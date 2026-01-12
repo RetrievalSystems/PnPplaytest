@@ -405,6 +405,9 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 
     <script type="text/babel">
 const HW_SERVER_URL = "https://pnplive.onrender.com";
+window.HW_BUILD = "syncfix-" + new Date().toISOString();
+console.log("HW_BUILD", window.HW_BUILD);
+
 // === Emergency error banner (so crashes don't look like "black screen") ===
 (function () {
   function show(msg) {
