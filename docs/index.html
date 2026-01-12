@@ -405,6 +405,42 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 
     <script type="text/babel">
 const HW_SERVER_URL = "https://pnplive.onrender.com";
+// === Emergency error banner (so crashes don't look like "black screen") ===
+(function () {
+  function show(msg) {
+    try {
+      const id = "hw-fatal";
+      let el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = id;
+        el.style.position = "fixed";
+        el.style.left = "0";
+        el.style.right = "0";
+        el.style.top = "0";
+        el.style.zIndex = "999999";
+        el.style.padding = "10px";
+        el.style.background = "rgba(160,0,0,0.95)";
+        el.style.color = "white";
+        el.style.fontFamily = "monospace";
+        el.style.fontSize = "12px";
+        el.style.whiteSpace = "pre-wrap";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+    } catch (e) {}
+  }
+
+  window.addEventListener("error", (e) => {
+    show("JS ERROR:\n" + (e?.message || "unknown") + "\n" + (e?.filename || "") + ":" + (e?.lineno || "") );
+  });
+
+  window.addEventListener("unhandledrejection", (e) => {
+    const r = e?.reason;
+    show("PROMISE ERROR:\n" + (r?.message || r || "unknown"));
+  });
+})();
+
 // Shared network handle the game can use.
 // (The Online panel fills these in when you Host or Join.)
 window.HW_NET = window.HW_NET || {
