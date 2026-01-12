@@ -582,11 +582,16 @@ const pingBtn = panel.querySelector("#hw-ping");
   let seat = null; // "Y" (host) or "B" (joiner)
 
   function setStatus() {
-    const conn = socket?.connected ? "Connected" : "Not connected";
-    const seatText = seat ? (seat === "Y" ? "Yellow" : "Blue") : "";
-    const roomText = roomCode ? `Room ${roomCode}` : "";
-    statusEl.textContent = [conn, seatText && `You are ${seatText}`, roomText].filter(Boolean).join(" • ");
-  }
+  const conn = socket?.connected ? "Connected" : "Not connected";
+  const seatText = seat ? (seat === "Y" ? "Yellow" : "Blue") : "";
+  const roomText = roomCode ? `Room ${roomCode}` : "";
+  statusEl.textContent = [conn, seatText && `You are ${seatText}`, roomText].filter(Boolean).join(" • ");
+
+  // ✅ Keep the shared net object up to date for the game logic
+  window.HW_NET.code = roomCode || "";
+  window.HW_NET.seat = seat === "Y" ? "yellow" : seat === "B" ? "blue" : null;
+}
+
 
   function ensureSocket() {
     if (socket) return socket;
