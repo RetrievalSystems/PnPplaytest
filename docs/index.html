@@ -612,21 +612,13 @@ HW_NET.connected = true;
       roomStatusEl.textContent = "Opponent connected ✅";
 
       // If I'm the host, immediately send a snapshot so the joiner starts aligned.
-      // The React game state might not be ready yet (intro still playing), so we retry a few times.
       try {
         if (seat === "Y") {
-          let tries = 0;
-          const sendIfReady = () => {
-            tries += 1;
-            const json = window.HW_GET_STATE_JSON ? window.HW_GET_STATE_JSON() : null;
-            if (typeof json === "string" && json.length > 0) {
-              try { window.__HW_SYNC.sent++; } catch (e) {}
-              socket.emit("state_sync", { code: roomCode, json });
-              return;
-            }
-            if (tries < 8) setTimeout(sendIfReady, 400);
-          };
-          sendIfReady();
+          const json = window.HW_GET_STATE_JSON ? window.HW_GET_STATE_JSON() : null;
+          if (typeof json === "string" && json.length > 0) {
+            try { window.__HW_SYNC.sent++; } catch (e) {}
+            socket.emit("state_sync", { code: roomCode, json });
+          }
         }
       } catch (e) {}
     });
@@ -3033,15 +3025,6 @@ const handleWheelClick = (e) => {
                     const nextKey = st.currentPlayer;
                     const isFirst = !!st.firstMove?.[nextKey];
                     if (!isFirst) {
-                        // If we're online, only the active player's device is allowed to spin the occurrence wheel.
-                        try {
-                            const net = window.HW_NET;
-                            const online = !!(net && net.socket && net.code);
-                            if (online) {
-                                const seatNow = String(net.seat || '').toLowerCase(); // "yellow" or "blue"
-                                if (seatNow && seatNow !== String(nextKey || '').toLowerCase()) return;
-                            }
-                        } catch (e) {}
                         setWheelSpunThisTurn(true);
                         spinOccurrenceWheel();
                     } else {
