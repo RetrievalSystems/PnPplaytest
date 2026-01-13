@@ -7,7 +7,9 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.tailwindcss.com"></script>    
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+
     <style>
         body {
             margin: 0;
@@ -57,7 +59,7 @@
             100% { opacity: 0; transform: scale(1.4); }
         }
     
-        /* --- Locked HUD stage (centers and preserves aspect ratio) --- */
+        {/* --- Locked HUD stage (centers and preserves aspect ratio) --- */
         html, body { height: 100%; overflow: hidden; background: #000; }
         #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
         #hud-stage { position: relative; height: 98.7%; aspect-ratio: 2048 / 1197; }
@@ -397,12 +399,301 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   window.addEventListener('pointerdown', prime, { once: true, capture: true });
   window.addEventListener('keydown', prime, { once: true, capture: true });
 })();
+
 </script>
 
     <div id="root"></div>
 
     <script type="text/babel">
+const HW_SERVER_URL = "https://pnplive.onrender.com";
+window.HW_BUILD = "syncfix-" + new Date().toISOString();
+console.log("HW_BUILD", window.HW_BUILD);
+// === On-screen sync counters (debug) ===
+window.__HW_SYNC = window.__HW_SYNC || { sent: 0, recv: 0 };
+setInterval(() => {
+  try {
+    const el = document.getElementById("hw-room-status");
+    if (!el) return;
+    const net = window.HW_NET || {};
+    el.textContent =
+      `Room:${net.code || "-"} Seat:${net.seat || "-"} sent:${window.__HW_SYNC.sent} recv:${window.__HW_SYNC.recv}`;
+  } catch (e) {}
+}, 500);
+
+// === Emergency error banner (so crashes don't look like "black screen") ===
+(function () {
+  function show(msg) {
+    try {
+      const id = "hw-fatal";
+      let el = document.getElementById(id);
+      if (!el) {
+        el = document.createElement("div");
+        el.id = id;
+        el.style.position = "fixed";
+        el.style.left = "0";
+        el.style.right = "0";
+        el.style.top = "0";
+        el.style.zIndex = "999999";
+        el.style.padding = "10px";
+        el.style.background = "rgba(160,0,0,0.95)";
+        el.style.color = "white";
+        el.style.fontFamily = "monospace";
+        el.style.fontSize = "12px";
+        el.style.whiteSpace = "pre-wrap";
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+    } catch (e) {}
+  }
+
+  window.addEventListener("error", (e) => {
+    show("JS ERROR:\n" + (e?.message || "unknown") + "\n" + (e?.filename || "") + ":" + (e?.lineno || "") );
+  });
+
+  window.addEventListener("unhandledrejection", (e) => {
+    const r = e?.reason;
+    show("PROMISE ERROR:\n" + (r?.message || r || "unknown"));
+  });
+})();
+
+// Shared network handle the game can use.
+// (The Online panel fills these in when you Host or Join.)
+window.HW_NET = window.HW_NET || {
+  socket: null,
+  code: "",
+  seat: null,
+  connected: false
+};
+// ===== Map/Set safe JSON helpers (client) =====
+function serializeGameState(state) {
+  return JSON.stringify(state, (key, value) => {
+    if (value instanceof Map) {
+      return { __type: "Map", value: Array.from(value.entries()) };
+    }
+    if (value instanceof Set) {
+      return { __type: "Set", value: Array.from(value.values()) };
+    }
+    if (value instanceof Date) {
+      return { __type: "Date", value: value.toISOString() };
+    }
+    return value;
+  });
+}
+
+function deserializeGameState(json) {
+  return JSON.parse(json, (key, value) => {
+    if (value && value.__type === "Map") return new Map(value.value);
+    if (value && value.__type === "Set") return new Set(value.value);
+    if (value && value.__type === "Date") return new Date(value.value);
+    return value;
+  });
+}
+// ===== Image preloader (stops flicker / late loads) =====
+function preloadImagesOnce(urls) {
+  let started = false;
+  return {
+    start() {
+      if (started) return;
+      started = true;
+      urls.forEach((url) => {
+        try {
+          const img = new Image();
+          img.decoding = "async";
+          img.loading = "eager";
+          img.src = url;
+        } catch (e) {}
+      });
+    }
+  };
+}
+
+// List of crop PNGs (paths must match where your files actually are)
+const HW_CROP_IMAGE_URLS = [
+  "Aloe.png",
+  "Balm.png",
+  "Chamomile.png",
+  "Eucalyptus.png",
+  "Foxglove.png",
+  "Ginseng.png",
+  "Lily.png",
+  "Marigold.png",
+  "Nasturtium.png",
+  "Oleander.png",
+  "Peppermint.png",
+  "St Johns Wort.png",
+  "Valerian.png",
+];
+
+const HW_PRELOAD = preloadImagesOnce(HW_CROP_IMAGE_URLS);
+
         const { useState, useEffect, useRef, useMemo } = React;
+try { HW_PRELOAD.start(); } catch (e) {}
+
+
+// --- Online panel (Stage 1: Host/Join + status) ---
+function initOnlinePanel() {
+  // Avoid duplicates if hot reloaded / re-run
+  if (document.getElementById("hw-online-panel")) return;
+
+  const panel = document.createElement("div");
+  panel.id = "hw-online-panel";
+  panel.style.cssText = `
+    position: fixed;
+    top: 12px;
+    left: 12px;
+    z-index: 999999;
+    width: 260px;
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.60);
+    color: #fff;
+    border-radius: 12px;
+    font: 12px/1.3 -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, sans-serif;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  `;
+
+  panel.innerHTML = `
+    <div style="font-weight:700; font-size:13px; margin-bottom:6px;">Online</div>
+    <div id="hw-net-status" style="opacity:.9; margin-bottom:8px;">Not connected</div>
+
+   <div style="display:flex; gap:8px; margin-bottom:8px;">
+    <button id="hw-host" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Host</button>
+
+
+    <input id="hw-code" placeholder="Room code" style="flex:1; padding:6px 8px; border-radius:8px; border:0; outline:none; user-select:text; pointer-events:auto;" />
+    <button id="hw-join" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer;">Join</button>
+    <button id="hw-ping" style="flex:0 0 auto; padding:6px 8px; border-radius:8px; border:0; cursor:pointer!important;">Ping</button>
+  </div>
+
+
+    <div id="hw-room-status" style="opacity:.9;">Create or join a room</div>
+  `;
+
+  document.body.appendChild(panel);
+
+  const statusEl = panel.querySelector("#hw-net-status");
+  const roomStatusEl = panel.querySelector("#hw-room-status");
+  const hostBtn = panel.querySelector("#hw-host");
+  const joinBtn = panel.querySelector("#hw-join");
+  const codeInput = panel.querySelector("#hw-code");
+const pingBtn = panel.querySelector("#hw-ping");
+
+
+  let socket = null;
+  let roomCode = "";
+  let seat = null; // "yellow" (host) or "blue" (joiner)
+
+  function setStatus() {
+  const conn = socket?.connected ? "Connected" : "Not connected";
+  const seatText = seat ? (seat === "yellow" ? "Yellow" : "Blue") : "";
+  const roomText = roomCode ? `Room ${roomCode}` : "";
+  statusEl.textContent = [conn, seatText && `You are ${seatText}`, roomText].filter(Boolean).join(" • ");
+
+  // ✅ Keep the shared net object up to date for the game logic
+  window.HW_NET.code = roomCode || "";
+  window.HW_NET.seat = seat === "Y" ? "yellow" : seat === "B" ? "blue" : null;
+}
+
+
+  function ensureSocket() {
+    if (socket) return socket;
+    if (!window.io) {
+      alert("Socket.io client not loaded. (Did the CDN script get added in <head>?)");
+      return null;
+    }
+    socket = window.io(HW_SERVER_URL, { transports: ["websocket"] });
+HW_NET.socket = socket;
+HW_NET.connected = true;
+
+    socket.on("connect", () => {
+      setStatus();
+      roomStatusEl.textContent = roomCode ? "Connected. Ready." : "Connected.";
+    });
+
+    socket.on("disconnect", () => {
+      setStatus();
+      roomStatusEl.textContent = "Disconnected";
+    });
+
+    socket.on("room_ready", () => {
+      roomStatusEl.textContent = "Opponent connected ✅";
+    });
+socket.on("ping", () => {
+  roomStatusEl.textContent = "Ping received ✅";
+});
+
+    socket.on("player_left", () => {
+      roomStatusEl.textContent = "Opponent left the room";
+    });
+
+    socket.on("room_closed", () => {
+      roomStatusEl.textContent = "Room closed (host left)";
+      roomCode = "";
+      seat = null;
+      setStatus();
+    });
+
+    setStatus();
+    return socket;
+  }
+
+  hostBtn.onclick = () => {
+    const s = ensureSocket();
+    if (!s) return;
+
+    s.emit("host_room", (res) => {
+      if (!res?.ok) {
+        alert("Host failed");
+        return;
+      }
+      roomCode = res.code;
+      seat = res.seat; // "Y"
+HW_NET.code = roomCode;
+HW_NET.seat = seat; HW_NET.mode = (seat === "yellow" ? "host" : "guest");
+
+      codeInput.value = roomCode;
+      setStatus();
+      roomStatusEl.textContent = "Waiting for opponent…";
+    });
+  };
+
+
+joinBtn.onclick = () => {
+  const s = ensureSocket();
+  if (!s) return;
+
+  const code = String(codeInput.value || "").trim().toUpperCase();
+  if (!code) return alert("Enter room code");
+
+  s.emit("join_room", { code }, (res) => {
+    if (!res?.ok) {
+      alert(res?.error || "Join failed");
+      return;
+    }
+
+    // Set local room + seat
+    roomCode = res.code;
+    seat = res.seat; // "B"
+
+    // Update shared net state via setStatus()
+    setStatus();
+
+    roomStatusEl.textContent = "Connected ✅";
+  });
+};
+
+pingBtn.onclick = () => {
+  roomStatusEl.textContent = "Ping sent…";
+
+  const s2 = ensureSocket();
+  if (!s2) return;
+
+  if (!roomCode) {
+    alert("Not in a room yet (Host/Join first).");
+    return;
+  }
+
+  s2.emit("ping", { code: roomCode });
+};
 
         const IMAGES = {
             hud: './images/HUDs with board marked.jpg',
@@ -462,54 +753,42 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
         };
         // Prefer individual crop PNGs (one file per herb) instead of the sprite sheet.
 // We now link directly to: ./images/<CropName>.png (no multi-path fallback to avoid flashing).
-const buildCropIconCandidates = (name) => {
-    const base = String(name || '').trim();
-    const noApos = base.replace(/[’']/g, '');
-    const noSpace = noApos.replace(/\s+/g, '');
-    const dash = noApos.replace(/\s+/g, '-');
-    const underscore = noApos.replace(/\s+/g, '_');
-    const lowerNoSpace = noSpace.toLowerCase();
-    const lowerDash = dash.toLowerCase();
-    const lowerUnderscore = underscore.toLowerCase();
-    const cands = [
-        `./images/${base}.png`,
-        `./images/${noApos}.png`,
-        `./images/${noSpace}.png`,
-        `./images/${dash}.png`,
-        `./images/${underscore}.png`,
-        `./images/${lowerNoSpace}.png`,
-        `./images/${lowerDash}.png`,
-        `./images/${lowerUnderscore}.png`,
-    ];
-    return Array.from(new Set(cands));
+
+// Use one exact filename per crop to prevent onError cycling/flicker
+const CROP_IMG = {
+  Aloe: "Aloe.png",
+  Balm: "Balm.png",
+  Chamomile: "Chamomile.png",
+  Eucalyptus: "Eucalyptus.png",
+  Foxglove: "Foxglove.png",
+  Ginseng: "Ginseng.png",
+  Lily: "Lily.png",
+  Marigold: "Marigold.png",
+  Nasturtium: "Nasturtium.png",
+  Oleander: "Oleander.png",
+  Peppermint: "Peppermint.png",
+  "St Johns Wort": "St Johns Wort.png",
+  Valerian: "Valerian.png",
 };
 
-// Crop icon (PNG per herb). Tries multiple filename variants so it works even if
-// your files omit spaces/apostrophes or use kebab/underscore/lowercase names.
+// Stable crop icon (no filename cycling, no flicker)
 const CropIcon = ({ type, style, className }) => {
-    const name = (CROPS[type]?.name || type);
-    const candidates = buildCropIconCandidates(name);
-    return (
-        <img
-            className={className}
-            src={candidates[0]}
-            alt={name}
-            data-ci="0"
-            style={{ ...style, objectFit: 'contain' }}
-            draggable="false"
-            onError={(e) => {
-                try {
-                    const img = e.currentTarget;
-                    const i = Number(img.dataset.ci || '0') + 1;
-                    if (i < candidates.length) {
-                        img.dataset.ci = String(i);
-                        img.src = candidates[i];
-                    }
-                } catch (_) {}
-            }}
-        />
-    );
+  const name = (CROPS[type]?.name || type);
+  const src = "./images/" + (CROP_IMG[name] || (name + ".png")); // folder + filename
+
+  return (
+    <img
+      className={className}
+      src={src}
+      alt={name}
+      style={{ ...style, objectFit: "contain" }}
+      draggable="false"
+      decoding="async"
+      loading="eager"
+    />
+  );
 };
+
 
 
         const CROPS = {
@@ -894,170 +1173,125 @@ const ABODE_BYPASS = {
 
 function HerbalistWizards() {
             const [gameState, setGameState] = useState(null);
+const ignoreNextSendRef = useRef(false);
+
+// === Online: receive full game state snapshots (attach when socket becomes available) ===
+useEffect(() => {
+  let detach = null;
+
+  const attachIfReady = () => {
+    const net = window.HW_NET;
+    if (!net?.socket) return false;
+
+    const s = net.socket;
+
+const onSync = (payload) => {
+  // Ignore bad or empty messages
+  if (!payload || typeof payload.json !== "string") return;
+
+  // Prevent echo / feedback loop
+  ignoreNextSendRef.current = true;
+
+  // Turn safe text back into a real game state
+  const remoteState = deserializeGameState(payload.json);
+
+  window.__HW_SYNC.recv++;
+  setGameState(remoteState);
+};
+
+   s.on("state_sync", onSync);
+
+    // Host: receive guest intents and apply them locally
+    s.on("intent", (payload) => {
+      try {
+        const net = window.HW_NET;
+        if (!net?.socket || !net.code) return;
+        if (String(net.mode||"").toLowerCase() !== "host") return;
+        if (!payload || payload.code !== net.code) return;
+        const h = window.HW_INTENT_HANDLERS || {};
+        if (payload.kind === "space" && typeof h.space === "function") h.space(payload.space);
+        if (payload.kind === "endTurn" && typeof h.endTurn === "function") h.endTurn();
+        if (payload.kind === "chartPickCrop" && typeof h.chartPickCrop === "function") h.chartPickCrop(payload.cropType);
+        if (payload.kind === "craftSpell" && typeof h.craftSpell === "function") h.craftSpell(payload.spellKey);
+        if (payload.kind === "castSpell" && typeof h.castSpell === "function") h.castSpell(payload.spellKey);
+        if (payload.kind === "chooseCropDecision" && typeof h.chooseCropDecision === "function") h.chooseCropDecision(payload.choice);
+      } catch(e) {}
+    });
+
+    detach = () => s.off("state_sync", onSync);
+    return true;
+  };
+
+  if (attachIfReady()) {
+    return () => { if (detach) detach(); };
+  }
+
+  const iv = setInterval(() => {
+    if (attachIfReady()) clearInterval(iv);
+  }, 250);
+
+  return () => {
+    clearInterval(iv);
+    if (detach) detach();
+  };
+}, []);
+
+
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
 
-// --- Online Sync (trust-based, full-state relay via WebSocket) ---
-const [netUrl, setNetUrl] = useState(() => localStorage.getItem('HW_NET_URL') || '');
-const [roomCode, setRoomCode] = useState(() => {
-                try {
-                    const p = new URLSearchParams(window.location.search);
-                    const r = (p.get('room') || '').trim();
-                    if (r) return r.slice(0, 64);
-                } catch {}
-                return localStorage.getItem('HW_ROOM') || 'room1';
-            });
-const [netConnected, setNetConnected] = useState(false);
-const [netSent, setNetSent] = useState(0);
-const [netRecv, setNetRecv] = useState(0);
-const [netLog, setNetLog] = useState([]);
-const [netMode, setNetMode] = useState(() => localStorage.getItem('HW_NET_MODE') || 'host'); // host | guest
-const [netSeat, setNetSeat] = useState(() => localStorage.getItem('HW_NET_SEAT') || 'yellow'); // yellow | blue
-
-const wsRef = useRef(null);
-const applyingRemoteRef = useRef(false);
-const lastSentRef = useRef("");
-
-const addNetLog = (s) => setNetLog((l) => ([...l, s].slice(-8)));
-useEffect(() => { try { localStorage.setItem('HW_NET_MODE', netMode); } catch(e) {} }, [netMode]);
-useEffect(() => { try { localStorage.setItem('HW_NET_SEAT', netSeat); } catch(e) {} }, [netSeat]);
-
-
-useEffect(() => { try { localStorage.setItem('HW_NET_URL', netUrl || ''); } catch {} }, [netUrl]);
-useEffect(() => { try { localStorage.setItem('HW_ROOM', roomCode || ''); } catch {} }, [roomCode]);
-
-const netDisconnect = () => {
-    try { wsRef.current && wsRef.current.close(); } catch {}
-    wsRef.current = null;
-    setNetConnected(false);
-};
-const sendNetIntent = (intent) => {
-    try {
-        const ws = wsRef.current;
-        if (!ws || ws.readyState !== 1) return;
-        ws.send(JSON.stringify({ t: 'intent', intent, ts: Date.now() }));
-        setNetSent((n) => n + 1);
-    } catch(e) {}
-};
-
-
-
-const netConnect = () => {
-    netDisconnect();
-    if (!netUrl) { addNetLog('ONLINE: paste a WebSocket URL (wss://...)'); return; }
-    let url = (netUrl || '').trim();
-    // auto-fix http(s) -> ws(s)
-    url = url.replace(/^https:\/\//i, 'wss://').replace(/^http:\/\//i, 'ws://');
-
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-        setNetConnected(true);
-        addNetLog('ONLINE: connected');
-        try { ws.send(JSON.stringify({ t: 'join', room: (roomCode || 'room1').trim().slice(0, 64) })); } catch {}
-        // Host sends a snapshot immediately on connect (helps late-joiners)
-        try {
-            if (netMode === 'host' && latestStateRef.current) {
-                ws.send(JSON.stringify({ t: 'state', state: latestStateRef.current, ts: Date.now() }));
-                setNetSent((n) => n + 1);
-            }
-        } catch {}
-    };
-
-    ws.onclose = () => {
-        setNetConnected(false);
-        addNetLog('ONLINE: disconnected');
-    };
-
-    ws.onerror = () => {
-        addNetLog('ONLINE: error (check URL / Render logs)');
-    };
-
-    ws.onmessage = async (ev) => {
-        let msg = null;
-        try {
-            let raw = ev.data;
-            if (raw && typeof raw !== 'string') {
-                if (raw instanceof Blob) {
-                    raw = await raw.text();
-                } else if (raw instanceof ArrayBuffer) {
-                    raw = new TextDecoder().decode(new Uint8Array(raw));
-                } else if (ArrayBuffer.isView(raw)) {
-                    raw = new TextDecoder().decode(raw);
-                }
-            }
-            msg = JSON.parse(raw);
-        } catch { return; }
-        if (!msg) return;
-
-        if (msg.t === 'joined') {
-            addNetLog(`ONLINE: joined room "${msg.room}" (peers: ${msg.peers ?? '?'})`);
-            return;
-        }
-        if (msg.t === 'peer_joined') {
-            addNetLog(`ONLINE: peer joined (peers: ${msg.peers ?? '?'})`);
-            // Host pushes the latest snapshot so the newcomer gets it
-            try {
-                if (netMode === 'host' && wsRef.current && wsRef.current.readyState === 1 && latestStateRef.current) {
-                    wsRef.current.send(JSON.stringify({ t: 'state', state: latestStateRef.current, ts: Date.now() }));
-                    setNetSent((n) => n + 1);
-                }
-            } catch {}
-            return;
-        }
-
-
-        if (msg.t === 'intent' && msg.intent) {
-            // Guest -> Host action request. Host applies and will broadcast via normal state effect.
-            if (netMode === 'host') {
-                try { applyNetIntent(msg.intent); } catch(e) { /* ignore */ }
-            }
-            return;
-        }
-        if (msg.t === 'state' && msg.state) {
-            applyingRemoteRef.current = true;
-            setNetRecv((n) => n + 1);
-            setGameState(msg.state);
-            // release flag next tick so our useEffect doesn't echo immediately
-            setTimeout(() => { applyingRemoteRef.current = false; }, 0);
-        }
-    };
-};
-
-
-const applyNetIntent = (intent) => {
-    if (!intent || typeof intent !== 'object') return;
-    const kind = intent.kind;
-    try {
-        if (kind === 'space_click') return handleSpaceClick(intent.space);
-        if (kind === 'end_turn') return endTurnByPortrait();
-        if (kind === 'crop_pick') return handleCropPickDecision(!!intent.take);
-        if (kind === 'craft_spell') return craftSpell(intent.spellKey);
-        if (kind === 'cast_spell_action') return castSpellAction(intent.spellKey);
-        if (kind === 'cast_spell_to_target') return castSpellToTarget(intent.spellKey, intent.target);
-        if (kind === 'spin_occurrence') return spinOccurrenceWheel();
-    } catch(e) {}
-};
 useEffect(() => {
-    // Broadcast on any local state change (but don't echo remote-applied state).
-    if (netMode !== 'host') return;
-    if (!netConnected) return;
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== 1) return;
-    if (!gameState) return;
-    if (applyingRemoteRef.current) return;
+  // Expose key handlers so the host can apply guest intents.
+  try {
+    window.HW_INTENT_HANDLERS = {
+      space: handleSpaceClick,
+      endTurn: endTurnByPortrait,
+      chartPickCrop: handleChartPickCrop,
+      craftSpell: (spellKey) => craftSpell(spellKey),
+      castSpell: (spellKey) => castSpell(spellKey),
+    };
+  } catch(e) {}
+});
 
-    let s = "";
-    try { s = JSON.stringify(gameState); } catch { return; }
-    if (!s || s === lastSentRef.current) return;
-    lastSentRef.current = s;
+// === Online: broadcast game state when it changes (JSON-safe) ===
+useEffect(() => {
+  const net = window.HW_NET;
+  if (!net?.socket || !net.code) return;
+  if (!gameState) return;
 
-    try {
-        ws.send(JSON.stringify({ t: 'state', state: gameState, ts: Date.now() }));
-        setNetSent((n) => n + 1);
-    } catch {}
-}, [gameState, netConnected]);
+  // Only the current player is allowed to broadcast state.
+  if (String(net.mode||"").toLowerCase()==="guest") return; // guests never broadcast authoritative state
+  // Prevents crossed turns and desynced wheels.
+   const seat = String(net.seat || "").toLowerCase();       // "yellow" or "blue"
+  const current = String(gameState.currentPlayer || "").toLowerCase();
+  if (current && seat && seat !== current) return;
+
+
+
+  // Don't echo back a state we just received
+  if (ignoreNextSendRef.current) {
+    ignoreNextSendRef.current = false;
+    return;
+  }
+// Make a Map/Set-safe JSON string (and detect circular/unserialisable state)
+let jsonToSend = "";
+try {
+  jsonToSend = serializeGameState(gameState);
+} catch (e) {
+  console.error("SYNC FAIL: cannot make safe JSON", e);
+  const roomEl = document.getElementById("hw-room-status");
+  if (roomEl) roomEl.textContent = "SYNC FAIL: cannot make safe JSON";
+  return;
+}
+
+window.__HW_SYNC.sent++;
+net.socket.emit("state_sync", {
+  code: net.code,
+  json: jsonToSend
+
+});
+}, [gameState, window.HW_NET?.code, window.HW_NET?.socket]);
+
 
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
@@ -1074,7 +1308,7 @@ useEffect(() => {
                         const [mobAnimPath, setMobAnimPath] = useState([]);
 
 
-/* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
+{/* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
 useEffect(() => {
     if (!gameState) return;
     const mob = gameState.angryMob;
@@ -1163,7 +1397,7 @@ useEffect(() => {
                         const pname = (pkey === 'yellow') ? 'Yellow' : 'Blue';
                         const ownsZombie = (gs.zombies || []).some(z => z.owner === pkey);
                         if (gs.hasMovedThisTurn && (!ownsZombie || zombieHasMoved)) {
-                            setHudMessage(`${pname}'s turn — click here or your portrait to end turn`);
+                            setHudMessage(`${pname}'s turn — click your portrait to end your turn.`);
                         }
                     }, 0);
                 }, ms);
@@ -1216,8 +1450,6 @@ useEffect(() => {
             // Auto-spin the occurrence at the start of each turn (except a player's very first move).
             useEffect(() => {
                 if (!gameState || gameOver) return;
-                if (netMode === 'guest') return;
-
                 const pkey = gameState.currentPlayer;
                 const isFirst = !!gameState.firstMove?.[pkey];
                 if (isFirst) return;
@@ -1832,7 +2064,7 @@ window.addEventListener('keydown', handleKeyDown);
                     }
                     return;
                 }
-setBaseMessage(`${pname}'s turn — click here or your portrait to end turn`);
+setBaseMessage(`${pname}'s turn — click your portrait to end your turn.`);
             }, [gameState, gameOver, showCropPickOption, showSpellChart, spellChartMode, pickRemaining, selectingTeleport, pendingBloom, wheelSpunThisTurn]);
 
 
@@ -1991,7 +2223,15 @@ useEffect(() => {
                 SPELLS[spellKey].ingredients.every(i => (inv[i] || 0) > 0);
 
             const craftSpell = (spellKey) => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'craft_spell', spellKey }); } catch(e) {} return; }
+                try {
+                  const net = window.HW_NET;
+                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                    window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
+                    net.socket.emit('intent', { code: net.code, kind: 'craftSpell', spellKey });
+                    return;
+                  }
+                } catch(e) {}
+
 
                 const newState = {...gameState};
                 const player = newState.currentPlayer;
@@ -2028,8 +2268,6 @@ useEffect(() => {
 
             
             const castSpellToTarget = (spellKey, target) => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'cast_spell_to_target', spellKey, target }); } catch(e) {} return; }
-
                 const newState = {...gameState};
                 const caster = newState.currentPlayer;
                 const opponent = caster === 'yellow' ? 'blue' : 'yellow';
@@ -2057,8 +2295,6 @@ useEffect(() => {
             };
 
 const castSpellAction = (spellKey) => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'cast_spell_action', spellKey }); } catch(e) {} return; }
-
                 const newState = {...gameState};
                 const caster = newState.currentPlayer;
                 const opponent = caster === 'yellow' ? 'blue' : 'yellow';
@@ -2373,7 +2609,10 @@ switch(spellKey) {
 
 
             const spinOccurrenceWheel = () => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'spin_occurrence' }); } catch(e) {} return; }
+                try {
+                  const net = window.HW_NET;
+                  if (net?.connected && String(net.mode||"").toLowerCase()==="guest") return;
+                } catch(e) {}
 
                 playSfxFile('wheel', { volume: 0.65 });
                 setSpinAnim(v => v + 1);
@@ -2547,6 +2786,16 @@ setPickRemaining(count);
             };
 
             const handleChartPickCrop = (cropType) => {
+                try {
+                  const net = window.HW_NET;
+                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                    window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
+                    net.socket.emit('intent', { code: net.code, kind: 'chartPickCrop', cropType });
+                    return;
+                  }
+                } catch(e) {}
+
+
                 if (spellChartMode === 'bloomPickCrop') {
                     playSfxFile('choose', { volume: 0.9 });
                 }
@@ -2612,8 +2861,6 @@ setPickRemaining(count);
             // End turn is triggered by clicking your portrait (not by clicking the wheel).
 
             const handleCropPickDecision = (shouldPick) => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'crop_pick', take: !!take }); } catch(e) {} return; }
-
                 if (!gameState || !showCropPickOption) return;
                 const ns = JSON.parse(JSON.stringify(gameState));
                 const opt = showCropPickOption;
@@ -2643,7 +2890,15 @@ setPickRemaining(count);
             };
 
             const endTurnByPortrait = () => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'end_turn' }); } catch(e) {} return; }
+                try {
+                  const net = window.HW_NET;
+                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                    window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
+                    net.socket.emit('intent', { code: net.code, kind: 'endTurn' });
+                    return;
+                  }
+                } catch(e) {}
+
 
                 if (!gameState || gameOver) return;
                 if (spinning) return;
@@ -2820,7 +3075,15 @@ const handleWheelClick = (e) => {
 
 
 const handleSpaceClick = (space) => {
-                if (netConnected && netMode === 'guest') { try { sendNetIntent({ kind: 'space_click', space }); } catch(e) {} return; }
+                try {
+                  const net = window.HW_NET;
+                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                    window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
+                    net.socket.emit('intent', { code: net.code, kind: 'space', space });
+                    return;
+                  }
+                } catch(e) {}
+
 
 
                 // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
@@ -3116,7 +3379,7 @@ if (selectingTeleport) {
                     // Once the player has moved, shrink + fade the occurrence glyph so it doesn't confuse the rest of the turn.
                     try { setShowOccurrence(false); setCurrentOccurrence(null); setSpinScale(1.0); } catch(e) {}
 
-setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or your portrait to end turn`, 1600);
+setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end your turn.`, 1600);
 
                     if (firstFull) {
                         // Freeze auto-advance until the player chooses Pick/Leave.
@@ -3140,7 +3403,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                         newState.players[player].craftedThisTurn = false;
                     }
                     newState.hasMovedThisTurn = true;
-                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or your portrait to end turn`, 1600);
+                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end your turn.`, 1600);
 
                 if (!isVitality && newState.crops[dest] && !newState.crops[dest].collected) {
                     const crop = newState.crops[dest].type;
@@ -3427,88 +3690,6 @@ if (travel.length > 0) {
                 };
 return (
     <div id="app">
-
-{/* Online (trust-based sync) */}
-<div className="fixed top-2 left-2 z-[9999] w-[320px] bg-black/70 text-white rounded-xl p-3 shadow-lg border border-white/10">
-    <div className="flex items-center justify-between">
-        <div className="font-semibold">Online</div>
-        <div className={"text-xs px-2 py-0.5 rounded " + (netConnected ? "bg-green-600/70" : "bg-red-600/70")}>
-            {netConnected ? "Connected" : "Offline"}
-        </div>
-    </div>
-    <div className="mt-2 space-y-2 text-sm">
-        <div>
-            <div className="text-xs opacity-80">Render WebSocket URL</div>
-            <input
-                className="w-full mt-1 px-2 py-1 rounded bg-black/40 border border-white/20"
-                placeholder="wss://your-service.onrender.com"
-                value={netUrl}
-                onChange={(e) => setNetUrl(e.target.value)}
-            />
-        </div>
-        <div className="flex gap-2">
-            <div className="flex-1">
-                <div className="text-xs opacity-80">Mode</div>
-                <select
-                    className="w-full mt-1 px-2 py-1 rounded bg-black/40 border border-white/20"
-                    value={netMode}
-                    onChange={(e) => setNetMode(e.target.value)}
-                >
-                    <option value="host">Host</option>
-                    <option value="guest">Guest</option>
-                </select>
-            </div>
-            <div className="flex-1">
-                <div className="text-xs opacity-80">I am</div>
-                <select
-                    className="w-full mt-1 px-2 py-1 rounded bg-black/40 border border-white/20"
-                    value={netSeat}
-                    onChange={(e) => setNetSeat(e.target.value)}
-                >
-                    <option value="yellow">Yellow</option>
-                    <option value="blue">Blue</option>
-                </select>
-            </div>
-        </div>
-
-        <div className="flex gap-2">
-            <div className="flex-1">
-                <div className="text-xs opacity-80">Room</div>
-                <input
-                    className="w-full mt-1 px-2 py-1 rounded bg-black/40 border border-white/20"
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value)}
-                />
-            </div>
-            <div className="flex flex-col justify-end gap-2">
-                {!netConnected ? (
-                    <button className="px-3 py-1 rounded bg-white/15 hover:bg-white/25 border border-white/20" onClick={netConnect}>
-                        Connect
-                    </button>
-                ) : (
-                    <button className="px-3 py-1 rounded bg-white/15 hover:bg-white/25 border border-white/20" onClick={netDisconnect}>
-                        Disconnect
-                    </button>
-                )}
-            </div>
-        </div>
-        <div className="flex justify-between text-xs opacity-90">
-            <div>Sent: {netSent}</div>
-            <div>Recv: {netRecv}</div>
-        </div>
-        {netLog.length > 0 && (
-            <div className="mt-1 max-h-24 overflow-auto text-xs bg-black/30 rounded p-2 border border-white/10">
-                {netLog.map((l, i) => (
-                    <div key={i} className="opacity-90">{l}</div>
-                ))}
-            </div>
-        )}
-        <div className="text-[11px] opacity-70">
-            Tip: share your page link with <code className="px-1 bg-black/30 rounded">?room=abc</code>
-        </div>
-    </div>
-</div>
-
         <div id="hud-stage" ref={hudStageRef}>
             <img className="hud" src={IMAGES.hud} alt="HUD" />
             
@@ -4341,7 +4522,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         {renderGrid('yellow', yellowSpells, {
                             left: '3.2%',
                             top: 'calc(27.6% + 80px)',
-                            width: '17.6%', /* -10% */
+                            width: '17.6%', {/* -10% */
                             transform: 'translate(-31px, 35px)' /* +7 right, +5 down */
                         })}
 
@@ -4349,7 +4530,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         {renderGrid('blue', blueSpells, {
                             right: '3.5%',
                             top: 'calc(27.6% + 80px)',
-                            width: '17.6%', /* -10% */
+                            width: '17.6%', {/* -10% */
                             transform: 'translate(41px, 12px)' /* -7 left */
                         })}
 
@@ -4581,7 +4762,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             pointerEvents: (showCropPickOption ? 'auto' : ((function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })() ? 'auto' : 'none'))
                         }}>
                             {((function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })())
-                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click here or your portrait to end turn')
+                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click here to end turn')
                                 : hudMessage}
                         {showCropPickOption && (
                           <span style={{ marginLeft: '12px', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
@@ -4603,10 +4784,10 @@ const renderGrid = (playerKey, spells, styleBase) => (
 
 
                         
-/*__WIN_OVERLAY_REPLACED__*/
+{/*__WIN_OVERLAY_REPLACED__*/
 
 
-/* Portrait hotspots: click portrait to end turn (after you have moved). */}
+{/* Portrait hotspots: click your portrait to end turn (after you have moved). */}
                         <div
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -4643,7 +4824,9 @@ const renderGrid = (playerKey, spells, styleBase) => (
         }
 
 
+initOnlinePanel();
         ReactDOM.render(<HerbalistWizards />, document.getElementById('root'));
+
     </script>
 </body>
 </html>
