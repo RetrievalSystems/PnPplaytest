@@ -1231,9 +1231,9 @@ useEffect(() => {
 
   // Only the current player is allowed to broadcast state.
   // Prevents crossed turns and desynced wheels.
-   const seat = String(net.seat || "").toLowerCase();       // "yellow" or "blue"
-  const current = String(gameState.currentPlayer || "").toLowerCase();
-  if (current && seat && seat !== current) return;
+  const seat = net.seat; // "yellow" or "blue"
+  const current = gameState.currentPlayer;
+ if (current && seat && seat !== current) return;
 
 
 
