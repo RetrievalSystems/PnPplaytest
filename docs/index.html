@@ -938,8 +938,15 @@ const sendEnvelope = (msgType, payload) => {
 };
 
 const sendSnapshot = (gs) => {
-    // Keep payload minimal: full gameState only (host authoritative).
-    return sendEnvelope("state", { gameState: gs });
+    // Host-authoritative snapshot broadcast.
+    // Send in multiple common formats so different relays work without server changes.
+    const base = { room: netRoom, gameState: gs, from: clientIdRef.current, role: netRoleRef.current };
+    let ok = false;
+    ok = wsSendJson({ type: "pnp", msgType: "state", room: netRoom, from: clientIdRef.current, role: netRoleRef.current, payload: { gameState: gs } }) || ok;
+    ok = wsSendJson({ type: "state", room: netRoom, ...base }) || ok;
+    ok = wsSendJson({ msgType: "state", room: netRoom, ...base }) || ok;
+    ok = wsSendJson({ event: "state", room: netRoom, ...base }) || ok;
+    return ok;
 };
 
 const requestSync = () => sendEnvelope("request_sync", {});
@@ -1067,8 +1074,12 @@ const wsConnect = (role) => {
             }
 
             if (msgType === "state" || msgType === "state_sync") {
-                if (netRoleRef.current === "guest" && payload && payload.gameState) {
-                    setGameState(payload.gameState, { fromNet: true });
+                if (netRoleRef.current === "guest") {
+                    const gs = (payload && (payload.gameState || payload.state)) || (msg && (msg.gameState || msg.state)) || payload;
+                    // Heuristic: a real gameState has players + season or other core fields.
+                    if (gs && typeof gs === "object" && (gs.players || gs.season || gs.turn || gs.board)) {
+                        setGameState(gs);
+                    }
                 }
                 return;
             }
@@ -1105,7 +1116,14 @@ const wsConnect = (role) => {
 
 const sendIntent = (intent) => {
     if (netRoleRef.current !== "guest") return false;
-    return sendEnvelope("intent", { intent: { ...intent, ts: Date.now() } });
+    const wrapped = { ...intent, ts: Date.now() };
+    let ok = false;
+    ok = wsSendJson({ type: "pnp", msgType: "intent", room: netRoom, from: clientIdRef.current, role: netRoleRef.current, payload: { intent: wrapped } }) || ok;
+    ok = wsSendJson({ type: "intent", room: netRoom, intent: wrapped, from: clientIdRef.current, role: netRoleRef.current }) || ok;
+    ok = wsSendJson({ msgType: "intent", room: netRoom, intent: wrapped, from: clientIdRef.current, role: netRoleRef.current }) || ok;
+    ok = wsSendJson({ event: "intent", room: netRoom, intent: wrapped, from: clientIdRef.current, role: netRoleRef.current }) || ok;
+    ok = wsSendJson({ type: "cmd", room: netRoom, intent: wrapped, from: clientIdRef.current, role: netRoleRef.current }) || ok;
+    return ok;
 };
 
 // Host: broadcast authoritative snapshots whenever gameState changes.
