@@ -909,6 +909,21 @@ const [roomCode, setRoomCode] = useState(() => {
                 return localStorage.getItem('HW_ROOM') || 'room1';
             });
 const [netSeat, setNetSeat] = useState(() => { try { return (localStorage.getItem('HW_SEAT')||'').toLowerCase(); } catch { return ''; } });
+const [netRole, setNetRole] = useState(() => {
+    try {
+        const saved = (localStorage.getItem('HW_ROLE') || '').toLowerCase();
+        if (saved === 'host' || saved === 'guest') return saved;
+    } catch {}
+    // sensible default: yellow hosts, blue guests
+    try {
+        const s = (localStorage.getItem('HW_SEAT') || '').toLowerCase();
+        if (s === 'yellow') return 'host';
+        if (s === 'blue') return 'guest';
+    } catch {}
+    return 'host';
+});
+const netRoleRef = useRef(netRole);
+useEffect(() => { netRoleRef.current = netRole; try { localStorage.setItem('HW_ROLE', netRole); } catch {} }, [netRole]);
 const [netConnected, setNetConnected] = useState(false);
 const [netSent, setNetSent] = useState(0);
 const [netRecv, setNetRecv] = useState(0);
@@ -918,6 +933,19 @@ const applyingRemoteRef = useRef(false);
 const lastSentRef = useRef("");
 
 const addNetLog = (s) => setNetLog((l) => ([...l, s].slice(-8)));
+
+const sendNet = (obj) => {
+    try {
+        if (!wsRef.current || wsRef.current.readyState !== 1) return;
+        wsRef.current.send(JSON.stringify(obj));
+        setNetSent((n) => n + 1);
+    } catch {}
+};
+
+const sendIntent = (name, payload = {}) => {
+    // Guests send intent messages; host applies and then broadcasts authoritative state.
+    sendNet({ t: 'intent', name, payload, from: (netSeat || '').toLowerCase(), ts: Date.now() });
+};
 
 useEffect(() => { try { localStorage.setItem('HW_NET_URL', netUrl || ''); } catch {} }, [netUrl]);
 useEffect(() => { try { localStorage.setItem('HW_ROOM', roomCode || ''); } catch {} }, [roomCode]);
@@ -964,29 +992,25 @@ const netConnect = () => {
 
     ws.onmessage = async (ev) => {
         let raw = ev.data;
-        let text = null;
-
         try {
-            if (typeof raw === 'string') {
-                text = raw;
-            } else if (raw instanceof Blob) {
-                text = await raw.text();
-            } else if (raw instanceof ArrayBuffer) {
-                text = new TextDecoder('utf-8').decode(raw);
-            } else if (raw && typeof raw === 'object' && raw.buffer instanceof ArrayBuffer) {
-                // Some browsers may give a typed array
-                text = new TextDecoder('utf-8').decode(raw.buffer);
-            } else {
-                // Fallback: try to coerce
-                text = String(raw);
+            if (raw && typeof raw !== 'string') {
+                if (raw instanceof Blob) {
+                    raw = await raw.text();
+                } else if (raw instanceof ArrayBuffer) {
+                    raw = new TextDecoder('utf-8').decode(new Uint8Array(raw));
+                } else if (ArrayBuffer.isView(raw)) {
+                    raw = new TextDecoder('utf-8').decode(new Uint8Array(raw.buffer));
+                } else {
+                    // best effort
+                    raw = String(raw);
+                }
             }
         } catch (e) {
-            addNetLog('ONLINE: received non-text message (unable to decode)');
             return;
         }
 
         let msg = null;
-        try { msg = JSON.parse(text); } catch { return; }
+        try { msg = JSON.parse(raw); } catch { return; }
         if (!msg) return;
 
         if (msg.t === 'joined') {
@@ -995,17 +1019,66 @@ const netConnect = () => {
         }
         if (msg.t === 'peer_joined') {
             addNetLog(`ONLINE: peer joined (peers: ${msg.peers ?? '?'})`);
+                        if (netRoleRef.current !== 'host') return;
+// push our latest snapshot so the newcomer gets it
+            try {
+                if (wsRef.current && wsRef.current.readyState === 1 && latestStateRef.current) {
+                    wsRef.current.send(JSON.stringify({ t: 'state', state: latestStateRef.current, ts: Date.now() }));
+                    setNetSent((n) => n + 1);
+                }
+            } catch {}
             return;
         }
 
+
+        if (msg.t === 'intent' && msg.name && netRoleRef.current === 'host') {
+            // Only host executes intents.
+            try {
+                const name = msg.name;
+                const p = msg.payload || {};
+                // Basic safety: ignore if host has no state yet
+                if (!latestStateRef.current) return;
+
+                if (name === 'space_click' && typeof p.space === 'string') {
+                    try { handleSpaceClick(p.space); } catch {}
+                    return;
+                }
+                if (name === 'chart_pick_crop' && typeof p.cropKey === 'string') {
+                    try { handleChartPickCrop(p.cropKey); } catch {}
+                    return;
+                }
+                if (name === 'craft_spell' && typeof p.spellKey === 'string') {
+                    try { craftSpell(p.spellKey); } catch {}
+                    return;
+                }
+                if (name === 'cast_spell' && typeof p.spellKey === 'string') {
+                    try { castSpellAction(p.spellKey); } catch {}
+                    return;
+                }
+                if (name === 'end_turn') {
+                    try { endTurnByPortrait(); } catch {}
+                    return;
+                }
+                if (name === 'crop_pick_decision' && typeof p.shouldPick === 'boolean') {
+                    try { handleCropPickDecision(p.shouldPick); } catch {}
+                    return;
+                }
+                if (name === 'spin_occurrence') {
+                    try { spinOccurrenceWheel(); } catch {}
+                    return;
+                }
+            } catch {}
+            return;
+        }
+
+
+
         if (msg.t === 'state' && msg.state) {
-            setNetRecv((n) => n + 1);
             applyingRemoteRef.current = true;
-            // Prevent immediate ping-pong resend: remember the last received payload.
+            setNetRecv((n) => n + 1);
             let recvStr = '';
             try { recvStr = JSON.stringify(msg.state); } catch {}
-            if (recvStr) lastSentRef.current = recvStr;
-
+            if (recvStr) lastSentRef.current = recvStr; // prevents ping-pong resend
             setGameState(msg.state);
             // keep the guard briefly to avoid echo from follow-up effects
             setTimeout(() => { applyingRemoteRef.current = false; }, 250);
@@ -1016,17 +1089,13 @@ const netConnect = () => {
 useEffect(() => {
     // Broadcast on any local state change (but don't echo remote-applied state).
     if (!netConnected) return;
+    if (netRoleRef.current !== 'host') return;
     const ws = wsRef.current;
     if (!ws || ws.readyState !== 1) return;
     if (!gameState) return;
     if (applyingRemoteRef.current) return;
 
     // If a seat is chosen, only the active player broadcasts (prevents both clients overwriting each other).
-    const cp = (gameState?.currentPlayer || '').toLowerCase();
-    const seat = (netSeat || '').toLowerCase();
-    if (seat === 'yellow' || seat === 'blue') {
-        if (cp && cp !== seat) return;
-    }
 
     let s = "";
     try { s = JSON.stringify(gameState); } catch { return; }
@@ -1196,6 +1265,7 @@ useEffect(() => {
             // Auto-spin the occurrence at the start of each turn (except a player's very first move).
             useEffect(() => {
                 if (!gameState || gameOver) return;
+                if (netRoleRef.current !== 'host') return;
                 const pkey = gameState.currentPlayer;
                 const isFirst = !!gameState.firstMove?.[pkey];
                 if (isFirst) return;
@@ -1969,6 +2039,10 @@ useEffect(() => {
                 SPELLS[spellKey].ingredients.every(i => (inv[i] || 0) > 0);
 
             const craftSpell = (spellKey) => {
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('craft_spell', { spellKey });
+                    return;
+                }
                 const newState = {...gameState};
                 const player = newState.currentPlayer;
                 const spell = SPELLS[spellKey];
@@ -2031,6 +2105,10 @@ useEffect(() => {
             };
 
 const castSpellAction = (spellKey) => {
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('cast_spell', { spellKey });
+                    return;
+                }
                 const newState = {...gameState};
                 const caster = newState.currentPlayer;
                 const opponent = caster === 'yellow' ? 'blue' : 'yellow';
@@ -2345,6 +2423,10 @@ switch(spellKey) {
 
 
             const spinOccurrenceWheel = () => {
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('spin_occurrence', {});
+                    return;
+                }
                 playSfxFile('wheel', { volume: 0.65 });
                 setSpinAnim(v => v + 1);
                 setSpinScale(1.0);
@@ -2517,6 +2599,10 @@ setPickRemaining(count);
             };
 
             const handleChartPickCrop = (cropType) => {
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('chart_pick_crop', { cropKey: cropType });
+                    return;
+                }
                 if (spellChartMode === 'bloomPickCrop') {
                     playSfxFile('choose', { volume: 0.9 });
                 }
@@ -2582,6 +2668,10 @@ setPickRemaining(count);
             // End turn is triggered by clicking your portrait (not by clicking the wheel).
 
             const handleCropPickDecision = (shouldPick) => {
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('crop_pick_decision', { shouldPick: !!shouldPick });
+                    return;
+                }
                 if (!gameState || !showCropPickOption) return;
                 const ns = JSON.parse(JSON.stringify(gameState));
                 const opt = showCropPickOption;
@@ -2611,6 +2701,10 @@ setPickRemaining(count);
             };
 
             const endTurnByPortrait = () => {
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('end_turn', {});
+                    return;
+                }
                 if (!gameState || gameOver) return;
                 if (spinning) return;
                 if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
@@ -2786,6 +2880,12 @@ const handleWheelClick = (e) => {
 
 
 const handleSpaceClick = (space) => {
+
+                // Guest: send intent to host, do not mutate local state.
+                if (netRoleRef.current === 'guest') {
+                    sendIntent('space_click', { space });
+                    return;
+                }
 
                 // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
                 if (freezeTargeting && freezeTargeting.options && freezeTargeting.options.length) {
@@ -3450,6 +3550,16 @@ return (
                         <option value="yellow">Yellow</option>
                         <option value="blue">Blue</option>
                     </select>
+                    <div className="text-xs opacity-80 mt-2">Mode</div>
+                    <select
+                        className="w-full mt-1 px-2 py-1 rounded bg-black/40 border border-white/20 text-sm"
+                        value={netRole}
+                        onChange={(e) => setNetRole(e.target.value)}
+                    >
+                        <option value="host">Host</option>
+                        <option value="guest">Guest</option>
+                    </select>
+
                     <div className="text-[10px] opacity-70 mt-1">
                         Choose your seat so only the active player sends.
                     </div>
