@@ -7,7 +7,6 @@
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {
@@ -894,136 +893,228 @@ const ABODE_BYPASS = {
         }
 
 function HerbalistWizards() {
-            const [gameState, setGameStateRaw] = useState(null);
+            const [gameState, _setGameState] = useState(null);
+            // Network role guard: on guest, block local game-state mutations; only apply host snapshots.
+            const netRoleRef = useRef("offline");
+            const wsRef = useRef(null);
+            const wsUrlTriedRef = useRef(null);
+            const clientIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
+            const intentQueueRef = useRef([]);
+            const handlersRef = useRef({});
+            const [netStatus, setNetStatus] = useState("offline");
+            const [netRoom, setNetRoom] = useState(() => {
+                try { return new URLSearchParams(window.location.search).get("room") || "room1"; } catch(e) { return "room1"; }
+            });
+            const [netRole, setNetRole] = useState("offline");
+            const [netLastErr, setNetLastErr] = useState("");
+
+            const setGameState = (updater, opts) => {
+                const fromNet = !!(opts && opts.fromNet);
+                if (netRoleRef.current === "guest" && !fromNet) return;
+                _setGameState(updater);
+            };
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
 
-            // =========================
-            // Online sync (host-authoritative, intent-based)
-            // =========================
-            const RELAY_URL = 'https://pnp-relay.onrender.com';
-            const urlParams = (typeof window !== 'undefined') ? new URLSearchParams(window.location.search) : new URLSearchParams();
-            const initialRoom = urlParams.get('room') || 'room1';
+// ---- Online sync (host-authoritative over plain WebSocket) ----
+const wsSendJson = (obj) => {
+    try {
+        const ws = wsRef.current;
+        if (!ws || ws.readyState !== 1) return false;
+        ws.send(JSON.stringify(obj));
+        return true;
+    } catch (e) { return false; }
+};
 
-            const [net, setNet] = useState({ enabled: false, role: null, room: initialRoom, connected: false, peers: 0, error: null });
+const sendEnvelope = (msgType, payload) => {
+    return wsSendJson({
+        type: "pnp",
+        msgType,
+        room: netRoom,
+        from: clientIdRef.current,
+        role: netRoleRef.current,
+        payload
+    });
+};
 
-            const netSocketRef = useRef(null);
-            const netRoleRef = useRef(null);
-            const netRoomRef = useRef(initialRoom);
-            const applyingRemoteRef = useRef(false);
-            const intentHandlersRef = useRef({});
+const sendSnapshot = (gs) => {
+    // Keep payload minimal: full gameState only (host authoritative).
+    return sendEnvelope("state", { gameState: gs });
+};
 
-            useEffect(() => { netRoleRef.current = net.role; }, [net.role]);
-            useEffect(() => { netRoomRef.current = net.room; }, [net.room]);
+const requestSync = () => sendEnvelope("request_sync", {});
 
-            const sendIntent = (type, payload = {}) => {
-                try {
-                    const s = netSocketRef.current;
-                    if (!s || !s.connected) return false;
-                    s.emit('intent', { room: netRoomRef.current, type, payload });
-                    return true;
-                } catch (e) { return false; }
-            };
+const enqueueIntent = (intent) => {
+    intentQueueRef.current.push(intent);
+    // trigger processing quickly
+    window.setTimeout(() => {
+        try { processIntentQueue(); } catch(e) {}
+    }, 0);
+};
 
-            // Guest must never mutate game state from local logic. All mutations come from host snapshots.
-            const setGameStateAuth = (updater) => {
-                try {
-                    if (netRoleRef.current === 'guest' && !applyingRemoteRef.current) return;
-                    setGameStateRaw(updater);
-                } catch (e) {}
-            };
+const processIntentQueue = () => {
+    if (netRoleRef.current !== "host") return;
+    const q = intentQueueRef.current;
+    if (!q.length) return;
+    while (q.length) {
+        const intent = q.shift();
+        try {
+            const h = handlersRef.current || {};
+            if (intent && intent.kind === "space_click" && h.handleSpaceClick) {
+                h.handleSpaceClick(intent.space);
+            } else if (intent && intent.kind === "end_turn" && h.endTurn) {
+                h.endTurn();
+            } else if (intent && intent.kind === "new_game" && h.newGame) {
+                h.newGame();
+            } else if (intent && intent.kind === "bloom_pick" && h.chooseBloom) {
+                h.chooseBloom(intent.cropKey);
+            } else if (intent && intent.kind === "crop_pick" && h.pickCrop) {
+                h.pickCrop(intent.space);
+            } else if (intent && intent.kind === "crop_leave" && h.leaveCrop) {
+                h.leaveCrop();
+            } else if (intent && intent.kind === "craft_spell" && h.craftSpell) {
+                h.craftSpell(intent.spellKey);
+            } else if (intent && intent.kind === "cast_spell" && h.castSpell) {
+                h.castSpell(intent.spellKey, intent.target);
+            }
+        } catch(e) {
+            // ignore individual intent failures
+        }
+    }
+};
 
-            const applyRemoteSnapshot = (snapshot) => {
-                try {
-                    applyingRemoteRef.current = true;
-                    setGameStateRaw(snapshot);
-                } finally {
-                    window.setTimeout(() => { applyingRemoteRef.current = false; }, 0);
+const wsClose = () => {
+    try { wsRef.current && wsRef.current.close(); } catch(e) {}
+    wsRef.current = null;
+    wsUrlTriedRef.current = null;
+    setNetStatus("offline");
+    setNetRole("offline");
+    netRoleRef.current = "offline";
+};
+
+const wsConnect = (role) => {
+    wsClose();
+    setNetLastErr("");
+    setNetStatus("connecting");
+    setNetRole(role);
+    netRoleRef.current = role;
+
+    const room = (netRoom || "room1").trim() || "room1";
+    const urls = [
+        `wss://pnp-relay.onrender.com/?room=${encodeURIComponent(room)}`,
+        `wss://pnp-relay.onrender.com/ws?room=${encodeURIComponent(room)}`
+    ];
+
+    let attempt = 0;
+    const tryUrl = () => {
+        const url = urls[attempt];
+        wsUrlTriedRef.current = url;
+        let ws;
+        try {
+            ws = new WebSocket(url);
+        } catch(e) {
+            attempt++;
+            if (attempt < urls.length) return tryUrl();
+            setNetStatus("error");
+            setNetLastErr("Could not create WebSocket.");
+            return;
+        }
+        wsRef.current = ws;
+
+        const sendJoinBursts = () => {
+            // Send several common join formats to maximize relay compatibility.
+            const joinPayloads = [
+                { type: "join", room, role },
+                { t: "join", room, role },
+                { action: "join", room, role },
+                { op: "join", room, role },
+                { kind: "join", room, role },
+                { type: "join_room", room, role },
+                { event: "join", room, role },
+                { join: room, role },
+                { room, role, join: true }
+            ];
+            joinPayloads.forEach(p => { try { ws.send(JSON.stringify(p)); } catch(e) {} });
+            try { ws.send("join:" + room + ":" + role); } catch(e) {}
+            // Our envelope join + sync request
+            sendEnvelope("join", { room, role });
+            if (role === "guest") requestSync();
+            if (role === "host") sendSnapshot(latestStateRef.current);
+        };
+
+        ws.onopen = () => {
+            setNetStatus("connected");
+            sendJoinBursts();
+        };
+
+        ws.onmessage = (ev) => {
+            let msg = null;
+            try { msg = JSON.parse(ev.data); } catch(e) {}
+            if (!msg) return;
+
+            // Accept both our envelope and simple relays that forward payloads.
+            const isEnvelope = (msg.type === "pnp" && msg.msgType);
+            const msgType = isEnvelope ? msg.msgType : (msg.msgType || msg.type || msg.t || msg.action || msg.event);
+            const payload = isEnvelope ? msg.payload : (msg.payload || msg.data || msg);
+
+            // Ignore our own echoes if relay broadcasts back.
+            const from = msg.from || (payload && payload.from);
+            if (from && from === clientIdRef.current) return;
+
+            if (msgType === "request_sync" && netRoleRef.current === "host") {
+                sendSnapshot(latestStateRef.current);
+                return;
+            }
+
+            if (msgType === "state" || msgType === "state_sync") {
+                if (netRoleRef.current === "guest" && payload && payload.gameState) {
+                    setGameState(payload.gameState, { fromNet: true });
                 }
-            };
+                return;
+            }
 
-            const connectOnline = (role) => {
-                try {
-                    const room = netRoomRef.current || 'room1';
-                    if (!window.io) {
-                        setNet(n => ({ ...n, error: 'socket.io client not loaded (check internet / CDN blocked).' }));
-                        return;
-                    }
-                    // Clean up any previous socket
-                    try { if (netSocketRef.current) { netSocketRef.current.removeAllListeners(); netSocketRef.current.disconnect(); } } catch(e) {}
-
-                    const socket = window.io(RELAY_URL, { transports: ['websocket'] });
-                    netSocketRef.current = socket;
-
-                    setNet(n => ({ ...n, enabled: true, role, room, connected: false, error: null }));
-
-                    socket.on('connect', () => {
-                        // Join room using a few common event names (relay might use any of these).
-                        try { socket.emit('join_room', { room }); } catch(e) {}
-                        try { socket.emit('join', { room }); } catch(e) {}
-                        try { socket.emit('room:join', { room }); } catch(e) {}
-
-                        setNet(n => ({ ...n, enabled: true, role, room, connected: true, error: null }));
-                        try { if (role === 'guest') socket.emit('intent', { room, type: 'request_sync', payload: {} }); } catch(e) {}
-                    });
-
-                    socket.on('disconnect', () => {
-                        setNet(n => ({ ...n, connected: false }));
-                    });
-
-                    // Relay may send peer counts on different events; handle a few.
-                    const peerHandler = (msg) => {
-                        try {
-                            const peers = msg?.peers ?? msg?.count ?? msg?.num ?? null;
-                            if (typeof peers === 'number') setNet(n => ({ ...n, peers }));
-                        } catch(e) {}
-                    };
-                    socket.on('peers', peerHandler);
-                    socket.on('room_peers', peerHandler);
-                    socket.on('room:peers', peerHandler);
-
-                    // Receive authoritative state snapshots (guest renders these; host can also accept them if reconnecting).
-                    socket.on('state_sync', (msg) => {
-                        try {
-                            const snap = msg?.state ?? msg?.snapshot ?? msg;
-                            if (!snap) return;
-                            applyRemoteSnapshot(snap);
-                        } catch (e) {}
-                    });
-
-                    // Host receives guest intents and applies them.
-                    socket.on('intent', (msg) => {
-                        try {
-                            if (netRoleRef.current !== 'host') return;
-                            const type = msg?.type;
-                            const payload = msg?.payload || {};
-                            const h = intentHandlersRef.current || {};
-                            if (type === 'request_sync') { try { if (latestStateRef.current) netSocketRef.current.emit('state_sync', { room: netRoomRef.current, state: latestStateRef.current }); } catch(e) {} return; }
-                            if (type === 'space_click' && h.handleSpaceClick) return h.handleSpaceClick(payload.space);
-                            if (type === 'end_turn' && h.endTurnByPortrait) return h.endTurnByPortrait();
-                            if (type === 'new_game' && h.startNewGame) return h.startNewGame();
-                            if (type === 'crop_pick_decision' && h.handleCropPickDecision) return h.handleCropPickDecision(!!payload.pick);
-                            if (type === 'chart_pick_crop' && h.handleChartPickCrop) return h.handleChartPickCrop(payload.cropType);
-                            if (type === 'spell_card_click' && h.handleSpellCardClick) return h.handleSpellCardClick(payload.playerKey, payload.spellKey);
-                            if (type === 'freeze_target_pick' && h.handleFreezeTargetPick) return h.handleFreezeTargetPick(payload.target);
-                            if (type === 'crop_remove' && h.handleCropRemoval) return h.handleCropRemoval(payload.cropType);
-                        } catch (e) {}
-                    });
-
-                } catch (e) {
-                    setNet(n => ({ ...n, error: String(e) }));
+            if (msgType === "intent" || msgType === "move" || msgType === "cmd") {
+                if (netRoleRef.current === "host") {
+                    const intent = payload && payload.intent ? payload.intent : payload;
+                    if (intent) enqueueIntent(intent);
                 }
-            };
+                return;
+            }
+        };
 
-            // Host broadcasts snapshots whenever authoritative state changes.
-            useEffect(() => {
-                try {
-                    if (!netSocketRef.current || !netSocketRef.current.connected) return;
-                    if (netRoleRef.current !== 'host') return;
-                    if (!gameState) return;
-                    netSocketRef.current.emit('state_sync', { room: netRoomRef.current, state: gameState });
-                } catch(e) {}
-            }, [gameState, net.connected, net.role]);
+        ws.onerror = () => {
+            // error often followed by close
+        };
+
+        ws.onclose = () => {
+            if (netStatus === "connected") {
+                setNetStatus("offline");
+            } else if (netStatus === "connecting") {
+                attempt++;
+                if (attempt < urls.length) return tryUrl();
+                setNetStatus("error");
+                setNetLastErr("WebSocket closed before connecting. Tried: " + (wsUrlTriedRef.current || "unknown"));
+            } else {
+                setNetStatus("offline");
+            }
+        };
+    };
+
+    tryUrl();
+};
+
+const sendIntent = (intent) => {
+    if (netRoleRef.current !== "guest") return false;
+    return sendEnvelope("intent", { intent: { ...intent, ts: Date.now() } });
+};
+
+// Host: broadcast authoritative snapshots whenever gameState changes.
+useEffect(() => {
+    if (netRoleRef.current === "host" && wsRef.current && wsRef.current.readyState === 1) {
+        try { sendSnapshot(gameState); } catch(e) {}
+    }
+}, [gameState]);
+
 
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
@@ -1066,7 +1157,7 @@ useEffect(() => {
                     mobAnimPath.forEach((pos, i) => {
                         timers.push(setTimeout(() => {
                             try {
-                                setGameStateAuth(prev => {
+                                setGameState(prev => {
                                     if (!prev || !prev.angryMob) return prev;
                                     if (!pos || typeof pos !== 'string') return prev;
                                     return { ...prev, angryMob: { ...prev.angryMob, position: pos } };
@@ -1181,6 +1272,7 @@ useEffect(() => {
 
             // Auto-spin the occurrence at the start of each turn (except a player's very first move).
             useEffect(() => {
+                if (netRoleRef.current === "guest") return;
                 if (!gameState || gameOver) return;
                 const pkey = gameState.currentPlayer;
                 const isFirst = !!gameState.firstMove?.[pkey];
@@ -1716,7 +1808,7 @@ window.addEventListener('keydown', handleKeyDown);
             useEffect(() => {
                 const onKey = (e) => {
                     if (e.key === 'C') {
-                        setGameStateAuth(prev => {
+                        setGameState(prev => {
                             if (!prev) return prev;
                             const ns = { ...prev, players: { ...prev.players } };
                             const cropKeys = Object.keys(CROPS || {});
@@ -1832,9 +1924,6 @@ useEffect(() => {
             const restartGame = () => { try { window.location.reload(); } catch(e) {} };
 
             const startNewGame = () => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('new_game', {}); return; }
-
                 const shuffled = Object.keys(CROPS).filter(c => c !== 'F').sort(() => Math.random() - 0.5);
                 const cropMap = {};
 
@@ -1858,7 +1947,7 @@ useEffect(() => {
                     hasMovedThisTurn: false
                 };
 
-                setGameStateAuth(initialState);
+                setGameState(initialState);
                 setMaxMoveDistance(3);
                 setShowOccurrence(false);
                 setPendingBloom(0);
@@ -1974,7 +2063,7 @@ useEffect(() => {
                 });
 
                 newState.players[player].spells.push(spellKey);
-                setGameStateAuth(newState);
+                setGameState(newState);
                 // Craft SFX: play ~3s then fade
                 playSfxFile('spellcrafted', { volume: 0.75 });
                 window.setTimeout(() => fadeOutSfx('spellcrafted', 650), 3000);
@@ -2015,7 +2104,7 @@ useEffect(() => {
                 }
 
                 newState.players[caster].spells = (newState.players[caster].spells || []).filter(s => s !== spellKey);
-                setGameStateAuth(newState);
+                setGameState(newState);
                 setPendingSpellTarget(null);
             };
 
@@ -2099,7 +2188,7 @@ switch(spellKey) {
                     case 'lateBloom':
                         openBloomPickCropFromChart(2);
                         newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== spellKey);
-                        setGameStateAuth(newState);
+                        setGameState(newState);
                         return;
                     case 'freeze': {
                         // Freeze has NO range. Valid targets:
@@ -2146,7 +2235,7 @@ switch(spellKey) {
                             setTempMessage('Select a target for Freeze.', 1600);
                             // remove the spell from caster right away
                             newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== spellKey);
-                            setGameStateAuth(newState);
+                            setGameState(newState);
                         } catch (e) {}
                         return;
                     }
@@ -2239,7 +2328,7 @@ switch(spellKey) {
 
                 newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== spellKey);
                 if (newState.players[opponent].hp <= 0) setGameOver(caster);
-                setGameStateAuth(newState);
+                setGameState(newState);
                 // After the occurrence is revealed/enacted, immediately show this player's move options.
                 window.setTimeout(() => {
                     autoShowCurrentMoves(newState, maxMoveDistanceRef.current || 3);
@@ -2294,9 +2383,6 @@ switch(spellKey) {
             };
 
             const handleSpellCardClick = (playerKey, spellKey) => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('spell_card_click', { playerKey, spellKey }); return; }
-
                 if (playerKey !== gameState.currentPlayer) return;
                 if (!(gameState.players[playerKey].spells || []).includes(spellKey)) return;
                 if (!canUseSpellNow(playerKey, spellKey)) return;
@@ -2310,9 +2396,6 @@ switch(spellKey) {
 
             
             const handleCropRemoval = (cropType) => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('crop_remove', { cropType }); return; }
-
                 const newState = {...gameState};
                 const caster = newState.currentPlayer;
                 const opponent = chartTargetPlayer || (caster === 'yellow' ? 'blue' : 'yellow');
@@ -2327,7 +2410,7 @@ switch(spellKey) {
                 // consume the Late Blight spell that triggered this
                 newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== 'lateBlight');
 
-                setGameStateAuth(newState);
+                setGameState(newState);
 
                 // Close Late Blight selection chart after removing a crop
                 setSpellChartMode('view');
@@ -2463,7 +2546,7 @@ switch(spellKey) {
                         break;
                     }
                 }
-                setGameStateAuth(newState);
+                setGameState(newState);
                 // After an occurrence resolves, immediately show the current player's move options.
                 if (occ) {
                     window.setTimeout(() => {
@@ -2512,9 +2595,6 @@ setPickRemaining(count);
             };
 
             const handleChartPickCrop = (cropType) => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('chart_pick_crop', { cropType }); return; }
-
                 if (spellChartMode === 'bloomPickCrop') {
                     playSfxFile('choose', { volume: 0.9 });
                 }
@@ -2532,7 +2612,7 @@ setPickRemaining(count);
                 const remaining = Math.max(0, pickRemaining - 1);
                 setPickRemaining(remaining);
 
-                setGameStateAuth(newState);
+                setGameState(newState);
 
                 if (remaining === 0) {
                     setSpellChartMode('view');
@@ -2546,9 +2626,6 @@ setPickRemaining(count);
             };
 
             const handleFreezeTargetPick = (target) => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('freeze_target_pick', { target }); return; }
-
                 if (!target) return;
                 const casterKey = freezeTargeting?.casterKey;
                 const spellColor = casterKey === 'blue' ? 'rgba(96,165,250,0.95)' : 'rgba(250,204,21,0.95)';
@@ -2569,7 +2646,7 @@ setPickRemaining(count);
                     }
 
                     setFreezeTargeting(null);
-                    setGameStateAuth(newState);
+                    setGameState(newState);
                 } catch (e) {
                     try { setFreezeTargeting(null); } catch(e2) {}
                 }
@@ -2583,9 +2660,6 @@ setPickRemaining(count);
             // End turn is triggered by clicking your portrait (not by clicking the wheel).
 
             const handleCropPickDecision = (shouldPick) => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('crop_pick_decision', { pick: !!shouldPick }); return; }
-
                 if (!gameState || !showCropPickOption) return;
                 const ns = JSON.parse(JSON.stringify(gameState));
                 const opt = showCropPickOption;
@@ -2611,14 +2685,16 @@ setPickRemaining(count);
                         return;
                     }
                 }
-                setGameStateAuth(ns);
+                setGameState(ns);
             };
 
             const endTurnByPortrait = () => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('end_turn', {}); return; }
-
-                if (!gameState || gameOver) return;
+                // Online guest: send intent to host; guest does not run game logic.
+                if (netRoleRef.current === "guest") {
+                    sendIntent({ kind: "end_turn" });
+                    return;
+                }
+if (!gameState || gameOver) return;
                 if (spinning) return;
                 if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
 
@@ -2711,7 +2787,7 @@ useEffect(() => {
 
         try {
             const ns = { ...gameState, players: { ...gameState.players, [pkey]: { ...gameState.players[pkey], freezeSfxPending: false } } };
-            setGameStateAuth(ns);
+            setGameState(ns);
         } catch (e) {}
     }
 }, [gameState?.currentPlayer, gameState?.players?.yellow?.freezeSfxPending, gameState?.players?.blue?.freezeSfxPending, gameState?.players?.yellow?.frozen, gameState?.players?.blue?.frozen, gameOver]);
@@ -2793,11 +2869,13 @@ const handleWheelClick = (e) => {
 
 
 const handleSpaceClick = (space) => {
-                // Online: guests request actions from host.
-                if (netRoleRef.current === 'guest') { sendIntent('space_click', { space }); return; }
 
-
-                // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
+                // Online guest: send intent to host; guest does not run game logic.
+                if (netRoleRef.current === "guest") {
+                    sendIntent({ kind: "space_click", space });
+                    return;
+                }
+// If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
                 if (freezeTargeting && freezeTargeting.options && freezeTargeting.options.length) {
                     const hit = freezeTargeting.options.find(o => o && o.space === space);
                     if (hit) {
@@ -2848,7 +2926,7 @@ if (selectingTeleport) {
                             } else {
                             // Inventory full - offer to pick anyway; pause progression.
                             newState.awaitingCropPickDecision = true;
-                            setGameStateAuth(newState);
+                            setGameState(newState);
                             setShowCropPickOption({ space, crop });
                             setSelectedSpace(null);
                             setValidMoves([]);
@@ -2859,7 +2937,7 @@ if (selectingTeleport) {
 
                     // Consume the teleport spell
                     newState.players[player].spells = newState.players[player].spells.filter(s => s !== 'teleport');
-                    setGameStateAuth(newState);
+                    setGameState(newState);
                     setSelectingTeleport(false);
                     return;
                 }
@@ -2937,7 +3015,7 @@ if (selectingTeleport) {
                         // remove zombie after attack (same as vs opponent)
                         newState.zombies.splice(zombieIdx, 1);
                         setZombieAttackReady(null);
-                        setGameStateAuth(newState);
+                        setGameState(newState);
                         return;
                     }
 
@@ -2953,7 +3031,7 @@ if (selectingTeleport) {
                         setZombieAttackReady(null);
                         if (newState.players[opponent].hp <= 0) setGameOver(player);
                     }
-                    setGameStateAuth(newState);
+                    setGameState(newState);
                     return;
                 }
 
@@ -2979,7 +3057,7 @@ if (selectingTeleport) {
                     } else {
                         // Inventory full: same choice flow as the wizard.
                         newState.awaitingCropPickDecision = true;
-                        setGameStateAuth(newState);
+                        setGameState(newState);
                         setShowCropPickOption({ space: dest, crop, from: 'zombie', owner: zombie.owner });
                         setSelectedZombie(null);
                         setZombieValidMoves([]);
@@ -2992,7 +3070,7 @@ if (selectingTeleport) {
                 setZombieHasMoved(true);
                 setSelectedZombie(null);
                 setZombieValidMoves([]);
-                setGameStateAuth(newState);
+                setGameState(newState);
             };;
 
             const getPathBetween = (from, to, opts = {}) => {
@@ -3095,7 +3173,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                     if (firstFull) {
                         // Freeze auto-advance until the player chooses Pick/Leave.
                         newState.awaitingCropPickDecision = true;
-                        setGameStateAuth(newState);
+                        setGameState(newState);
                         setSelectedSpace(null);
                         setValidMoves([]);
                         setShowCropPickOption(firstFull);
@@ -3126,7 +3204,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                     } else {
                         // Inventory full - offer to pick anyway
                         newState.awaitingCropPickDecision = true;
-                        setGameStateAuth(newState);
+                        setGameState(newState);
                         setShowCropPickOption({ space: dest, crop });
                         setSelectedSpace(null);
                         setValidMoves([]);
@@ -3147,7 +3225,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                         setMaxMoveDistance(3);
                         setWheelSpunThisTurn(true);
 
-                        setGameStateAuth(newState);
+                        setGameState(newState);
                         setSelectedSpace(null);
                         setValidMoves([]);
 
@@ -3160,7 +3238,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                     // (Occurrence wheel starts after Blue ends their first turn.)
                 }
 
-                setGameStateAuth(newState);
+                setGameState(newState);
                 setSelectedSpace(null);
                 setValidMoves([]);
             };
@@ -3291,14 +3369,14 @@ if (travel.length > 0) {
                                 const retreatMs = Math.max(0, (retreatPath.length + 1) * stepMs);
                                 window.setTimeout(() => {
                                     try {
-                                        setGameStateAuth(prev => {
+                                        setGameState(prev => {
                                             if (!prev || !prev.angryMob) return prev;
                                             return { ...prev, angryMob: { ...prev.angryMob, position: retreatGoal, retreating: true, vanishing: true } };
                                         });
                                     } catch(e) {}
                                     window.setTimeout(() => {
                                         try {
-                                            setGameStateAuth(prev => {
+                                            setGameState(prev => {
                                                 if (!prev) return prev;
                                                 return { ...prev, angryMob: null, villagerMood: 1 };
                                             });
@@ -3334,7 +3412,7 @@ if (travel.length > 0) {
                 newState.firstMove[player] = false;
                 newState.hasMovedThisTurn = false;
                 setWheelSpunThisTurn(false);
-                setGameStateAuth(newState);
+                setGameState(newState);
                 setShowOccurrence(false);
                 setPendingBloom(0);
                 setMaxMoveDistance(3);
@@ -3400,55 +3478,66 @@ if (travel.length > 0) {
                     };
                 };
 
-                // Keep latest handlers available for host to apply guest intents.
-                try {
-                    intentHandlersRef.current = {
-                        startNewGame,
-                        endTurnByPortrait,
-                        handleSpaceClick,
-                        handleCropPickDecision,
-                        handleChartPickCrop,
-                        handleSpellCardClick,
-                        handleFreezeTargetPick,
-                        handleCropRemoval
-                    };
-                } catch(e) {}
-
+// Keep online intent handlers up to date (host uses these to apply guest intents).
+try {
+    handlersRef.current.handleSpaceClick = handleSpaceClick;
+    handlersRef.current.endTurn = endTurnByPortrait;
+    if (typeof startNewGame === "function") handlersRef.current.newGame = startNewGame;
+} catch(e) {}
 
 return (
     <div id="app">
-        {/* Online panel */}
-        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 9999, width: 280, background: 'rgba(0,0,0,0.65)', color: '#f8fafc', padding: 12, borderRadius: 12, fontFamily: 'ui-sans-serif, system-ui', boxShadow: '0 10px 30px rgba(0,0,0,0.35)' }}>
-            <div style={{ fontWeight: 700, marginBottom: 8 }}>Online</div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <input
-                    value={net.room}
-                    onChange={(e) => setNet(n => ({ ...n, room: (e.target.value || '').trim() }))}
-                    placeholder="room (e.g. room1)"
-                    style={{ flex: 1, padding: '6px 8px', borderRadius: 10, border: '1px solid rgba(148,163,184,0.35)', background: 'rgba(15,23,42,0.75)', color: '#e2e8f0' }}
-                />
-            </div>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                <button
-                    onClick={() => connectOnline('host')}
-                    style={{ flex: 1, padding: '8px 10px', borderRadius: 12, background: 'rgba(34,197,94,0.85)', color: '#0b1220', fontWeight: 700 }}
-                >Host</button>
-                <button
-                    onClick={() => connectOnline('guest')}
-                    style={{ flex: 1, padding: '8px 10px', borderRadius: 12, background: 'rgba(59,130,246,0.85)', color: '#0b1220', fontWeight: 700 }}
-                >Join</button>
-            </div>
-            <div style={{ fontSize: 12, lineHeight: 1.35, opacity: 0.92 }}>
-                <div>Status: {net.connected ? 'connected' : (net.enabled ? 'connecting…' : 'offline')}</div>
-                <div>Role: {net.role || '—'}</div>
-                <div>Room: {net.room}</div>
-                {net.peers ? <div>Peers: {net.peers}</div> : null}
-                {net.error ? <div style={{ color: '#fca5a5', marginTop: 6 }}>Error: {net.error}</div> : null}
-                <div style={{ marginTop: 8, opacity: 0.85 }}>
-                    Tip: Host should start a new game. Guest only sends clicks; host runs all rules + wheel.
-                </div>
-            </div>
-        </div>
+
+{/* Online (WebSocket) */}
+<div style={{ position: 'fixed', top: 12, right: 12, zIndex: 99999, width: 280, pointerEvents: 'auto' }}
+     className="rounded-xl bg-black/70 text-white shadow-xl border border-white/10 p-3">
+    <div className="flex items-center justify-between">
+        <div className="font-semibold text-sm">Online</div>
+        <div className="text-[10px] opacity-80">{netStatus}</div>
+    </div>
+
+    <div className="mt-2 text-[11px] opacity-90">
+        Role: <span className="font-semibold">{netRole}</span>
+    </div>
+
+    <div className="mt-2 flex items-center gap-2">
+        <div className="text-[11px] opacity-80">Room</div>
+        <input
+            className="flex-1 rounded-md bg-white/10 px-2 py-1 text-[12px] outline-none border border-white/10"
+            value={netRoom}
+            onChange={(e) => setNetRoom(e.target.value)}
+            placeholder="room1"
+        />
+    </div>
+
+    <div className="mt-2 flex gap-2">
+        <button
+            className="flex-1 rounded-md bg-white/15 hover:bg-white/25 px-2 py-1 text-[12px]"
+            onClick={() => wsConnect("host")}
+        >Host</button>
+        <button
+            className="flex-1 rounded-md bg-white/15 hover:bg-white/25 px-2 py-1 text-[12px]"
+            onClick={() => wsConnect("guest")}
+        >Join</button>
+        <button
+            className="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-[12px]"
+            onClick={() => wsClose()}
+            title="Disconnect"
+        >Off</button>
+    </div>
+
+    <div className="mt-2 text-[10px] opacity-70 break-all">
+        {wsUrlTriedRef.current ? ("WS: " + wsUrlTriedRef.current) : "WS: (not connected)"}
+    </div>
+
+    {netLastErr ? (
+        <div className="mt-2 text-[11px] text-red-200 break-words">{netLastErr}</div>
+    ) : null}
+
+    <div className="mt-2 text-[10px] opacity-70">
+        Tip: if it stays on “connecting”, open https://pnp-relay.onrender.com once to wake Render, then refresh.
+    </div>
+</div>
 
 
         <div id="hud-stage" ref={hudStageRef}>
