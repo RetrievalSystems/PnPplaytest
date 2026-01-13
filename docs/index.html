@@ -59,7 +59,7 @@
             100% { opacity: 0; transform: scale(1.4); }
         }
     
-        {/* --- Locked HUD stage (centers and preserves aspect ratio) --- */
+        /* --- Locked HUD stage (centers and preserves aspect ratio) --- */
         html, body { height: 100%; overflow: hidden; background: #000; }
         #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
         #hud-stage { position: relative; height: 98.7%; aspect-ratio: 2048 / 1197; }
@@ -1308,7 +1308,7 @@ net.socket.emit("state_sync", {
                         const [mobAnimPath, setMobAnimPath] = useState([]);
 
 
-{/* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
+// Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts).
 useEffect(() => {
     if (!gameState) return;
     const mob = gameState.angryMob;
