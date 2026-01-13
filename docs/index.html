@@ -4799,8 +4799,10 @@ const renderGrid = (playerKey, spells, styleBase) => (
         }
 
 
-        try { initOnlinePanel(); } catch (e) { console.error('initOnlinePanel failed', e); }
+try { initOnlinePanel(); } catch (e) { console.error("initOnlinePanel failed", e); }
 ReactDOM.render(<HerbalistWizards />, document.getElementById('root'));
-</script>
+
+
+    </script>
 </body>
 </html>
