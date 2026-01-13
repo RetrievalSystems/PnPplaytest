@@ -399,7 +399,6 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   window.addEventListener('pointerdown', prime, { once: true, capture: true });
   window.addEventListener('keydown', prime, { once: true, capture: true });
 })();
-
 </script>
 
     <div id="root"></div>
@@ -4748,9 +4747,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
         }
 
 
-initOnlinePanel();
-        ReactDOM.render(<HerbalistWizards />, document.getElementById('root'));
-
-    </script>
+        try { initOnlinePanel(); } catch (e) { console.error('initOnlinePanel failed', e); }
+ReactDOM.render(<HerbalistWizards />, document.getElementById('root'));
+</script>
 </body>
 </html>
