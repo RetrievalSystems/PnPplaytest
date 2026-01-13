@@ -59,7 +59,7 @@
             100% { opacity: 0; transform: scale(1.4); }
         }
     
-        /* --- Locked HUD stage (centers and preserves aspect ratio) --- */
+        {/* --- Locked HUD stage (centers and preserves aspect ratio) --- */
         html, body { height: 100%; overflow: hidden; background: #000; }
         #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
         #hud-stage { position: relative; height: 98.7%; aspect-ratio: 2048 / 1197; }
@@ -1259,14 +1259,11 @@ useEffect(() => {
   if (!net?.socket || !net.code) return;
   if (!gameState) return;
 
-  // Only the current player is allowed to broadcast state.
+  // Host-authoritative sync:
+// - Guests never broadcast authoritative state.
+// - Host broadcasts whenever its local authoritative state changes (even during the guest's turn),
+ //   because the host owns RNG, turn transitions, and wheel outcomes.
   if (String(net.mode||"").toLowerCase()==="guest") return; // guests never broadcast authoritative state
-  // Prevents crossed turns and desynced wheels.
-   const seat = String(net.seat || "").toLowerCase();       // "yellow" or "blue"
-  const current = String(gameState.currentPlayer || "").toLowerCase();
-  if (current && seat && seat !== current) return;
-
-
 
   // Don't echo back a state we just received
   if (ignoreNextSendRef.current) {
@@ -1308,7 +1305,7 @@ net.socket.emit("state_sync", {
                         const [mobAnimPath, setMobAnimPath] = useState([]);
 
 
-// Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts).
+{/* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
 useEffect(() => {
     if (!gameState) return;
     const mob = gameState.angryMob;
@@ -1450,6 +1447,12 @@ useEffect(() => {
             // Auto-spin the occurrence at the start of each turn (except a player's very first move).
             useEffect(() => {
                 if (!gameState || gameOver) return;
+                try {
+                  const net = window.HW_NET;
+                  // In online mode, ONLY the host spins / advances occurrences (host owns RNG).
+                  if (net?.socket?.connected && String(net.mode||"").toLowerCase()==="guest") return;
+                } catch(e) {}
+
                 const pkey = gameState.currentPlayer;
                 const isFirst = !!gameState.firstMove?.[pkey];
                 if (isFirst) return;
@@ -2225,7 +2228,7 @@ useEffect(() => {
             const craftSpell = (spellKey) => {
                 try {
                   const net = window.HW_NET;
-                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                  if (net?.socket?.connected && String(net.mode||'').toLowerCase()==='guest') {
                     window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
                     net.socket.emit('intent', { code: net.code, kind: 'craftSpell', spellKey });
                     return;
@@ -2611,7 +2614,7 @@ switch(spellKey) {
             const spinOccurrenceWheel = () => {
                 try {
                   const net = window.HW_NET;
-                  if (net?.connected && String(net.mode||"").toLowerCase()==="guest") return;
+                  if (net?.socket?.connected && String(net.mode||"").toLowerCase()==="guest") return;
                 } catch(e) {}
 
                 playSfxFile('wheel', { volume: 0.65 });
@@ -2788,7 +2791,7 @@ setPickRemaining(count);
             const handleChartPickCrop = (cropType) => {
                 try {
                   const net = window.HW_NET;
-                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                  if (net?.socket?.connected && String(net.mode||'').toLowerCase()==='guest') {
                     window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
                     net.socket.emit('intent', { code: net.code, kind: 'chartPickCrop', cropType });
                     return;
@@ -2892,7 +2895,7 @@ setPickRemaining(count);
             const endTurnByPortrait = () => {
                 try {
                   const net = window.HW_NET;
-                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                  if (net?.socket?.connected && String(net.mode||'').toLowerCase()==='guest') {
                     window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
                     net.socket.emit('intent', { code: net.code, kind: 'endTurn' });
                     return;
@@ -3077,7 +3080,7 @@ const handleWheelClick = (e) => {
 const handleSpaceClick = (space) => {
                 try {
                   const net = window.HW_NET;
-                  if (net?.connected && String(net.mode||'').toLowerCase()==='guest') {
+                  if (net?.socket?.connected && String(net.mode||'').toLowerCase()==='guest') {
                     window.__HW_SYNC && (window.__HW_SYNC.sent = (window.__HW_SYNC.sent||0)+1);
                     net.socket.emit('intent', { code: net.code, kind: 'space', space });
                     return;
