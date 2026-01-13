@@ -665,44 +665,51 @@ HW_NET.seat = seat;
     });
   };
 
+  joinBtn.onclick = () => {
+    const s = ensureSocket();
+    if (!s) return;
 
-joinBtn.onclick = () => {
-  const s = ensureSocket();
-  if (!s) return;
+    const code = String(codeInput.value || "").trim().toUpperCase();
+    if (!code) return alert("Enter room code");
 
-  const code = String(codeInput.value || "").trim().toUpperCase();
-  if (!code) return alert("Enter room code");
+    s.emit("join_room", { code }, (res) => {
+      if (!res?.ok) {
+        alert(res?.error || "Join failed");
+        return;
+      }
+      roomCode = res.code;
+      seat = res.seat; // "B"
+HW_NET.code = roomCode;
+HW_NET.seat = seat;
 
-  s.emit("join_room", { code }, (res) => {
-    if (!res?.ok) {
-      alert(res?.error || "Join failed");
+      setStatus();
+      roomStatusEl.textContent = "Connected ✅";
+    });
+  };
+ pingBtn.onclick = () => {
+    roomStatusEl.textContent = "Ping sent…";
+
+    const s2 = ensureSocket();
+    if (!s2) return;
+
+    if (!roomCode) {
+      alert("Not in a room yet (Host/Join first).");
       return;
     }
 
-    // Set local room + seat
-    roomCode = res.code;
-    seat = res.seat; // "B"
+    s2.emit("ping", { code: roomCode });
+  };
+}
 
-    // Update shared net state via setStatus()
-    setStatus();
-
-    roomStatusEl.textContent = "Connected ✅";
-  });
-};
-
-pingBtn.onclick = () => {
-  roomStatusEl.textContent = "Ping sent…";
-
-  const s2 = ensureSocket();
-  if (!s2) return;
-
-  if (!roomCode) {
+// Press P to send a ping to the room (simple sync test)
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "p") return;
+  if (!socket || !socket.connected || !roomCode) {
     alert("Not in a room yet (Host/Join first).");
     return;
   }
-
-  s2.emit("ping", { code: roomCode });
-};
+  socket.emit("ping", { code: roomCode });
+});
 
         const IMAGES = {
             hud: './images/HUDs with board marked.jpg',
