@@ -59,7 +59,7 @@
             100% { opacity: 0; transform: scale(1.4); }
         }
     
-        {/* --- Locked HUD stage (centers and preserves aspect ratio) --- */
+        /* --- Locked HUD stage (centers and preserves aspect ratio) --- */
         html, body { height: 100%; overflow: hidden; background: #000; }
         #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
         #hud-stage { position: relative; height: 98.7%; aspect-ratio: 2048 / 1197; }
@@ -399,7 +399,6 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   window.addEventListener('pointerdown', prime, { once: true, capture: true });
   window.addEventListener('keydown', prime, { once: true, capture: true });
 })();
-
 </script>
 
     <div id="root"></div>
@@ -583,16 +582,11 @@ const pingBtn = panel.querySelector("#hw-ping");
   let seat = null; // "Y" (host) or "B" (joiner)
 
   function setStatus() {
-  const conn = socket?.connected ? "Connected" : "Not connected";
-  const seatText = seat ? (seat === "Y" ? "Yellow" : "Blue") : "";
-  const roomText = roomCode ? `Room ${roomCode}` : "";
-  statusEl.textContent = [conn, seatText && `You are ${seatText}`, roomText].filter(Boolean).join(" • ");
-
-  // ✅ Keep the shared net object up to date for the game logic
-  window.HW_NET.code = roomCode || "";
-  window.HW_NET.seat = seat === "Y" ? "yellow" : seat === "B" ? "blue" : null;
-}
-
+    const conn = socket?.connected ? "Connected" : "Not connected";
+    const seatText = seat ? (seat === "Y" ? "Yellow" : "Blue") : "";
+    const roomText = roomCode ? `Room ${roomCode}` : "";
+    statusEl.textContent = [conn, seatText && `You are ${seatText}`, roomText].filter(Boolean).join(" • ");
+  }
 
   function ensureSocket() {
     if (socket) return socket;
@@ -601,8 +595,8 @@ const pingBtn = panel.querySelector("#hw-ping");
       return null;
     }
     socket = window.io(HW_SERVER_URL, { transports: ["websocket"] });
-window.HW_NET.socket = socket;
-window.HW_NET.connected = true;
+HW_NET.socket = socket;
+HW_NET.connected = true;
 
     socket.on("connect", () => {
       setStatus();
@@ -617,7 +611,6 @@ window.HW_NET.connected = true;
     socket.on("room_ready", () => {
       roomStatusEl.textContent = "Opponent connected ✅";
 
-
       // If I'm the host, immediately send a snapshot so the joiner starts aligned.
       try {
         if (seat === "Y") {
@@ -628,8 +621,6 @@ window.HW_NET.connected = true;
           }
         }
       } catch (e) {}
-
-
     });
 socket.on("ping", () => {
   roomStatusEl.textContent = "Ping received ✅";
@@ -661,8 +652,6 @@ socket.on("ping", () => {
       }
       roomCode = res.code;
       seat = res.seat; // "Y"
-window.HW_NET.code = roomCode;
-window.HW_NET.seat = seat;
 
       codeInput.value = roomCode;
       setStatus();
@@ -670,44 +659,51 @@ window.HW_NET.seat = seat;
     });
   };
 
+  joinBtn.onclick = () => {
+    const s = ensureSocket();
+    if (!s) return;
 
-joinBtn.onclick = () => {
-  const s = ensureSocket();
-  if (!s) return;
+    const code = String(codeInput.value || "").trim().toUpperCase();
+    if (!code) return alert("Enter room code");
 
-  const code = String(codeInput.value || "").trim().toUpperCase();
-  if (!code) return alert("Enter room code");
+    s.emit("join_room", { code }, (res) => {
+      if (!res?.ok) {
+        alert(res?.error || "Join failed");
+        return;
+      }
+      roomCode = res.code;
+      seat = res.seat; // "B"
+HW_NET.code = roomCode;
+HW_NET.seat = seat;
 
-  s.emit("join_room", { code }, (res) => {
-    if (!res?.ok) {
-      alert(res?.error || "Join failed");
+      setStatus();
+      roomStatusEl.textContent = "Connected ✅";
+    });
+  };
+ pingBtn.onclick = () => {
+    roomStatusEl.textContent = "Ping sent…";
+
+    const s2 = ensureSocket();
+    if (!s2) return;
+
+    if (!roomCode) {
+      alert("Not in a room yet (Host/Join first).");
       return;
     }
 
-    // Set local room + seat
-    roomCode = res.code;
-    seat = res.seat; // "B"
+    s2.emit("ping", { code: roomCode });
+  };
+}
 
-    // Update shared net state via setStatus()
-    setStatus();
-
-    roomStatusEl.textContent = "Connected ✅";
-  });
-};
-
-pingBtn.onclick = () => {
-  roomStatusEl.textContent = "Ping sent…";
-
-  const s2 = ensureSocket();
-  if (!s2) return;
-
-  if (!roomCode) {
+// Press P to send a ping to the room (simple sync test)
+window.addEventListener("keydown", (e) => {
+  if (e.key.toLowerCase() !== "p") return;
+  if (!socket || !socket.connected || !roomCode) {
     alert("Not in a room yet (Host/Join first).");
     return;
   }
-
-  s2.emit("ping", { code: roomCode });
-};
+  socket.emit("ping", { code: roomCode });
+});
 
         const IMAGES = {
             hud: './images/HUDs with board marked.jpg',
@@ -1112,7 +1108,7 @@ const ABODE_BYPASS = {
 
                                 return null;
                             })}
-{/* Spell label highlights + click-to-craft */}
+{{/* Spell label highlights + click-to-craft */}
                             {SPELL_CHART_SPELL_SLOTS.map((s, i) => {
                                 const sk = spellKeyByName[normKey(s.name)];
                                 if (!sk) return null;
@@ -1233,19 +1229,24 @@ const onSync = (payload) => {
 }, []);
 
 
-
             const latestStateRef = useRef(gameState);
-
-
-            // Expose current state for the online panel (host can push an initial snapshot on room_ready)
-            useEffect(() => {
-              window.HW_GET_STATE_JSON = () => {
-                try { return serializeGameState(latestStateRef.current); } catch (e) { return null; }
-              };
-              return () => { try { delete window.HW_GET_STATE_JSON; } catch (e) {} };
-            }, []);
-
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
+
+// Provide a safe getter so the Online panel (outside React) can request a snapshot.
+useEffect(() => {
+  try {
+    window.HW_GET_STATE_JSON = () => {
+      try {
+        const st = latestStateRef.current;
+        return serializeGameState(st);
+      } catch (e) {
+        return null;
+      }
+    };
+  } catch (e) {}
+  return () => {};
+}, []);
+
 // === Online: broadcast game state when it changes (JSON-safe) ===
 useEffect(() => {
   const net = window.HW_NET;
@@ -1253,16 +1254,10 @@ useEffect(() => {
   if (!gameState) return;
 
   // Only the current player is allowed to broadcast state.
-// Prevents crossed turns and desynced wheels.
-const normSeat = (v) => {
-  const s = String(v || "").toLowerCase();
-  if (s === "y" || s === "yellow") return "yellow";
-  if (s === "b" || s === "blue") return "blue";
-  return s || "";
-};
-const seat = normSeat(net.seat);                 // "yellow" | "blue"
-const current = normSeat(gameState.currentPlayer);
-if (current && seat && seat !== current) return;
+  // Prevents crossed turns and desynced wheels.
+  const seat = net.seat; // "yellow" or "blue"
+  const current = gameState.currentPlayer;
+ if (current && seat && seat !== current) return;
 
 
 
@@ -1306,7 +1301,7 @@ net.socket.emit("state_sync", {
                         const [mobAnimPath, setMobAnimPath] = useState([]);
 
 
-{/* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
+/* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
 useEffect(() => {
     if (!gameState) return;
     const mob = gameState.angryMob;
@@ -1452,7 +1447,17 @@ useEffect(() => {
                 const isFirst = !!gameState.firstMove?.[pkey];
                 if (isFirst) return;
 
-                // If an occurrence hasn't been spun for this turn yet, spin it automatically.
+                // If we're online, only the active player's device is allowed to spin the occurrence wheel.
+                try {
+                    const net = window.HW_NET;
+                    const online = !!(net && net.socket && net.code);
+                    if (online) {
+                        const seatNow = String(net.seat || '').toLowerCase(); // "yellow" or "blue"
+                        if (seatNow && seatNow !== String(pkey || '').toLowerCase()) return;
+                    }
+                } catch (e) {}
+
+// If an occurrence hasn't been spun for this turn yet, spin it automatically.
                 if (!wheelSpunThisTurn && !spinning && !showSpellChart && !showCropPickOption && !selectingTeleport && !gameState.awaitingCropPickDecision) {
                     setWheelSpunThisTurn(true);
                     window.setTimeout(() => { try { spinOccurrenceWheel(); } catch(e) {} }, 0);
@@ -3673,7 +3678,7 @@ return (
             </div>
 
 <div id="board-slot" ref={boardSlotRef}>
-                {/* Board + overlays scaled to always fit the slot */}
+                {{/* Board + overlays scaled to always fit the slot */}
                 <div key={`occ-${spinAnim}-${currentOccurrence?.id || 'none'}`} style={{
                                     position: 'absolute',
                                     left: '50%',
@@ -3683,7 +3688,7 @@ return (
                     transform: `translate(-50%, -50%) scale(${boardScale})`,
                     transformOrigin: 'center center'
                 }}>
-                    {/* BOARD */}
+                    {{/* BOARD */}
                     <div style={{
                         width: '900px',
                         height: '900px',
@@ -3694,7 +3699,7 @@ return (
                         position: 'relative',
                         imageRendering: 'auto'
                     }}>
-                        {/* Crop Wheel Display - zodiac dial on bottom right */}
+                        {{/* Crop Wheel Display - zodiac dial on bottom right */}
                         <div style={{
                             position: 'absolute',
                             right: '210px',
@@ -3737,7 +3742,7 @@ return (
                                 );
                             })}
 
-                            {/* Occurrence glyph centered in crop wheel */}
+                            {{/* Occurrence glyph centered in crop wheel */}
                             {(spinning || showOccurrence) && currentOccurrence && (
                                 <div style={{
                                     position: 'absolute',
@@ -3769,7 +3774,7 @@ return (
                             )}
                         </div>
 
-                        {/* Game grid overlay - same as your working version */}
+                        {{/* Game grid overlay - same as your working version */}
                         <div style={{
                             position: 'absolute',
                             top: '50%',
@@ -3960,24 +3965,24 @@ return (
                                                     }}
                                                     title="Target"
                                                 >
-                                                    {/* Freeze multi-target reticle (white circle + 4 crosshairs) */}
+                                                    {{/* Freeze multi-target reticle (white circle + 4 crosshairs) */}
                                                     <div style={{ position: 'absolute', inset: 0, borderRadius: '999px', pointerEvents: 'none' }}>
-                                                        {/* Top */}
+                                                        {{/* Top */}
                                                         <div style={{ position: 'absolute', left: '50%', top: '0%', transform: 'translate(-50%, -50%)', width: '14px', height: '14px' }}>
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '14px', height: '2px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '2px', height: '14px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                         </div>
-                                                        {/* Right */}
+                                                        {{/* Right */}
                                                         <div style={{ position: 'absolute', left: '100%', top: '50%', transform: 'translate(-50%, -50%)', width: '14px', height: '14px' }}>
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '14px', height: '2px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '2px', height: '14px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                         </div>
-                                                        {/* Bottom */}
+                                                        {{/* Bottom */}
                                                         <div style={{ position: 'absolute', left: '50%', top: '100%', transform: 'translate(-50%, -50%)', width: '14px', height: '14px' }}>
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '14px', height: '2px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '2px', height: '14px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                         </div>
-                                                        {/* Left */}
+                                                        {{/* Left */}
                                                         <div style={{ position: 'absolute', left: '0%', top: '50%', transform: 'translate(-50%, -50%)', width: '14px', height: '14px' }}>
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '14px', height: '2px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
                                                             <div style={{ position: 'absolute', left: '50%', top: '50%', width: '2px', height: '14px', background: '#fff', transform: 'translate(-50%, -50%)' }} />
@@ -4129,7 +4134,7 @@ return (
 
                         
 
-                        {/* Target selection overlay (hover reticle) */}
+                        {{/* Target selection overlay (hover reticle) */}
                         {pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.map((t, i) => {
                             const c = spaceCenterPx(t.space);
                             const isHover = hoverSpellTargetSpace === t.space;
@@ -4159,7 +4164,7 @@ return (
                                     >
                                         {isHover && (
                                             <>
-                                                {/* White ring */}
+                                                {{/* White ring */}
                                                 <div style={{
                                                     position: 'absolute',
                                                     inset: 0,
@@ -4168,7 +4173,7 @@ return (
                                                     boxShadow: '0 0 18px rgba(255,255,255,0.6)',
                                                     pointerEvents: 'none'
                                                 }} />
-                                                {/* Crosshair pips */}
+                                                {{/* Crosshair pips */}
                                                 <div style={{ position: 'absolute', left: '50%', top: '10%', transform: 'translate(-50%, -50%)', width: '14px', height: '14px' }}>
                                                     <div style={{ position: 'absolute', left: '50%', top: '50%', width: '2px', height: '14px', background: 'rgba(255,255,255,0.95)', transform: 'translate(-50%, -50%)' }} />
                                                     <div style={{ position: 'absolute', left: '50%', top: '50%', width: '14px', height: '2px', background: 'rgba(255,255,255,0.95)', transform: 'translate(-50%, -50%)' }} />
@@ -4192,7 +4197,7 @@ return (
                             );
                         })}
 
-{/* FX overlay */}
+{{/* FX overlay */}
                         {fxEvents.map(e => {
                             const c = spaceCenterPx(e.space);
                             return (
@@ -4219,7 +4224,7 @@ return (
 
                                         {e.kind !== 'smoke' && (
                                             <>
-                                                {/* staged "pow" + stars */}
+                                                {{/* staged "pow" + stars */}
                                                 <div className="absolute inset-0 flex items-center justify-center">
                                                     <div className="font-black text-white" style={{
                                                         textShadow: '0 3px 10px rgba(0,0,0,0.85)',
@@ -4251,8 +4256,8 @@ return (
                 </div>
             </div>
 
-            {/* Keep your existing modals/overlays */}
-            {/* Occurrence overlay stays visible, but must NOT block clicks/phase progression */}
+            {{/* Keep your existing modals/overlays */}
+            {{/* Occurrence overlay stays visible, but must NOT block clicks/phase progression */}
             {showOccurrence && currentOccurrence && !spinning && (
                 <div className="fixed inset-0 bg-transparent flex items-center justify-center z-50 pointer-events-none" />
             )}
@@ -4278,7 +4283,7 @@ return (
                 />
             )}
 
-                        {/* Spell cards in the dark wooden bays (crafted/held spells) */}
+                        {{/* Spell cards in the dark wooden bays (crafted/held spells) */}
             {(() => {
                 const yellowSpells = (gameState.players.yellow.spells || gameState.players.yellow.spellCards || gameState.players.yellow.craftedSpells || gameState.players.yellow.crafted || []).slice(0, 9);
                 const blueSpells = (gameState.players.blue.spells || gameState.players.blue.spellCards || gameState.players.blue.craftedSpells || gameState.players.blue.crafted || []).slice(0, 9);
@@ -4445,7 +4450,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                                             draggable="false"
                                         />
-                                        {/* Always show a tiny label so we can "see" cards even if sprite fails */}
+                                        {{/* Always show a tiny label so we can "see" cards even if sprite fails */}
                                         <div style={{
                                             position: 'absolute',
                                             left: 0,
@@ -4471,11 +4476,11 @@ const renderGrid = (playerKey, spells, styleBase) => (
 
                 return (
                     <>
-                        {/* Left player bay */}
+                        {{/* Left player bay */}
                         {renderGrid('yellow', yellowSpells, {
                             left: '3.2%',
                             top: 'calc(27.6% + 80px)',
-                            width: '17.6%', {/* -10% */
+                            width: '17.6%', /* -10% */
                             transform: 'translate(-31px, 35px)' /* +7 right, +5 down */
                         })}
 
@@ -4483,7 +4488,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         {renderGrid('blue', blueSpells, {
                             right: '3.5%',
                             top: 'calc(27.6% + 80px)',
-                            width: '17.6%', {/* -10% */
+                            width: '17.6%', /* -10% */
                             transform: 'translate(41px, 12px)' /* -7 left */
                         })}
 
@@ -4558,9 +4563,9 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             </div>
                         )}
 
-                        {/* Running commentary / gentle instructions */}
+                        {{/* Running commentary / gentle instructions */}
 
-                        {/* Win overlay (keeps the board visible) */}
+                        {{/* Win overlay (keeps the board visible) */}
                         {showWinOverlay && gameOver && (
                             <div
                                 onClick={() => window.location.reload()}
@@ -4615,7 +4620,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         )}
 
 
-                        {/* Villager Mood (VM) meter in parchment area */}
+                        {{/* Villager Mood (VM) meter in parchment area */}
                         {(() => {
                             try {
                                 const moodRaw = (gameState && typeof gameState.villagerMood !== 'undefined') ? gameState.villagerMood : 1;
@@ -4643,7 +4648,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                             backgroundPosition: 'center',
                                             borderRadius: '10px'
                                         }} />
-                                        {/* highlight bar */}
+                                        {{/* highlight bar */}
                                         <div style={{
                                             position: 'absolute',
                                             left: '41.5%',
@@ -4737,10 +4742,10 @@ const renderGrid = (playerKey, spells, styleBase) => (
 
 
                         
-{/*__WIN_OVERLAY_REPLACED__*/
+/*__WIN_OVERLAY_REPLACED__*/
 
 
-{/* Portrait hotspots: click your portrait to end turn (after you have moved). */}
+/* Portrait hotspots: click your portrait to end turn (after you have moved). */}
                         <div
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -4777,8 +4782,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
         }
 
 
-initOnlinePanel();
         ReactDOM.render(<HerbalistWizards />, document.getElementById('root'));
+initOnlinePanel();
 
     </script>
 </body>
