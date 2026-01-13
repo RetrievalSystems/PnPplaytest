@@ -601,8 +601,8 @@ const pingBtn = panel.querySelector("#hw-ping");
       return null;
     }
     socket = window.io(HW_SERVER_URL, { transports: ["websocket"] });
-HW_NET.socket = socket;
-HW_NET.connected = true;
+window.HW_NET.socket = socket;
+window.HW_NET.connected = true;
 
     socket.on("connect", () => {
       setStatus();
@@ -661,8 +661,8 @@ socket.on("ping", () => {
       }
       roomCode = res.code;
       seat = res.seat; // "Y"
-HW_NET.code = roomCode;
-HW_NET.seat = seat;
+window.HW_NET.code = roomCode;
+window.HW_NET.seat = seat;
 
       codeInput.value = roomCode;
       setStatus();
@@ -1253,10 +1253,16 @@ useEffect(() => {
   if (!gameState) return;
 
   // Only the current player is allowed to broadcast state.
-  // Prevents crossed turns and desynced wheels.
-   const seat = String(net.seat || "").toLowerCase();       // "yellow" or "blue"
-  const current = String(gameState.currentPlayer || "").toLowerCase();
-  if (current && seat && seat !== current) return;
+// Prevents crossed turns and desynced wheels.
+const normSeat = (v) => {
+  const s = String(v || "").toLowerCase();
+  if (s === "y" || s === "yellow") return "yellow";
+  if (s === "b" || s === "blue") return "blue";
+  return s || "";
+};
+const seat = normSeat(net.seat);                 // "yellow" | "blue"
+const current = normSeat(gameState.currentPlayer);
+if (current && seat && seat !== current) return;
 
 
 
