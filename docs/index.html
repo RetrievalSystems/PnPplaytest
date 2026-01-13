@@ -616,6 +616,20 @@ HW_NET.connected = true;
 
     socket.on("room_ready", () => {
       roomStatusEl.textContent = "Opponent connected ✅";
+
+
+      // If I'm the host, immediately send a snapshot so the joiner starts aligned.
+      try {
+        if (seat === "Y") {
+          const json = window.HW_GET_STATE_JSON ? window.HW_GET_STATE_JSON() : null;
+          if (typeof json === "string" && json.length > 0) {
+            try { window.__HW_SYNC.sent++; } catch (e) {}
+            socket.emit("state_sync", { code: roomCode, json });
+          }
+        }
+      } catch (e) {}
+
+
     });
 socket.on("ping", () => {
   roomStatusEl.textContent = "Ping received ✅";
@@ -1219,7 +1233,18 @@ const onSync = (payload) => {
 }, []);
 
 
+
             const latestStateRef = useRef(gameState);
+
+
+            // Expose current state for the online panel (host can push an initial snapshot on room_ready)
+            useEffect(() => {
+              window.HW_GET_STATE_JSON = () => {
+                try { return serializeGameState(latestStateRef.current); } catch (e) { return null; }
+              };
+              return () => { try { delete window.HW_GET_STATE_JSON; } catch (e) {} };
+            }, []);
+
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
 // === Online: broadcast game state when it changes (JSON-safe) ===
 useEffect(() => {
