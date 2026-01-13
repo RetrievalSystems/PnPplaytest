@@ -907,10 +907,16 @@ function HerbalistWizards() {
             });
             const [netRole, setNetRole] = useState("offline");
             const [netLastErr, setNetLastErr] = useState("");
+            const [netRxCount, setNetRxCount] = useState(0);
+            const [netTxCount, setNetTxCount] = useState(0);
+            const [netLastMsg, setNetLastMsg] = useState("");
+            const [netSynced, setNetSynced] = useState(false);
+            const netSyncedRef = useRef(false);
 
             const setGameState = (updater, opts) => {
                 const fromNet = !!(opts && opts.fromNet);
-                if (netRoleRef.current === "guest" && !fromNet) return;
+                // Guest: once synced to host snapshots, block local game-state mutations.
+                if (netRoleRef.current === "guest" && netSyncedRef.current && !fromNet) return;
                 _setGameState(updater);
             };
             const latestStateRef = useRef(gameState);
@@ -920,10 +926,14 @@ function HerbalistWizards() {
 const wsSendJson = (obj) => {
     try {
         const ws = wsRef.current;
-        if (!ws || ws.readyState !== 1) return false;
+        if (!ws || ws.readyState !== 1) { setNetLastErr("not connected"); return false; }
         ws.send(JSON.stringify(obj));
+        setNetTxCount(c => c + 1);
         return true;
-    } catch (e) { return false; }
+    } catch (e) {
+        try { setNetLastErr(String(e && e.message ? e.message : e)); } catch(_) {}
+        return false;
+    }
 };
 
 const sendEnvelope = (msgType, payload) => {
@@ -1043,9 +1053,13 @@ const wsConnect = (role) => {
             ];
             joinPayloads.forEach(p => { try { ws.send(JSON.stringify(p)); } catch(e) {} });
             try { ws.send("join:" + room + ":" + role); } catch(e) {}
+            try { ws.send("join " + room + " " + role); } catch(e) {}
+            try { ws.send("JOIN " + room); } catch(e) {}
+            try { ws.send(room); } catch(e) {}
+            try { ws.send(JSON.stringify({ room: room, join: true, role: role })); } catch(e) {}
             // Our envelope join + sync request
             sendEnvelope("join", { room, role });
-            if (role === "guest") requestSync();
+            if (role === "guest") { netSyncedRef.current = false; try { setNetSynced(false); } catch(e) {} requestSync(); }
             if (role === "host") sendSnapshot(latestStateRef.current);
         };
 
@@ -1058,11 +1072,13 @@ const wsConnect = (role) => {
             let msg = null;
             try { msg = JSON.parse(ev.data); } catch(e) {}
             if (!msg) return;
+            try { setNetRxCount(c => c + 1); } catch(e) {}
 
             // Accept both our envelope and simple relays that forward payloads.
             const isEnvelope = (msg.type === "pnp" && msg.msgType);
             const msgType = isEnvelope ? msg.msgType : (msg.msgType || msg.type || msg.t || msg.action || msg.event);
             const payload = isEnvelope ? msg.payload : (msg.payload || msg.data || msg);
+            try { setNetLastMsg(String(msgType || "")); } catch(e) {}
 
             // Ignore our own echoes if relay broadcasts back.
             const from = msg.from || (payload && payload.from);
@@ -1078,7 +1094,8 @@ const wsConnect = (role) => {
                     const gs = (payload && (payload.gameState || payload.state)) || (msg && (msg.gameState || msg.state)) || payload;
                     // Heuristic: a real gameState has players + season or other core fields.
                     if (gs && typeof gs === "object" && (gs.players || gs.season || gs.turn || gs.board)) {
-                        setGameState(gs);
+                        setGameState(gs, { fromNet: true });
+                        if (!netSyncedRef.current) { netSyncedRef.current = true; try { setNetSynced(true); } catch(e) {} }
                     }
                 }
                 return;
@@ -3517,6 +3534,17 @@ return (
     <div className="mt-2 text-[11px] opacity-90">
         Role: <span className="font-semibold">{netRole}</span>
     </div>
+
+    <div className="mt-1 text-[10px] opacity-80">
+        Synced: <span className="font-semibold">{netSynced ? "yes" : "no"}</span>
+        <span className="mx-2 opacity-50">•</span>
+        Rx: <span className="font-semibold">{netRxCount}</span>
+        <span className="mx-2 opacity-50">•</span>
+        Tx: <span className="font-semibold">{netTxCount}</span>
+    </div>
+    {netLastMsg ? (
+        <div className="mt-1 text-[10px] opacity-70">Last msg: <span className="font-semibold">{netLastMsg}</span></div>
+    ) : null}
 
     <div className="mt-2 flex items-center gap-2">
         <div className="text-[11px] opacity-80">Room</div>
