@@ -962,9 +962,31 @@ const netConnect = () => {
         addNetLog('ONLINE: error (check URL / Render logs)');
     };
 
-    ws.onmessage = (ev) => {
+    ws.onmessage = async (ev) => {
+        let raw = ev.data;
+        let text = null;
+
+        try {
+            if (typeof raw === 'string') {
+                text = raw;
+            } else if (raw instanceof Blob) {
+                text = await raw.text();
+            } else if (raw instanceof ArrayBuffer) {
+                text = new TextDecoder('utf-8').decode(raw);
+            } else if (raw && typeof raw === 'object' && raw.buffer instanceof ArrayBuffer) {
+                // Some browsers may give a typed array
+                text = new TextDecoder('utf-8').decode(raw.buffer);
+            } else {
+                // Fallback: try to coerce
+                text = String(raw);
+            }
+        } catch (e) {
+            addNetLog('ONLINE: received non-text message (unable to decode)');
+            return;
+        }
+
         let msg = null;
-        try { msg = JSON.parse(ev.data); } catch { return; }
+        try { msg = JSON.parse(text); } catch { return; }
         if (!msg) return;
 
         if (msg.t === 'joined') {
@@ -973,22 +995,17 @@ const netConnect = () => {
         }
         if (msg.t === 'peer_joined') {
             addNetLog(`ONLINE: peer joined (peers: ${msg.peers ?? '?'})`);
-            // push our latest snapshot so the newcomer gets it
-            try {
-                if (wsRef.current && wsRef.current.readyState === 1 && latestStateRef.current) {
-                    wsRef.current.send(JSON.stringify({ t: 'state', state: latestStateRef.current, ts: Date.now() }));
-                    setNetSent((n) => n + 1);
-                }
-            } catch {}
             return;
         }
 
         if (msg.t === 'state' && msg.state) {
-            applyingRemoteRef.current = true;
             setNetRecv((n) => n + 1);
+            applyingRemoteRef.current = true;
+            // Prevent immediate ping-pong resend: remember the last received payload.
             let recvStr = '';
             try { recvStr = JSON.stringify(msg.state); } catch {}
-            if (recvStr) lastSentRef.current = recvStr; // prevents ping-pong resend
+            if (recvStr) lastSentRef.current = recvStr;
+
             setGameState(msg.state);
             // keep the guard briefly to avoid echo from follow-up effects
             setTimeout(() => { applyingRemoteRef.current = false; }, 250);
