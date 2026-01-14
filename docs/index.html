@@ -902,7 +902,10 @@ function HerbalistWizards() {
             const [netRx, setNetRx] = useState(0);
             const [netTx, setNetTx] = useState(0);
             const [netSynced, setNetSynced] = useState(false);
-            const [netLastErr, setNetLastErr] = useState("");
+            const [netLastIn, setNetLastIn] = useState("");
+            const [netLastOut, setNetLastOut] = useState("");
+            const [netLastStateTs, setNetLastStateTs] = useState(0);
+const [netLastErr, setNetLastErr] = useState("");
 
             const wsRef = useRef(null);
             const netRoleRef = useRef("offline");
@@ -932,6 +935,10 @@ function HerbalistWizards() {
                     const ws = wsRef.current;
                     if (!ws || ws.readyState !== 1) return false;
                     ws.send(JSON.stringify(payload));
+                    try {
+                        const ot = (payload && (payload.t || payload.type || payload.msgType || payload.event)) || "";
+                        setNetLastOut(String(ot));
+                    } catch(e) {}
                     setNetTx(t => t + 1);
                     return true;
                 } catch(e) { return false; }
@@ -1002,7 +1009,9 @@ function HerbalistWizards() {
                     try { msg = JSON.parse(ev.data); } catch(e) { return; }
                     const room2 = (msg.room || "").toString();
                     if (room2 && room2 !== netRoomRef.current) return;
-                    const t = (msg.t || msg.type || msg.msgType || msg.event || "").toString();
+                    const t = (msg.t || msg.msgType || msg.event || msg.type || "").toString();
+
+                    try { setNetLastIn(t); } catch(e) {}
 
                     if (t === "request_sync" && netRoleRef.current === "host") {
                         sendSnapshot(latestStateRef.current);
@@ -1011,18 +1020,19 @@ function HerbalistWizards() {
 
                     // Apply snapshots on guest only
                     const state = msg.state || (msg.payload && msg.payload.state) || null;
-                    if ((t === "state" || t === "state_sync" || t === "snapshot") && state && netRoleRef.current === "guest") {
+                    if (state && netRoleRef.current === "guest") {
                         allowGuestSetRef.current = true;
                         try { __setGameState(state); } catch(e) {}
                         allowGuestSetRef.current = false;
                         setNetSynced(true);
+                        try { setNetLastStateTs(Number(msg.ts || Date.now())); } catch(e) {}
                         try { netSyncedRef.current = true; } catch(e) {}
                         return;
                     }
 
                     // Host: apply intents
                     const intent = msg.intent || (msg.payload && msg.payload.intent) || null;
-                    if (t === "intent" && intent && netRoleRef.current === "host") {
+                    if (intent && netRoleRef.current === "host") {
                         try {
                             if (intent.kind === "space_click") {
                                 handleSpaceClick(intent.space);
@@ -4535,8 +4545,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
     <input value={netRoom} onChange={(e)=>{ setNetRoom(e.target.value); netRoomRef.current = e.target.value; }} style={{ flex:1, padding:'4px 6px', borderRadius:8, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(0,0,0,0.35)', color:'#fff' }} />
   </div>
   <div style={{ display:'flex', gap:8, marginBottom:8 }}>
-    <button onClick={()=>{try{const qs=new URLSearchParams(window.location.search);qs.set("room",(netRoom||"room1").trim()||"room1");qs.set("role","host");window.location.search=qs.toString();}catch(e){wsConnect("host");}}} style={{ flex:1, padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(34,197,94,0.9)', color:'#fff', fontWeight:800 }}>Host</button>
-    <button onClick={()=>{try{const qs=new URLSearchParams(window.location.search);qs.set("room",(netRoom||"room1").trim()||"room1");qs.set("role","guest");window.location.search=qs.toString();}catch(e){wsConnect("guest");}}} style={{ flex:1, padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(59,130,246,0.9)', color:'#fff', fontWeight:800 }}>Join</button>
+    <button onClick={()=>wsConnect("host")} style={{ flex:1, padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(34,197,94,0.9)', color:'#fff', fontWeight:800 }}>Host</button>
+    <button onClick={()=>wsConnect("guest")} style={{ flex:1, padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(59,130,246,0.9)', color:'#fff', fontWeight:800 }}>Join</button>
     <button onClick={()=>wsClose()} style={{ padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(100,116,139,0.85)', color:'#fff', fontWeight:800 }}>Off</button>
   </div>
   <div style={{ display:'grid', gridTemplateColumns:'auto 1fr', gap:'4px 10px', opacity:0.95 }}>
@@ -4544,6 +4554,9 @@ const renderGrid = (playerKey, spells, styleBase) => (
     <div>Role</div><div>{netRole}</div>
     <div>Synced</div><div>{netSynced ? "yes" : "no"}</div>
     <div>Rx / Tx</div><div>{netRx} / {netTx}</div>
+    <div>Last in</div><div>{netLastIn}</div>
+    <div>Last out</div><div>{netLastOut}</div>
+    <div>Last state</div><div>{netLastStateTs ? new Date(netLastStateTs).toLocaleTimeString() : ""}</div>
     <div style={{ gridColumn:'1 / span 2', color:'#ffb4b4', minHeight:14 }}>{netLastErr}</div>
   </div>
   <div style={{ marginTop:8, opacity:0.7, fontSize:11 }}>
