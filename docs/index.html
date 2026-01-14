@@ -893,195 +893,181 @@ const ABODE_BYPASS = {
         }
 
 function HerbalistWizards() {
-            const [gameState, _setGameState] = useState(null);
+            const [gameState, __setGameState] = useState(null);
 
-// --- Online sync (host-authoritative) ---
-// netRole: "host" | "guest" | "offline"
-const [netRoom, setNetRoom] = useState(() => {
-  try { return (new URLSearchParams(window.location.search).get("room") || "room1"); } catch(e) { return "room1"; }
-});
-const [netRole, setNetRole] = useState(() => {
-  try { return (new URLSearchParams(window.location.search).get("role") || "offline").toLowerCase(); } catch(e) { return "offline"; }
-});
-const [netStatus, setNetStatus] = useState("offline"); // offline|connecting|online|error
-const [netLastErr, setNetLastErr] = useState("");
-const [netRx, setNetRx] = useState(0);
-const [netTx, setNetTx] = useState(0);
-const [netSynced, setNetSynced] = useState(false);
+            // --- Online (fresh, host-authoritative) ---
+            const [netStatus, setNetStatus] = useState("offline"); // offline|connecting|online|error
+            const [netRole, setNetRole] = useState("offline");     // host|guest|offline
+            const [netRoom, setNetRoom] = useState((new URLSearchParams(window.location.search).get("room") || "room1"));
+            const [netRx, setNetRx] = useState(0);
+            const [netTx, setNetTx] = useState(0);
+            const [netSynced, setNetSynced] = useState(false);
+            const [netLastErr, setNetLastErr] = useState("");
 
-const wsRef = useRef(null);
-const netRoleRef = useRef(netRole);
-useEffect(() => { netRoleRef.current = netRole; }, [netRole]);
-const applyingSnapshotRef = useRef(false);
-const hostApiRef = useRef({});
+            const wsRef = useRef(null);
+            const netRoleRef = useRef("offline");
+            const netRoomRef = useRef((new URLSearchParams(window.location.search).get("room") || "room1"));
+            const allowGuestSetRef = useRef(false);
 
-const safeStringify = (obj) => {
-  const seen = new WeakSet();
-  return JSON.stringify(obj, (k, v) => {
-    if (typeof v === "function") return undefined;
-    if (v && typeof v === "object") {
-      if (seen.has(v)) return undefined;
-      seen.add(v);
-      // Serialize Maps/Sets simply
-      if (v instanceof Map) return { __map__: Array.from(v.entries()) };
-      if (v instanceof Set) return { __set__: Array.from(v.values()) };
-    }
-    return v;
-  });
-};
+            const safeClone = (obj) => {
+                const seen = new WeakSet();
+                try {
+                    return JSON.parse(JSON.stringify(obj, (k, v) => {
+                        if (typeof v === "function") return undefined;
+                        if (v && typeof v === "object") {
+                            // DOM nodes / windows
+                            try { if (v.nodeType && v.nodeName) return undefined; } catch(e) {}
+                            if (seen.has(v)) return undefined;
+                            seen.add(v);
+                        }
+                        return v;
+                    }));
+                } catch(e) {
+                    return null;
+                }
+            };
 
-const sendWs = (payloadObj) => {
-  try {
-    const ws = wsRef.current;
-    if (!ws || ws.readyState !== 1) return false;
-    ws.send(JSON.stringify(payloadObj));
-    setNetTx(t => t + 1);
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
+            const sendWs = (payload) => {
+                try {
+                    const ws = wsRef.current;
+                    if (!ws || ws.readyState !== 1) return false;
+                    ws.send(JSON.stringify(payload));
+                    setNetTx(t => t + 1);
+                    return true;
+                } catch(e) { return false; }
+            };
 
-const sendSnapshot = (stateObj) => {
-  try {
-    const room = (netRoom || "room1").trim() || "room1";
-    const msg = { t: "state", room, role: "host", ts: Date.now(), state: JSON.parse(safeStringify(stateObj)) };
-    return sendWs(msg);
-  } catch (e) {
-    return false;
-  }
-};
+            const sendSnapshot = (stateObj) => {
+                if (netRoleRef.current !== "host") return;
+                const snap = safeClone(stateObj);
+                if (!snap) return;
+                sendWs({ t: "state", room: netRoomRef.current, role: "host", ts: Date.now(), state: snap });
+            };
 
-const sendIntent = (intent) => {
-  const room = (netRoom || "room1").trim() || "room1";
-  const base = { t: "intent", room, role: "guest", ts: Date.now(), intent };
-  // Send in a couple of common shapes (some relays / older builds might expect these)
-  sendWs(base);
-  sendWs({ msgType: "intent", room, role: "guest", intent });
-  sendWs({ type: "intent", room, role: "guest", intent });
-};
+            const requestSync = () => {
+                sendWs({ t: "request_sync", room: netRoomRef.current, role: "guest", ts: Date.now() });
+            };
 
-const wsClose = () => {
-  try { if (wsRef.current) wsRef.current.close(); } catch(e) {}
-  wsRef.current = null;
-  setNetStatus("offline");
-  setNetRole("offline");
-  setNetLastErr("");
-  setNetSynced(false);
-};
+            const wsClose = () => {
+                try { wsRef.current && wsRef.current.close(); } catch(e) {}
+                try { if (window.__pnpHb) clearInterval(window.__pnpHb); window.__pnpHb = null; } catch(e) {}
+                wsRef.current = null;
+                setNetStatus("offline");
+                setNetRole("offline");
+                netRoleRef.current = "offline";
+                setNetSynced(false);
+            };
 
-const wsConnect = (role) => {
-  wsClose();
-  setNetLastErr("");
-  setNetStatus("connecting");
-  setNetRole(role);
-  const room = (netRoom || "room1").trim() || "room1";
-  try { history.replaceState(null, "", `${location.pathname}?room=${encodeURIComponent(room)}&role=${encodeURIComponent(role)}`); } catch(e) {}
-  const url = `wss://pnp-relay.onrender.com/?room=${encodeURIComponent(room)}`;
-  let ws;
-  try { ws = new WebSocket(url); } catch (e) {
-    setNetStatus("error"); setNetLastErr("Could not create WebSocket."); return;
-  }
-  wsRef.current = ws;
+            const wsConnect = (role) => {
+                wsClose();
+                setNetLastErr("");
+                setNetStatus("connecting");
+                setNetRole(role);
+                netRoleRef.current = role;
+                const room = (netRoomRef.current || "room1").trim() || "room1";
+                netRoomRef.current = room;
+                try { history.replaceState(null, "", `${location.pathname}?room=${encodeURIComponent(room)}&role=${encodeURIComponent(role)}`); } catch(e) {}
+                const url = `wss://pnp-relay.onrender.com/?room=${encodeURIComponent(room)}`;
+                let ws;
+                try { ws = new WebSocket(url); } catch (e) {
+                    setNetStatus("error"); setNetLastErr("Could not create WebSocket."); return;
+                }
+                wsRef.current = ws;
 
-  ws.onopen = () => {
-    setNetStatus("online");
-    setNetSynced(false);
-    // hello
-    sendWs({ t:"hello", room, role, ts: Date.now() });
-    if (role === "host") {
-      sendSnapshot(latestStateRef.current);
-      // heartbeat so we can see host traffic in Render logs
-      try { if (window.__pnpHb) clearInterval(window.__pnpHb); } catch(e) {}
-      window.__pnpHb = setInterval(() => {
-        try { if (wsRef.current && wsRef.current.readyState === 1 && netRoleRef.current === "host") {
-          wsRef.current.send(JSON.stringify({ t:"hb", room, role:"host", ts: Date.now() }));
-        } } catch(e) {}
-      }, 1000);
-    } else {
-      // request sync
-      sendWs({ t:"request_sync", room, role:"guest", ts: Date.now() });
-      sendWs({ msgType:"request_sync", room });
-    }
-  };
+                ws.onopen = () => {
+                    setNetStatus("online");
+                    if (role === "host") {
+                        sendWs({ t:"hello", room, role:"host", ts: Date.now() });
+                        sendSnapshot(latestStateRef.current);
+                        // heartbeat snapshot to keep guest updated even if some updates are async
+                        try {
+                            window.__pnpHb = window.setInterval(() => {
+                                try { sendWs({ t:"host_heartbeat", room, role:"host", ts: Date.now() }); } catch(e) {}
+                                try { sendSnapshot(latestStateRef.current); } catch(e) {}
+                            }, 1200);
+                        } catch(e) {}
+                    } else {
+                        sendWs({ t:"hello", room, role:"guest", ts: Date.now() });
+                        requestSync();
+                        // keep requesting until synced
+                        try {
+                            window.__pnpHb = window.setInterval(() => { try { if (!netSyncedRef.current) requestSync(); } catch(e) {} }, 1500);
+                        } catch(e) {}
+                    }
+                };
 
-  ws.onmessage = (ev) => {
-    setNetRx(r => r + 1);
-    let msg = null;
-    try { msg = JSON.parse(ev.data); } catch(e) { return; }
-    const room2 = (msg.room || room || "room1").toString();
-    if (room2 !== room) return;
+                ws.onmessage = (ev) => {
+                    setNetRx(r => r + 1);
+                    let msg = null;
+                    try { msg = JSON.parse(ev.data); } catch(e) { return; }
+                    const room2 = (msg.room || "").toString();
+                    if (room2 && room2 !== netRoomRef.current) return;
+                    const t = (msg.t || msg.type || msg.msgType || msg.event || "").toString();
 
-    // Accept state snapshots (many shapes)
-    const mt = msg.t || msg.msgType || msg.type || msg.event;
-    const state = msg.state || (msg.payload && msg.payload.state) || (msg.payload && msg.payload.gameState) || msg.gameState;
-    if ((mt === "state" || mt === "state_sync" || mt === "sync") && state && netRoleRef.current === "guest") {
-      applyingSnapshotRef.current = true;
-      try {
-        setNetSynced(true);
-        _setGameState(state);
-      } finally {
-        applyingSnapshotRef.current = false;
-      }
-      return;
-    }
+                    if (t === "request_sync" && netRoleRef.current === "host") {
+                        sendSnapshot(latestStateRef.current);
+                        return;
+                    }
 
-    // Intents only processed on host
-    const intent = msg.intent || (msg.payload && msg.payload.intent);
-    if ((mt === "intent") && intent && netRoleRef.current === "host") {
-      try {
-        const api = hostApiRef.current || {};
-        if (intent.kind === "space_click" && api.spaceClick) api.spaceClick(intent.space);
-        else if (intent.kind === "end_turn" && api.endTurn) api.endTurn();
-        else if (intent.kind === "choose_bloom" && api.chooseBloom) api.chooseBloom(intent.cropKey);
-        else if (intent.kind === "crop_decision" && api.cropDecision) api.cropDecision(intent.decision, intent.spaceId);
-        else if (intent.kind === "craft_spell" && api.craftSpell) api.craftSpell(intent.spellKey);
-        else if (intent.kind === "cast_spell" && api.castSpell) api.castSpell(intent.spellKey, intent.target);
-      } catch(e) {}
-      // nudge a snapshot shortly after intents
-      try { setTimeout(() => sendSnapshot(latestStateRef.current), 80); } catch(e) {}
-    }
-  };
+                    // Apply snapshots on guest only
+                    const state = msg.state || (msg.payload && msg.payload.state) || null;
+                    if ((t === "state" || t === "state_sync" || t === "snapshot") && state && netRoleRef.current === "guest") {
+                        allowGuestSetRef.current = true;
+                        try { __setGameState(state); } catch(e) {}
+                        allowGuestSetRef.current = false;
+                        setNetSynced(true);
+                        try { netSyncedRef.current = true; } catch(e) {}
+                        return;
+                    }
 
-  ws.onclose = () => { wsClose(); };
-  ws.onerror = () => { setNetStatus("error"); setNetLastErr("WebSocket error."); };
-};
+                    // Host: apply intents
+                    const intent = msg.intent || (msg.payload && msg.payload.intent) || null;
+                    if (t === "intent" && intent && netRoleRef.current === "host") {
+                        try {
+                            if (intent.kind === "space_click") {
+                                handleSpaceClick(intent.space);
+                            } else if (intent.kind === "end_turn") {
+                                endTurnByPortrait();
+                            }
+                        } catch(e) {}
+                        // nudge snapshot shortly after
+                        window.setTimeout(() => { try { sendSnapshot(latestStateRef.current); } catch(e) {} }, 80);
+                        return;
+                    }
+                };
 
+                ws.onclose = () => { wsClose(); };
+                ws.onerror = () => { setNetStatus("error"); setNetLastErr("WebSocket error."); };
+            };
 
-// Auto-connect on load if URL contains role=host|guest
-useEffect(() => {
-  try {
-    const qs = new URLSearchParams(window.location.search);
-    const urlRole = (qs.get("role") || "offline").toLowerCase();
-    const urlRoom = (qs.get("room") || "room1");
-    if (urlRoom && urlRoom !== netRoom) setNetRoom(urlRoom);
-    if (urlRole === "host" || urlRole === "guest") {
-      setTimeout(() => { try { wsConnect(urlRole); } catch(e) {} }, 60);
-    }
-  } catch(e) {}
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-}, []);
+            // Guest-safe setGameState wrapper: blocks any local mutations on guest
+            const setGameState = (updater) => {
+                if (netRoleRef.current === "guest" && !allowGuestSetRef.current) return;
+                __setGameState(updater);
+            };
 
-// Guarded setGameState: guest can only apply snapshots
-const setGameState = (updater) => {
-  const role = netRoleRef.current;
-  if (role === "guest" && !applyingSnapshotRef.current) return;
-  _setGameState(updater);
-};
+            // Broadcast snapshots whenever host state changes
+            useEffect(() => {
+                if (netRoleRef.current === "host" && netStatus === "online") {
+                    try { sendSnapshot(gameState); } catch(e) {}
+                }
+            }, [gameState, netStatus]);
+
+            // Auto-connect if URL has role=host|guest
+            useEffect(() => {
+                try {
+                    const qs = new URLSearchParams(window.location.search);
+                    const r = (qs.get("role") || "").toLowerCase();
+                    const rm = (qs.get("room") || "room1");
+                    if (rm) { setNetRoom(rm); netRoomRef.current = rm; }
+                    if (r === "host" || r === "guest") {
+                        window.setTimeout(() => { try { wsConnect(r); } catch(e) {} }, 50);
+                    }
+                } catch(e) {}
+            }, []);
 
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
-
-// Host broadcasts authoritative snapshots on every state change
-useEffect(() => {
-  try {
-    if (netRoleRef.current !== "host") return;
-    if (!wsRef.current || wsRef.current.readyState !== 1) return;
-    if (!gameState) return;
-    sendSnapshot(gameState);
-  } catch(e) {}
-}, [gameState]);
-
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
                 if (!gameState) return;
@@ -2654,8 +2640,12 @@ setPickRemaining(count);
             };
 
             const endTurnByPortrait = () => {
-                // Online guest: send intent to host instead of advancing locally
-                if (netRoleRef.current === 'guest') { try { sendIntent({ kind: 'end_turn' }); } catch(e) {} return; }
+                // Online: guest sends intent to host
+                if (netRoleRef.current === "guest" && netStatus === "online") {
+                    sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"end_turn", ts: Date.now() } });
+                    return;
+                }
+
                 if (!gameState || gameOver) return;
                 if (spinning) return;
                 if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
@@ -2832,8 +2822,12 @@ const handleWheelClick = (e) => {
 
 const handleSpaceClick = (space) => {
 
-                // Online guest: send intent to host instead of running local logic
-                if (netRoleRef.current === 'guest') { try { sendIntent({ kind: 'space_click', space }); } catch(e) {} return; }
+                // Online: guest sends intent to host
+                if (netRoleRef.current === "guest" && netStatus === "online") {
+                    sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"space_click", space, ts: Date.now() } });
+                    return;
+                }
+
 
                 // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
                 if (freezeTargeting && freezeTargeting.options && freezeTargeting.options.length) {
@@ -2947,15 +2941,8 @@ if (selectingTeleport) {
                             movePlayer(space);
                         }
                     }
-                }            };
-
-// Expose a small command API for host to apply guest intents through the same handlers the UI uses.
-            useEffect(() => {
-                hostApiRef.current = {
-                    spaceClick: (spaceId) => { try { handleSpaceClick(spaceId); } catch(e) {} },
-                    endTurn: () => { try { endTurnByPortrait(); } catch(e) {} },
-                };
-            });
+                }
+            };
 
             const moveZombie = (zombieIdx, dest, opts = {}) => {
                 const newState = {...gameState};
@@ -4540,47 +4527,30 @@ const renderGrid = (playerKey, spells, styleBase) => (
 
 
                         
-{/* Online panel */}
-<div style={{ position:'fixed', top:12, right:12, zIndex:999999, width: 260, fontFamily:'system-ui, -apple-system, Segoe UI, Roboto, sans-serif' }}>
-  <div style={{ background:'rgba(15,23,42,0.92)', color:'#e2e8f0', border:'1px solid rgba(148,163,184,0.35)', borderRadius:12, padding:'10px 10px' }}>
-    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:8 }}>
-      <div style={{ fontWeight:800, letterSpacing:0.2 }}>Online</div>
-      <div style={{ fontSize:12, opacity:0.85 }}>{netStatus}</div>
-    </div>
-    <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
-      <div style={{ fontSize:12, opacity:0.8 }}>Room</div>
-      <input
-        value={netRoom}
-        onChange={(e)=>setNetRoom(e.target.value)}
-        style={{ flex:1, padding:'6px 8px', borderRadius:8, border:'1px solid rgba(148,163,184,0.35)', background:'rgba(2,6,23,0.6)', color:'#e2e8f0' }}
-      />
-    </div>
-    <div style={{ display:'flex', gap:8, marginBottom:8 }}>
-      <button
-        onClick={()=>wsConnect('host')}
-        style={{ flex:1, padding:'7px 10px', borderRadius:10, border:'1px solid rgba(148,163,184,0.35)', background:'rgba(34,197,94,0.25)', color:'#e2e8f0', fontWeight:800, cursor:'pointer' }}
-      >Host</button>
-      <button
-        onClick={()=>wsConnect('guest')}
-        style={{ flex:1, padding:'7px 10px', borderRadius:10, border:'1px solid rgba(148,163,184,0.35)', background:'rgba(59,130,246,0.25)', color:'#e2e8f0', fontWeight:800, cursor:'pointer' }}
-      >Join</button>
-      <button
-        onClick={()=>wsClose()}
-        style={{ padding:'7px 10px', borderRadius:10, border:'1px solid rgba(148,163,184,0.35)', background:'rgba(244,63,94,0.18)', color:'#e2e8f0', fontWeight:800, cursor:'pointer' }}
-      >Off</button>
-    </div>
-    <div style={{ fontSize:12, opacity:0.9, lineHeight:1.35 }}>
-      <div>Role: <b>{netRole}</b> {netRole==='guest' && <span style={{opacity:0.8}}>(controls via intents)</span>}</div>
-      <div>Synced: <b>{netSynced ? 'yes' : 'no'}</b> · Rx {netRx} · Tx {netTx}</div>
-      {netLastErr ? <div style={{ color:'#fda4af', marginTop:6 }}>Error: {netLastErr}</div> : null}
-      <div style={{ marginTop:6, opacity:0.75 }}>
-        Tip: open two tabs with <code>?room=room1</code>, click Host in one and Join in the other.
-      </div>
-    </div>
+
+<div style={{ position:'fixed', top:12, right:12, zIndex:99999, background:'rgba(10,10,10,0.72)', color:'#fff', padding:'10px 12px', borderRadius:12, fontFamily:'ui-sans-serif, system-ui', fontSize:12, width:260 }}>
+  <div style={{ fontWeight:800, marginBottom:6 }}>Online</div>
+  <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:8 }}>
+    <span style={{ opacity:0.85 }}>Room</span>
+    <input value={netRoom} onChange={(e)=>{ setNetRoom(e.target.value); netRoomRef.current = e.target.value; }} style={{ flex:1, padding:'4px 6px', borderRadius:8, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(0,0,0,0.35)', color:'#fff' }} />
+  </div>
+  <div style={{ display:'flex', gap:8, marginBottom:8 }}>
+    <button onClick={()=>wsConnect("host")} style={{ flex:1, padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(34,197,94,0.9)', color:'#fff', fontWeight:800 }}>Host</button>
+    <button onClick={()=>wsConnect("guest")} style={{ flex:1, padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(59,130,246,0.9)', color:'#fff', fontWeight:800 }}>Join</button>
+    <button onClick={()=>wsClose()} style={{ padding:'6px 8px', borderRadius:10, border:'1px solid rgba(255,255,255,0.25)', background:'rgba(100,116,139,0.85)', color:'#fff', fontWeight:800 }}>Off</button>
+  </div>
+  <div style={{ display:'grid', gridTemplateColumns:'auto 1fr', gap:'4px 10px', opacity:0.95 }}>
+    <div>Status</div><div>{netStatus}</div>
+    <div>Role</div><div>{netRole}</div>
+    <div>Synced</div><div>{netSynced ? "yes" : "no"}</div>
+    <div>Rx / Tx</div><div>{netRx} / {netTx}</div>
+    <div style={{ gridColumn:'1 / span 2', color:'#ffb4b4', minHeight:14 }}>{netLastErr}</div>
+  </div>
+  <div style={{ marginTop:8, opacity:0.7, fontSize:11 }}>
+    Tip: open host in normal tab and guest in Incognito. Use same ?room=room1.
   </div>
 </div>
 
-/*__WIN_OVERLAY_REPLACED__*/
 
 
 /* Portrait hotspots: click portrait to end turn (after you have moved). */}
