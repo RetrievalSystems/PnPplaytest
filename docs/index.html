@@ -934,6 +934,44 @@ const wsSendJson = (obj) => {
         try { setNetLastErr(String(e && e.message ? e.message : e)); } catch(_) {}
         return false;
     }
+
+
+// Make snapshots JSON-safe (avoid circular refs / Maps / Sets / functions)
+const toNetSafe = (value) => {
+    const seen = new WeakSet();
+    const replacer = (_k, v) => {
+        if (typeof v === "function") return undefined;
+        if (typeof v === "symbol") return undefined;
+        if (v && typeof v === "object") {
+            // Drop DOM nodes / window objects
+            try {
+                if (typeof Node !== "undefined" && v instanceof Node) return undefined;
+            } catch(_) {}
+            if (seen.has(v)) return undefined;
+            seen.add(v);
+            if (v instanceof Map) return { __type: "Map", entries: Array.from(v.entries()) };
+            if (v instanceof Set) return { __type: "Set", values: Array.from(v.values()) };
+            if (v instanceof Date) return { __type: "Date", value: v.toISOString() };
+        }
+        return v;
+    };
+    try {
+        return JSON.parse(JSON.stringify(value, replacer));
+    } catch (e) {
+        // As a last resort, try a shallow clone of likely fields.
+        try {
+            if (value && typeof value === "object") {
+                const out = {};
+                for (const k in value) {
+                    const v = value[k];
+                    if (typeof v !== "function") out[k] = v;
+                }
+                return JSON.parse(JSON.stringify(out, replacer));
+            }
+        } catch(_) {}
+        return null;
+    }
+};
 };
 
 const sendEnvelope = (msgType, payload) => {
@@ -947,15 +985,20 @@ const sendEnvelope = (msgType, payload) => {
     });
 };
 
+
 const sendSnapshot = (gs) => {
     // Host-authoritative snapshot broadcast.
-    // Send in multiple common formats so different relays work without server changes.
-    const base = { room: netRoom, gameState: gs, from: clientIdRef.current, role: netRoleRef.current };
+    // Always send a JSON-safe snapshot (some state fields may be non-serializable).
+    const safe = toNetSafe(gs);
+    if (!safe) return false;
+    const base = { room: netRoom, gameState: safe, from: clientIdRef.current, role: netRoleRef.current };
     let ok = false;
-    ok = wsSendJson({ type: "pnp", msgType: "state", room: netRoom, from: clientIdRef.current, role: netRoleRef.current, payload: { gameState: gs } }) || ok;
+    ok = wsSendJson({ type: "pnp", msgType: "state", room: netRoom, from: clientIdRef.current, role: netRoleRef.current, payload: { gameState: safe } }) || ok;
     ok = wsSendJson({ type: "state", room: netRoom, ...base }) || ok;
     ok = wsSendJson({ msgType: "state", room: netRoom, ...base }) || ok;
     ok = wsSendJson({ event: "state", room: netRoom, ...base }) || ok;
+    ok = wsSendJson({ t: "state", room: netRoom, ...base }) || ok;
+    ok = wsSendJson({ action: "state", room: netRoom, ...base }) || ok;
     return ok;
 };
 
@@ -998,6 +1041,16 @@ const processIntentQueue = () => {
             // ignore individual intent failures
         }
     }
+
+// After applying a batch of intents, nudge a snapshot out quickly.
+try {
+    if (wsRef.current && wsRef.current.readyState === 1) {
+        window.setTimeout(() => {
+            try { sendSnapshot(latestStateRef.current); } catch(e) {}
+        }, 50);
+    }
+} catch(e) {}
+
 };
 
 const wsClose = () => {
