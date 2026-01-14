@@ -1005,8 +1005,10 @@ const [netLastErr, setNetLastErr] = useState("");
 
                 ws.onmessage = (ev) => {
                     setNetRx(r => r + 1);
-                    let msg = null;
-                    try { msg = JSON.parse(ev.data); } catch(e) { return; }
+
+                    const handleText = (text) => {
+                        let msg = null;
+                        try { msg = JSON.parse(text); } catch(e) { return; }
                     const room2 = (msg.room || "").toString();
                     if (room2 && room2 !== netRoomRef.current) return;
                     const t = (msg.t || msg.msgType || msg.event || msg.type || "").toString();
@@ -1044,7 +1046,30 @@ const [netLastErr, setNetLastErr] = useState("");
                         window.setTimeout(() => { try { sendSnapshot(latestStateRef.current); } catch(e) {} }, 80);
                         return;
                     }
+                        return;
+                    };
+
+                    const d = ev.data;
+                    if (typeof d === "string") { handleText(d); return; }
+                    try {
+                        if (d instanceof Blob) { d.text().then(handleText).catch(() => {}); return; }
+                    } catch(e) {}
+                    try {
+                        if (d instanceof ArrayBuffer) {
+                            const text = new TextDecoder("utf-8").decode(new Uint8Array(d));
+                            handleText(text);
+                            return;
+                        }
+                        if (d && d.buffer instanceof ArrayBuffer) {
+                            const text = new TextDecoder("utf-8").decode(new Uint8Array(d.buffer));
+                            handleText(text);
+                            return;
+                        }
+                    } catch(e) {}
+                    // Fallback
+                    try { handleText(String(d)); } catch(e) {}
                 };
+
 
                 ws.onclose = () => { wsClose(); };
                 ws.onerror = () => { setNetStatus("error"); setNetLastErr("WebSocket error."); };
