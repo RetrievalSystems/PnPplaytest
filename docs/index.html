@@ -983,7 +983,9 @@ const [netLastErr, setNetLastErr] = useState("");
 
                 ws.onopen = () => {
                     setNetStatus("online");
-                    if (role === "host") {
+                    
+                    try { if (role === "host") { setNetSynced(true); netSyncedRef.current = true; setNetLastStateTs(Date.now()); } } catch(e) {}
+if (role === "host") {
                         sendWs({ t:"hello", room, role:"host", ts: Date.now() });
                         sendSnapshot(latestStateRef.current);
                         // heartbeat snapshot to keep guest updated even if some updates are async
@@ -1026,6 +1028,15 @@ const [netLastErr, setNetLastErr] = useState("");
                         allowGuestSetRef.current = true;
                         try { __setGameState(state); } catch(e) {}
                         allowGuestSetRef.current = false;
+                        // Reset local selection/highlights to avoid showing the wrong player's options after a snapshot.
+                        try { setSelectedSpace(null); } catch(e) {}
+                        try { setValidMoves([]); } catch(e) {}
+                        // Only show move options if it is Blue's turn on the guest.
+                        try {
+                            if (state && state.currentPlayer === "blue" && !state.hasMovedThisTurn) {
+                                autoShowCurrentMoves(state);
+                            }
+                        } catch(e) {}
                         setNetSynced(true);
                         try { setNetLastStateTs(Number(msg.ts || Date.now())); } catch(e) {}
                         try { netSyncedRef.current = true; } catch(e) {}
@@ -1035,6 +1046,11 @@ const [netLastErr, setNetLastErr] = useState("");
                     // Host: apply intents
                     const intent = msg.intent || (msg.payload && msg.payload.intent) || null;
                     if (intent && netRoleRef.current === "host") {
+                        // Guest always controls Blue. Ignore guest commands unless it's Blue's turn.
+                        try {
+                            const cp = (latestStateRef.current && latestStateRef.current.currentPlayer) || (gameState && gameState.currentPlayer);
+                            if (cp && cp !== "blue") return;
+                        } catch(e) {}
                         try {
                             if (intent.kind === "space_click") {
                                 handleSpaceClick(intent.space);
@@ -1044,9 +1060,11 @@ const [netLastErr, setNetLastErr] = useState("");
                         } catch(e) {}
                         // nudge snapshot shortly after
                         window.setTimeout(() => { try { sendSnapshot(latestStateRef.current); } catch(e) {} }, 80);
+                        // Refresh highlights to avoid showing the wrong player's move options.
+                        window.setTimeout(() => { try { autoShowCurrentMoves(latestStateRef.current); } catch(e) {} }, 140);
                         return;
                     }
-                        return;
+
                     };
 
                     const d = ev.data;
