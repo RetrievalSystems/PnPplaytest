@@ -899,13 +899,23 @@ function HerbalistWizards() {
             // Persist role per-tab so two windows don’t both become "guest"
             useEffect(() => {
                 try {
-                    const saved = sessionStorage.getItem("pnp_role");
+                    const saved = sessionStorage.getItem("pnp_role_"+(new URLSearchParams(window.location.search).get("room")||"room1"));
                     if (saved === "host" || saved === "guest") {
                         setNetRole(saved);
                         netRoleRef.current = saved;
                     }
                 } catch(e) {}
             }, []);
+            // URL override per-tab
+            try {
+                const urlRole = new URLSearchParams(window.location.search).get('role');
+                if (urlRole === 'host' || urlRole === 'guest') {
+                    setNetRole(urlRole);
+                    netRoleRef.current = urlRole;
+                    sessionStorage.setItem("pnp_role_" + (new URLSearchParams(window.location.search).get("room")||"room1"), urlRole);
+                }
+            } catch(e) {}
+
 
             const wsRef = useRef(null);
             const wsUrlTriedRef = useRef(null);
@@ -1080,7 +1090,7 @@ const wsConnect = (role) => {
     setNetStatus("connecting");
     setNetRole(role);
     netRoleRef.current = role;
-    try { sessionStorage.setItem("pnp_role", role); } catch(e) {}
+    try { sessionStorage.setItem("pnp_role_"+(new URLSearchParams(window.location.search).get("room")||"room1"), role); } catch(e) {}
 
     const room = (netRoom || "room1").trim() || "room1";
     const urls = [
@@ -1138,7 +1148,7 @@ const wsConnect = (role) => {
                 window.__pnpHb = setInterval(() => {
                     try {
                         if (netRoleRef.current === "host" && wsRef.current && wsRef.current.readyState === 1) {
-                            wsSendJson({ msgType: "host_heartbeat", room: netRoom, from: clientIdRef.current, role: "host", ts: Date.now() });
+                            wsSendJson({ msgType: "host_heartbeat", room: netRoom, from: clientIdRef.current, role: netRoleRef.current, ts: Date.now() });
                             // Also send a lightweight snapshot occasionally.
                             sendSnapshot(latestStateRef.current);
                         }
@@ -3638,11 +3648,11 @@ return (
     <div className="mt-2 flex gap-2">
         <button
             className="flex-1 rounded-md bg-white/15 hover:bg-white/25 px-2 py-1 text-[12px]"
-            onClick={() => wsConnect("host")}
+            onClick={() => { try { const u=new URL(window.location.href); u.searchParams.set("role","host"); window.location.href = u.toString(); } catch(e) {} wsConnect("host"); }}
         >Host</button>
         <button
             className="flex-1 rounded-md bg-white/15 hover:bg-white/25 px-2 py-1 text-[12px]"
-            onClick={() => wsConnect("guest")}
+            onClick={() => { try { const u=new URL(window.location.href); u.searchParams.set("role","guest"); window.location.href = u.toString(); } catch(e) {} wsConnect("guest"); }}
         >Join</button>
         <button
             className="rounded-md bg-white/10 hover:bg-white/20 px-2 py-1 text-[12px]"
