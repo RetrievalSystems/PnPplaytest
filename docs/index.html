@@ -896,6 +896,17 @@ function HerbalistWizards() {
             const [gameState, _setGameState] = useState(null);
             // Network role guard: on guest, block local game-state mutations; only apply host snapshots.
             const netRoleRef = useRef("offline");
+            // Persist role per-tab so two windows don’t both become "guest"
+            useEffect(() => {
+                try {
+                    const saved = sessionStorage.getItem("pnp_role");
+                    if (saved === "host" || saved === "guest") {
+                        setNetRole(saved);
+                        netRoleRef.current = saved;
+                    }
+                } catch(e) {}
+            }, []);
+
             const wsRef = useRef(null);
             const wsUrlTriedRef = useRef(null);
             const clientIdRef = useRef(Math.random().toString(36).slice(2) + Date.now().toString(36));
@@ -1055,6 +1066,7 @@ try {
 
 const wsClose = () => {
     try { wsRef.current && wsRef.current.close(); } catch(e) {}
+    try { if (window.__pnpHb) clearInterval(window.__pnpHb); window.__pnpHb = null; } catch(e) {}
     wsRef.current = null;
     wsUrlTriedRef.current = null;
     setNetStatus("offline");
@@ -1068,6 +1080,7 @@ const wsConnect = (role) => {
     setNetStatus("connecting");
     setNetRole(role);
     netRoleRef.current = role;
+    try { sessionStorage.setItem("pnp_role", role); } catch(e) {}
 
     const room = (netRoom || "room1").trim() || "room1";
     const urls = [
@@ -1119,6 +1132,19 @@ const wsConnect = (role) => {
         ws.onopen = () => {
             setNetStatus("connected");
             sendJoinBursts();
+            // Host: send periodic heartbeat + snapshot so relay/logs confirm host->guest traffic.
+            try { if (window.__pnpHb) clearInterval(window.__pnpHb); } catch(e) {}
+            try {
+                window.__pnpHb = setInterval(() => {
+                    try {
+                        if (netRoleRef.current === "host" && wsRef.current && wsRef.current.readyState === 1) {
+                            wsSendJson({ msgType: "host_heartbeat", room: netRoom, from: clientIdRef.current, role: "host", ts: Date.now() });
+                            // Also send a lightweight snapshot occasionally.
+                            sendSnapshot(latestStateRef.current);
+                        }
+                    } catch(e) {}
+                }, 1000);
+            } catch(e) {}
         };
 
         ws.onmessage = (ev) => {
