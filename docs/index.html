@@ -931,6 +931,21 @@ function HerbalistWizards() {
             const [netRxCount, setNetRxCount] = useState(0);
             const [netTxCount, setNetTxCount] = useState(0);
             const [netLastMsg, setNetLastMsg] = useState("");
+            // Auto-connect after Host/Join refresh (when URL has role=host|guest).
+            useEffect(() => {
+                try {
+                    const qs = new URLSearchParams(window.location.search);
+                    const urlRole = (qs.get("role") || "").toLowerCase();
+                    const urlRoom = (qs.get("room") || "").trim();
+                    if (urlRoom) setNetRoom(urlRoom);
+                    if (urlRole === "host" || urlRole === "guest") {
+                        setTimeout(() => {
+                            try { wsConnect(urlRole); } catch(e) {}
+                        }, 50);
+                    }
+                } catch(e) {}
+            }, []);
+
             const [netSynced, setNetSynced] = useState(false);
             const netSyncedRef = useRef(false);
 
