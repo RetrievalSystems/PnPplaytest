@@ -948,12 +948,7 @@ const [netLastErr, setNetLastErr] = useState("");
                 if (netRoleRef.current !== "host") return;
                 const snap = safeClone(stateObj);
                 if (!snap) return;
-                // Include minimal UI-needed fields for the guest (Occurrence Wheel overlay)
-                const ui = safeClone({
-                    showOccurrence,
-                    currentOccurrence
-                });
-                sendWs({ t: "state", room: netRoomRef.current, role: "host", ts: Date.now(), state: snap, ui });
+                sendWs({ t: "state", room: netRoomRef.current, role: "host", ts: Date.now(), state: snap, ui: { showOccurrence: !!showOccurrenceRef.current, currentOccurrence: currentOccurrenceRef.current || null, spinning: !!spinningRef.current, spinAnim: spinAnimRef.current || 0 } });
             };
 
             const requestSync = () => {
@@ -988,7 +983,9 @@ const [netLastErr, setNetLastErr] = useState("");
 
                 ws.onopen = () => {
                     setNetStatus("online");
-                    if (role === "host") {
+                    
+                    try { if (role === "host") { setNetSynced(true); netSyncedRef.current = true; setNetLastStateTs(Date.now()); } } catch(e) {}
+if (role === "host") {
                         sendWs({ t:"hello", room, role:"host", ts: Date.now() });
                         sendSnapshot(latestStateRef.current);
                         // heartbeat snapshot to keep guest updated even if some updates are async
@@ -1028,20 +1025,29 @@ const [netLastErr, setNetLastErr] = useState("");
                     // Apply snapshots on guest only
                     const state = msg.state || (msg.payload && msg.payload.state) || null;
                     if (state && netRoleRef.current === "guest") {
-                        // Apply authoritative snapshot
                         allowGuestSetRef.current = true;
                         try { __setGameState(state); } catch(e) {}
                         allowGuestSetRef.current = false;
-
-                        // Apply host UI overlay bits (Occurrence Wheel)
+                        // Sync occurrence UI from host (host-authoritative wheel).
                         try {
                             const ui = msg.ui || (msg.payload && msg.payload.ui) || null;
                             if (ui) {
-                                try { setCurrentOccurrence(ui.currentOccurrence ?? null); } catch(e) {}
-                                try { setShowOccurrence(!!ui.showOccurrence); } catch(e) {}
+                                if (typeof ui.showOccurrence === "boolean") setShowOccurrence(ui.showOccurrence);
+                                if ("currentOccurrence" in ui) setCurrentOccurrence(ui.currentOccurrence || null);
+                                if (typeof ui.spinning === "boolean") setSpinning(ui.spinning);
+                                if (typeof ui.spinAnim === "number") setSpinAnim(ui.spinAnim);
                             }
                         } catch(e) {}
 
+                        // Reset local selection/highlights to avoid showing the wrong player's options after a snapshot.
+                        try { setSelectedSpace(null); } catch(e) {}
+                        try { setValidMoves([]); } catch(e) {}
+                        // Only show move options if it is Blue's turn on the guest.
+                        try {
+                            if (state && state.currentPlayer === "blue" && !state.hasMovedThisTurn) {
+                                autoShowCurrentMoves(state);
+                            }
+                        } catch(e) {}
                         setNetSynced(true);
                         try { setNetLastStateTs(Number(msg.ts || Date.now())); } catch(e) {}
                         try { netSyncedRef.current = true; } catch(e) {}
@@ -1051,39 +1057,25 @@ const [netLastErr, setNetLastErr] = useState("");
                     // Host: apply intents
                     const intent = msg.intent || (msg.payload && msg.payload.intent) || null;
                     if (intent && netRoleRef.current === "host") {
+                        // Guest always controls Blue. Ignore guest commands unless it's Blue's turn.
+                        try {
+                            const cp = ((latestStateRef.current && latestStateRef.current.currentPlayer) || (gameState && gameState.currentPlayer));
+                            if (cp && cp !== "blue") return;
+                        } catch(e) {}
                         try {
                             if (intent.kind === "space_click") {
-                                // Try normal click handling first (covers targeting, UI-driven phases, etc.)
-                                const beforePos = (latestStateRef.current && latestStateRef.current.players && latestStateRef.current.players[latestStateRef.current.currentPlayer])
-                                    ? latestStateRef.current.players[latestStateRef.current.currentPlayer].position
-                                    : null;
-
                                 handleSpaceClick(intent.space);
-
-                                // If this was a movement click but host UI selection state wasn't aligned,
-                                // fall back to a direct-move check using host rules.
-                                try {
-                                    const st = latestStateRef.current;
-                                    const pkey = st?.currentPlayer;
-                                    const afterPos = (st && st.players && st.players[pkey]) ? st.players[pkey].position : null;
-                                    if (beforePos && afterPos === beforePos && intent.space && pkey) {
-                                        const dist = (maxMoveDistanceRef.current || 3);
-                                        const reach = getValidMoves(beforePos, dist, { actorKey: pkey, allowEnterOwnAbode: true });
-                                        const can = reach.includes(intent.space);
-                                        if (can) {
-                                            movePlayer(intent.space);
-                                        }
-                                    }
-                                } catch(e) {}
                             } else if (intent.kind === "end_turn") {
                                 endTurnByPortrait();
                             }
                         } catch(e) {}
                         // nudge snapshot shortly after
                         window.setTimeout(() => { try { sendSnapshot(latestStateRef.current); } catch(e) {} }, 80);
+                        // Refresh highlights to avoid showing the wrong player's move options.
+                        window.setTimeout(() => { try { autoShowCurrentMoves(latestStateRef.current); } catch(e) {} }, 140);
                         return;
                     }
-                        return;
+
                     };
 
                     const d = ev.data;
@@ -1276,6 +1268,15 @@ useEffect(() => {
             useEffect(() => { pendingBloomRef.current = pendingBloom; }, [pendingBloom]);
             const [spinning, setSpinning] = useState(false);
             const [spinAnim, setSpinAnim] = useState(0);
+            const showOccurrenceRef = useRef(false);
+            const currentOccurrenceRef = useRef(null);
+            const spinningRef = useRef(false);
+            const spinAnimRef = useRef(0);
+            useEffect(() => { showOccurrenceRef.current = showOccurrence; }, [showOccurrence]);
+            useEffect(() => { currentOccurrenceRef.current = currentOccurrence; }, [currentOccurrence]);
+            useEffect(() => { spinningRef.current = spinning; }, [spinning]);
+            useEffect(() => { spinAnimRef.current = spinAnim; }, [spinAnim]);
+
             const [spinScale, setSpinScale] = useState(1);
             const [spellChartMode, setSpellChartMode] = useState('view');
             const [bloomChartView, setBloomChartView] = useState('choices');
