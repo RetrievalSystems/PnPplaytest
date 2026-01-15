@@ -4612,5 +4612,131 @@ const renderGrid = (playerKey, spells, styleBase) => (
 
         ReactDOM.render(<HerbalistWizards />, document.getElementById('root'));
     </script>
+<!-- MULTIPLAYER CODE - Paste before </body> -->
+<script>
+(function() {
+  'use strict';
+  
+  // YOUR RENDER SERVER URL
+  const RELAY_SERVER_URL = 'wss://pnp-relay.onrender.com';
+  
+  // Get room and role from URL
+  const urlParams = new URLSearchParams(window.location.search);
+  const roomId = urlParams.get('room') || 'default';
+  const role = urlParams.get('role') || 'host';
+  const isHost = (role === 'host');
+  
+  console.log('🎮 Multiplayer:', role, '| Room:', roomId);
+  
+  // WebSocket connection
+  let ws = null;
+  let reconnectAttempts = 0;
+  
+  function connect() {
+    try {
+      ws = new WebSocket(RELAY_SERVER_URL);
+      
+      ws.onopen = () => {
+        console.log('🟢 Connected to server');
+        reconnectAttempts = 0;
+        ws.send(JSON.stringify({ type: 'join_room', room: roomId, role: role }));
+        updateStatus(true);
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.sender === role) return;
+          console.log('📨 Received:', data.type, data);
+          if (window.onRemoteAction) window.onRemoteAction(data.type, data);
+        } catch (e) {
+          console.error('Message error:', e);
+        }
+      };
+      
+      ws.onerror = () => {
+        console.error('❌ Connection error');
+        updateStatus(false);
+      };
+      
+      ws.onclose = () => {
+        console.log('🔴 Disconnected');
+        updateStatus(false);
+        if (reconnectAttempts < 5) {
+          reconnectAttempts++;
+          setTimeout(connect, 2000);
+        }
+      };
+    } catch (e) {
+      console.error('Connect error:', e);
+    }
+  }
+  
+  function updateStatus(connected) {
+    let status = document.getElementById('mp-status');
+    if (!status) {
+      status = document.createElement('div');
+      status.id = 'mp-status';
+      status.style.cssText = `
+        position: fixed;
+        top: 10px;
+        right: 10px;
+        padding: 8px 16px;
+        background: ${isHost ? 'rgba(250,204,21,0.9)' : 'rgba(96,165,250,0.9)'};
+        color: white;
+        border-radius: 20px;
+        font-size: 14px;
+        font-weight: bold;
+        z-index: 999999;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      `;
+      document.body.appendChild(status);
+    }
+    status.textContent = (connected ? '🟢 ' : '🔴 ') + (isHost ? 'HOST (Yellow)' : 'GUEST (Blue)');
+  }
+  
+  // Sync function
+  window.syncGameAction = function(action, data) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: action,
+        ...data,
+        room: roomId,
+        sender: role,
+        timestamp: Date.now()
+      }));
+      console.log('📤 Sent:', action);
+    }
+  };
+  
+  // Info button
+  const infoBtn = document.createElement('button');
+  infoBtn.textContent = 'ℹ️';
+  infoBtn.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: rgba(0,0,0,0.8);
+    color: white;
+    border: 2px solid white;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 999999;
+  `;
+  infoBtn.onclick = () => {
+    const link = window.location.origin + window.location.pathname + 
+                 '?room=' + roomId + '&role=' + (isHost ? 'guest' : 'host');
+    prompt('Share this link with your friend:', link);
+  };
+  document.body.appendChild(infoBtn);
+  
+  connect();
+  console.log('✅ Multiplayer ready!');
+  
+})();
+</script>
 </body>
 </html>
