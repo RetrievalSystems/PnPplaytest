@@ -1055,6 +1055,14 @@ const [netLastErr, setNetLastErr] = useState("");
                         try {
                             const stNow = latestStateRef.current;
                             const senderRole = (msg.role || (msg.payload && msg.payload.role) || "").toString();
+                            const actorKey = (senderRole === "guest") ? "blue" : ((stNow && stNow.currentPlayer) ? String(stNow.currentPlayer) : "");
+                            // Hard strict mode: host is Yellow, guest is Blue.
+                            // Ignore guest intents unless it is Blue\'s turn and the host is ready to accept actions.
+                            if (senderRole === "guest") {
+                                if (actorKey !== "blue") return;
+                                if (((stNow && stNow.currentPlayer) ? String(stNow.currentPlayer) : "") !== "blue") return;
+                                if (spinning || showCropPickOption || (stNow && stNow.awaitingCropPickDecision) || selectingTeleport || freezeTargeting || pendingSpellTarget) return;
+                            }
                             if (senderRole === "guest") {
                                 // Guest controls Blue only; ignore intents when it is not Blue\'s turn
                                 if (((stNow && stNow.currentPlayer) ? String(stNow.currentPlayer) : "") !== "blue") return;
@@ -1062,8 +1070,8 @@ const [netLastErr, setNetLastErr] = useState("");
 
                             if (intent.kind === "space_click") {
                                 // Try normal click handling first (covers targeting, UI-driven phases, etc.)
-                                const beforePos = (latestStateRef.current && latestStateRef.current.players && latestStateRef.current.players[latestStateRef.current.currentPlayer])
-                                    ? latestStateRef.current.players[latestStateRef.current.currentPlayer].position
+                                const beforePos = (latestStateRef.current && latestStateRef.current.players && latestStateRef.current.players[actorKey])
+                                    ? (latestStateRef.current.players[actorKey] ? latestStateRef.current.players[actorKey].position : null)
                                     : null;
 
                                 handleSpaceClick(intent.space);
@@ -2720,13 +2728,14 @@ setPickRemaining(count);
             };
 
             const endTurnByPortrait = () => {
-                // Online: guest sends intent to host
+                // Online: guest sends intent to host (Blue only, only when Blue is allowed to end)
                 if (netRoleRef.current === "guest" && netStatus === "online") {
+                    const cp = (gameState && gameState.currentPlayer) ? String(gameState.currentPlayer) : "";
+                    if (cp !== "blue") return;
                     sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"end_turn", ts: Date.now() } });
                     return;
                 }
-
-                if (!gameState || gameOver) return;
+if (!gameState || gameOver) return;
                 if (spinning) return;
                 if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
 
@@ -2902,14 +2911,14 @@ const handleWheelClick = (e) => {
 
 const handleSpaceClick = (space) => {
 
-                // Online: guest sends intent to host
+                // Online: guest sends intent to host (Blue only, and only on Blue's actionable turn)
                 if (netRoleRef.current === "guest" && netStatus === "online") {
+                    const cp = (gameState && gameState.currentPlayer) ? String(gameState.currentPlayer) : "";
+                    if (cp !== "blue") return; // ignore clicks when it's not Blue's turn
                     sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"space_click", space, ts: Date.now() } });
                     return;
                 }
-
-
-                // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
+// If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
                 if (freezeTargeting && freezeTargeting.options && freezeTargeting.options.length) {
                     const hit = freezeTargeting.options.find(o => o && o.space === space);
                     if (hit) {
