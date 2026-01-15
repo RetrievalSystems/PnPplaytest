@@ -948,7 +948,7 @@ const [netLastErr, setNetLastErr] = useState("");
                 if (netRoleRef.current !== "host") return;
                 const snap = safeClone(stateObj);
                 if (!snap) return;
-                sendWs({ t: "state", room: netRoomRef.current, role: "host", ts: Date.now(), state: snap });
+                sendWs({ t: "state", room: netRoomRef.current, role: "host", ts: Date.now(), state: snap, ui: { showOccurrence: !!showOccurrenceRef.current, currentOccurrence: currentOccurrenceRef.current || null, spinning: !!spinningRef.current, spinAnim: spinAnimRef.current || 0 } });
             };
 
             const requestSync = () => {
@@ -1028,6 +1028,17 @@ if (role === "host") {
                         allowGuestSetRef.current = true;
                         try { __setGameState(state); } catch(e) {}
                         allowGuestSetRef.current = false;
+                        // Sync occurrence UI from host (host-authoritative wheel).
+                        try {
+                            const ui = msg.ui || (msg.payload && msg.payload.ui) || null;
+                            if (ui) {
+                                if (typeof ui.showOccurrence === "boolean") setShowOccurrence(ui.showOccurrence);
+                                if ("currentOccurrence" in ui) setCurrentOccurrence(ui.currentOccurrence || null);
+                                if (typeof ui.spinning === "boolean") setSpinning(ui.spinning);
+                                if (typeof ui.spinAnim === "number") setSpinAnim(ui.spinAnim);
+                            }
+                        } catch(e) {}
+
                         // Reset local selection/highlights to avoid showing the wrong player's options after a snapshot.
                         try { setSelectedSpace(null); } catch(e) {}
                         try { setValidMoves([]); } catch(e) {}
@@ -1048,7 +1059,7 @@ if (role === "host") {
                     if (intent && netRoleRef.current === "host") {
                         // Guest always controls Blue. Ignore guest commands unless it's Blue's turn.
                         try {
-                            const cp = (latestStateRef.current && latestStateRef.current.currentPlayer) || (gameState && gameState.currentPlayer);
+                            const cp = ((latestStateRef.current && latestStateRef.current.currentPlayer) || (gameState && gameState.currentPlayer));
                             if (cp && cp !== "blue") return;
                         } catch(e) {}
                         try {
@@ -1257,6 +1268,15 @@ useEffect(() => {
             useEffect(() => { pendingBloomRef.current = pendingBloom; }, [pendingBloom]);
             const [spinning, setSpinning] = useState(false);
             const [spinAnim, setSpinAnim] = useState(0);
+            const showOccurrenceRef = useRef(false);
+            const currentOccurrenceRef = useRef(null);
+            const spinningRef = useRef(false);
+            const spinAnimRef = useRef(0);
+            useEffect(() => { showOccurrenceRef.current = showOccurrence; }, [showOccurrence]);
+            useEffect(() => { currentOccurrenceRef.current = currentOccurrence; }, [currentOccurrence]);
+            useEffect(() => { spinningRef.current = spinning; }, [spinning]);
+            useEffect(() => { spinAnimRef.current = spinAnim; }, [spinAnim]);
+
             const [spinScale, setSpinScale] = useState(1);
             const [spellChartMode, setSpellChartMode] = useState('view');
             const [bloomChartView, setBloomChartView] = useState('choices');
