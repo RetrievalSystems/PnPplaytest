@@ -902,9 +902,6 @@ function HerbalistWizards() {
             const [netRx, setNetRx] = useState(0);
             const [netTx, setNetTx] = useState(0);
             const [netSynced, setNetSynced] = useState(false);
-            const [netHasGuest, setNetHasGuest] = useState(false);
-            const netHasGuestRef = useRef(false);
-
             const [netLastIn, setNetLastIn] = useState("");
             const [netLastOut, setNetLastOut] = useState("");
             const [netLastStateTs, setNetLastStateTs] = useState(0);
@@ -991,6 +988,7 @@ const [netLastErr, setNetLastErr] = useState("");
 
                 ws.onopen = () => {
                     setNetStatus("online");
+                    if (role === "host") { try { setNetSynced(true); netSyncedRef.current = true; } catch(e) {} }
                     if (role === "host") {
                         sendWs({ t:"hello", room, role:"host", ts: Date.now() });
                         sendSnapshot(latestStateRef.current);
@@ -1021,15 +1019,7 @@ const [netLastErr, setNetLastErr] = useState("");
                     if (room2 && room2 !== netRoomRef.current) return;
                     const t = (msg.t || msg.msgType || msg.event || msg.type || "").toString();
 
-                    
-                    // Track whether a guest is connected (host only)
-                    try {
-                        if (t === "hello" && netRoleRef.current === "host") {
-                            const r = (msg.role || (msg.payload && msg.payload.role) || "").toString();
-                            if (r === "guest") { netHasGuestRef.current = true; setNetHasGuest(true); }
-                        }
-                    } catch(e) {}
-try { setNetLastIn(t); } catch(e) {}
+                    try { setNetLastIn(t); } catch(e) {}
 
                     if (t === "request_sync" && netRoleRef.current === "host") {
                         sendSnapshot(latestStateRef.current);
@@ -1049,15 +1039,7 @@ try { setNetLastIn(t); } catch(e) {}
                             const ui = msg.ui || (msg.payload && msg.payload.ui) || null;
                             if (ui) {
                                 try { setCurrentOccurrence(ui.currentOccurrence ?? null); } catch(e) {}
-                                try {
-                                    const show = !!ui.showOccurrence;
-                                    setShowOccurrence(show);
-                                    if (show) {
-                                        // ensure the guest sees the overlay even if host clears it quickly
-                                        if (window.__pnpOccT) clearTimeout(window.__pnpOccT);
-                                        window.__pnpOccT = setTimeout(() => { try { setShowOccurrence(false); } catch(e) {} }, 2500);
-                                    }
-                                } catch(e) {}
+                                try { setShowOccurrence(!!ui.showOccurrence); } catch(e) {}
                             }
                         } catch(e) {}
 
@@ -1070,16 +1052,14 @@ try { setNetLastIn(t); } catch(e) {}
                     // Host: apply intents
                     const intent = msg.intent || (msg.payload && msg.payload.intent) || null;
                     if (intent && netRoleRef.current === "host") {
-                        // Strict turn-gating: only accept guest intents during Blue's turn
                         try {
-                            const fromRole = (msg.role || (msg.payload && msg.payload.role) || "").toString();
-                            if (fromRole === "guest") {
-                                const cp = latestStateRef.current && latestStateRef.current.currentPlayer;
-                                if (cp !== "blue") return;
+                            const stNow = latestStateRef.current;
+                            const senderRole = (msg.role || (msg.payload && msg.payload.role) || "").toString();
+                            if (senderRole === "guest") {
+                                // Guest controls Blue only; ignore intents when it is not Blue\'s turn
+                                if (((stNow && stNow.currentPlayer) ? String(stNow.currentPlayer) : "") !== "blue") return;
                             }
-                        } catch(e) {}
 
-                        try {
                             if (intent.kind === "space_click") {
                                 // Try normal click handling first (covers targeting, UI-driven phases, etc.)
                                 const beforePos = (latestStateRef.current && latestStateRef.current.players && latestStateRef.current.players[latestStateRef.current.currentPlayer])
@@ -1092,7 +1072,7 @@ try { setNetLastIn(t); } catch(e) {}
                                 // fall back to a direct-move check using host rules.
                                 try {
                                     const st = latestStateRef.current;
-                                    const pkey = st?.currentPlayer;
+                                    const pkey = (senderRole === "guest") ? "blue" : st?.currentPlayer;
                                     const afterPos = (st && st.players && st.players[pkey]) ? st.players[pkey].position : null;
                                     if (beforePos && afterPos === beforePos && intent.space && pkey) {
                                         const dist = (maxMoveDistanceRef.current || 3);
@@ -1296,16 +1276,6 @@ useEffect(() => {
 
             const [showOccurrence, setShowOccurrence] = useState(false);
             const [currentOccurrence, setCurrentOccurrence] = useState(null);
-
-            // Online: if host changes the Occurrence Wheel overlay, broadcast immediately (so guest never misses it)
-            useEffect(() => {
-                try {
-                    if (netRoleRef.current === "host" && netStatus === "online") {
-                        sendSnapshot(latestStateRef.current);
-                    }
-                } catch(e) {}
-            }, [showOccurrence, currentOccurrence]);
-
             const [freezeTargeting, setFreezeTargeting] = useState(null);
             useEffect(() => { try { freezeTargetingRef.current = freezeTargeting; } catch(e) {} }, [freezeTargeting]);
 
@@ -2752,23 +2722,9 @@ setPickRemaining(count);
             const endTurnByPortrait = () => {
                 // Online: guest sends intent to host
                 if (netRoleRef.current === "guest" && netStatus === "online") {
-                    // Strict: guest can only end turn on Blue's turn
-                    try {
-                        const cp = latestStateRef.current && latestStateRef.current.currentPlayer;
-                        if (cp && cp !== "blue") return;
-                    } catch(e) {}
                     sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"end_turn", ts: Date.now() } });
                     return;
                 }
-
-                // Strict: when a guest is connected, host cannot end turn for Blue
-                if (netRoleRef.current === "host" && netStatus === "online") {
-                    try {
-                        const cp = latestStateRef.current && latestStateRef.current.currentPlayer;
-                        if (netHasGuestRef.current && cp === "blue") return;
-                    } catch(e) {}
-                }
-
 
                 if (!gameState || gameOver) return;
                 if (spinning) return;
@@ -2948,23 +2904,9 @@ const handleSpaceClick = (space) => {
 
                 // Online: guest sends intent to host
                 if (netRoleRef.current === "guest" && netStatus === "online") {
-                    // Strict: guest can only act on Blue's turn
-                    try {
-                        const cp = latestStateRef.current && latestStateRef.current.currentPlayer;
-                        if (cp && cp !== "blue") return;
-                    } catch(e) {}
                     sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"space_click", space, ts: Date.now() } });
                     return;
                 }
-
-                // Strict: when a guest is connected, host cannot move for Blue
-                if (netRoleRef.current === "host" && netStatus === "online") {
-                    try {
-                        const cp = latestStateRef.current && latestStateRef.current.currentPlayer;
-                        if (netHasGuestRef.current && cp === "blue") return;
-                    } catch(e) {}
-                }
-
 
 
                 // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
