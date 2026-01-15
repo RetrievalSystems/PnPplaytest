@@ -912,7 +912,7 @@ function HerbalistWizards() {
             const netEnabled = (roleParam === 'host' || roleParam === 'guest');
             const netIsHost = (roleParam === 'host');
             const netRoomId = (() => { try { return urlParamsRef.current.get('room') || 'default-room'; } catch(e) { return 'default-room'; } })();
-            const netRelayUrl = (() => { try { return urlParamsRef.current.get('relay') || 'wss://your-relay-server.onrender.com'; } catch(e) { return 'wss://your-relay-server.onrender.com'; } })();
+            const netRelayUrl = (() => { try { return urlParamsRef.current.get('relay') || 'wss://pnp-relay.onrender.com'; } catch(e) { return 'wss://pnp-relay.onrender.com'; } })();
             const localPlayerKey = (() => {
                 try {
                     const p = (urlParamsRef.current.get('player') || '').toLowerCase();
