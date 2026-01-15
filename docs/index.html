@@ -909,6 +909,7 @@ const [netLastErr, setNetLastErr] = useState("");
 
             const wsRef = useRef(null);
             const netRoleRef = useRef("offline");
+            const applyingRemoteIntentRef = useRef(false);
             const netRoomRef = useRef((new URLSearchParams(window.location.search).get("room") || "room1"));
             const allowGuestSetRef = useRef(false);
 
@@ -1066,7 +1067,7 @@ const [netLastErr, setNetLastErr] = useState("");
                                 const cp = st && st.currentPlayer;
                                 const beforePos = (st && st.players && cp && st.players[cp]) ? st.players[cp].position : null;
 
-                                handleSpaceClick(intent.space);
+                                try { applyingRemoteIntentRef.current = true; handleSpaceClick(intent.space); } finally { applyingRemoteIntentRef.current = false; }
 
                                 // If this was a movement click but host UI selection state wasn't aligned,
                                 // fall back to a direct-move check using host rules.
@@ -1084,7 +1085,7 @@ const [netLastErr, setNetLastErr] = useState("");
                                     }
                                 } catch(e) {}
                             } else if (intent.kind === "end_turn") {
-                                endTurnByPortrait();
+                                try { applyingRemoteIntentRef.current = true; endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; }
                             }
                         } catch(e) {}
                         // nudge snapshot shortly after
@@ -2720,134 +2721,30 @@ setPickRemaining(count);
             };
 
             const endTurnByPortrait = () => {
-                // Online: guest sends intent to host (Blue only, and only during Blue's actionable turn)
-                if (netRoleRef.current === "guest" && netStatus === "online") {
-                    if (!gameState || gameState.currentPlayer !== "blue" || spinning || selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
-                    sendWs({ t:"intent", room: netRoomRef.current, role: "guest", ts: Date.now(), intent: { kind:"space_click", space, ts: Date.now() } });
-                    return;
-                }
+    if (!gameState) return;
 
+    // Online strict roles: host = Yellow, guest = Blue
+    const isOnline = (netStatus === "online");
+    const role = netRoleRef.current;
 
-                // Online strict roles: host = Yellow, guest = Blue.
-                // Host should NOT end Blue's turn locally (wait for guest intent).
-                if (netStatus === "online" && netRoleRef.current === "host" && gameState && gameState.currentPlayer === "blue") {
-                    return;
-                }
+    // Guest ends turn by sending intent (Blue only, only when actionable)
+    if (isOnline && role === "guest") {
+        if (gameState.currentPlayer !== "blue") return;
+        if (spinning || selectingTeleportTarget || pendingSpellTarget || freezeTargeting || showCropPickOption || gameState.awaitingCropPickDecision) return;
+        sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"end_turn", ts: Date.now() } });
+        return;
+    }
 
-                // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
-                if (freezeTargeting && freezeTargeting.options && freezeTargeting.options.length) {
-                    const hit = freezeTargeting.options.find(o => o && o.space === space);
-                    if (hit) {
-                        handleFreezeTargetPick(hit);
-                    }
-                    return;
-                }
+    // Host should not end Blue's turn locally (wait for guest intent)
+    if (isOnline && role === "host" && gameState.currentPlayer === "blue") return;
 
-                /*__PENDING_TARGET_CLICK__*/
-                if (pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.length) {
-                    const hit = pendingSpellTarget.targets.find(t => t.space === space);
-                    if (hit) {
-                        castSpellToTarget(pendingSpellTarget.spellKey, hit);
-                        return;
-                    }
-                }
+    // Local end-turn (offline OR host during Yellow)
+    if (spinning || selectingTeleportTarget || pendingSpellTarget || freezeTargeting || showCropPickOption || gameState.awaitingCropPickDecision) return;
+    try {
+        endTurnFromSnapshot(gameState);
+    } catch (e) {}
+};
 
-                
-                // If you are frozen, you lose this turn (no movement / no spells).
-                if (gameState?.players?.[gameState.currentPlayer]?.frozen) {
-                    setTempMessage(`${gameState.currentPlayer === 'yellow' ? 'Yellow' : 'Blue'} is frozen and loses this turn.`, 1600);
-                    return;
-                }
-if (!gameState || gameOver || showCropPickOption || gameState.awaitingCropPickDecision || (showSpellChart && spellChartMode !== 'view')) return;
-                // If this isn't a first-move turn, you must have an occurrence revealed before you can move.
-                if (!wheelSpunThisTurn && !gameState.firstMove[gameState.currentPlayer]) return;
-
-if (selectingTeleport) {
-                    const newState = {...gameState};
-                    const player = newState.currentPlayer;
-
-                    // Teleport does NOT consume your move phase. It simply relocates you.
-                    const fromPos = newState.players[player].position;
-                    triggerTeleportBeam(fromPos, space);
-                    playSfxFileTail('spellcrafted', 3, { volume: 0.75 });
-                    newState.players[player].position = space;
-                    newState.players[player].inAbode = (space === ABODES[player]);
-
-                    // If you land on an uncollected crop, you collect it (or get Pick/Leave if already full).
-                    if (newState.crops[space] && !newState.crops[space].collected) {
-                        const crop = newState.crops[space].type;
-                        const count = newState.players[player].inventory[crop] || 0;
-                        if (count < CROPS[crop].slots) {
-                            newState.players[player].inventory[crop] = count + 1;
-                            newState.crops[space].collected = true;
-                                if (vitalityThisTurnRef.current) playSfxFile('crunch', { volume: 0.55 });
-                                setCollectedMessage(CROPS[crop]?.name || crop);
-                            } else {
-                            // Inventory full - offer to pick anyway; pause progression.
-                            newState.awaitingCropPickDecision = true;
-                            setGameState(newState);
-                            setShowCropPickOption({ space, crop });
-                            setSelectedSpace(null);
-                            setValidMoves([]);
-                        setSelectingTeleport(false);
-                            return;
-                        }
-                    }
-
-                    // Consume the teleport spell
-                    newState.players[player].spells = newState.players[player].spells.filter(s => s !== 'teleport');
-                    setGameState(newState);
-                    setSelectingTeleport(false);
-                    return;
-                }
-
-                // Zombie movement - can happen anytime during turn
-                if (selectedZombie !== null) {
-                    // Clicking a valid destination moves; clicking anywhere else cancels zombie selection.
-                    if (zombieValidMoves.includes(space)) {
-                        moveZombie(selectedZombie, space);
-                    }
-                    setSelectedZombie(null);
-                    setZombieValidMoves([]);
-                    return;
-                }
-
-                const player = gameState.players[gameState.currentPlayer];
-                const playerKey = gameState.currentPlayer;
-
-                // Check if clicking on own zombie (anytime during turn)
-                const zombieIdx = gameState.zombies.findIndex(z => z.position === space && z.owner === gameState.currentPlayer);
-                if (zombieIdx !== -1) {
-                    // If zombie has already moved and is sitting on the opponent, allow a commanded attack.
-                    if (zombieHasMoved && zombieAttackReady === zombieIdx) {
-                        moveZombie(zombieIdx, space, { commandAttack: true });
-                        return;
-                    }
-                    // Otherwise select it for movement (once per turn)
-                    if (!zombieHasMoved) {
-                        setSelectedZombie(zombieIdx);
-                        setZombieValidMoves(getValidMoves(space, 3, { mode: 'zombie', actorKey: gameState.currentPlayer }));
-                        return;
-                    }
-                }
-
-                // Player movement - only if hasn't moved yet
-                if (!gameState.hasMovedThisTurn) {
-                    if (!selectedSpace) {
-                        if (space === player.position) {
-                            setValidMoves(getValidMoves(space, maxMoveDistance, { mode: 'player', actorKey: gameState.currentPlayer, allowEnterOwnAbode: true }));
-                            setSelectedSpace(space);
-                        }
-                    } else {
-                        const abode = ABODES[gameState.currentPlayer];
-                        const adj = ABODE_ADJ[abode] || [];
-                        const canEnterNow = (space === abode) && selectedSpace && validMoves.some(s => adj.includes(s));
-                        if (validMoves.includes(space) || canEnterNow) {
-                            movePlayer(space);
-                        }
-                    }
-                }
-            };
 
             const moveZombie = (zombieIdx, dest, opts = {}) => {
                 const newState = {...gameState};
@@ -4190,7 +4087,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             const ready = (function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })();
                             if (!ready) return;
                             e.stopPropagation();
-                            try { endTurnByPortrait(); } catch(e2) {}
+                            try { try { applyingRemoteIntentRef.current = true; endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; } } catch(e2) {}
                         }}
                         style={{
                                     position: 'absolute',
@@ -4371,7 +4268,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 const zombieHasMoved = !!(gameState.zombieHasMoved || false);
                                 const okZombie = (!ownsZombie) || zombieHasMoved;
                                 if (!okZombie) return;
-                                endTurnByPortrait();
+                                try { applyingRemoteIntentRef.current = true; endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; }
                             } catch (err) {}
                         }}
                         style={{
@@ -4471,7 +4368,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 if (!gameState.hasMovedThisTurn) return;
                                 if (gameState.awaitingCropPickDecision) return;
                                 // End-turn is still implemented via the crop wheel logic (advances crop wheel + spins occurrence for next player).
-                                endTurnByPortrait();
+                                try { applyingRemoteIntentRef.current = true; endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; }
                             }}
                             style={{
                                 position: 'absolute',
