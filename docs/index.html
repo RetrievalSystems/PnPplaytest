@@ -911,8 +911,6 @@ const [netLastErr, setNetLastErr] = useState("");
             const netRoleRef = useRef("offline");
             const netRoomRef = useRef((new URLSearchParams(window.location.search).get("room") || "room1"));
             const allowGuestSetRef = useRef(false);
-            const applyingRemoteIntentRef = useRef(false);
-
 
             const safeClone = (obj) => {
                 const seen = new WeakSet();
@@ -980,7 +978,7 @@ const [netLastErr, setNetLastErr] = useState("");
                 netRoleRef.current = role;
                 const room = (netRoomRef.current || "room1").trim() || "room1";
                 netRoomRef.current = room;
-                try { const u = new URL(window.location.href); u.searchParams.set("room", room); u.searchParams.set("role", role); history.replaceState(null, "", u.toString()); } catch(e) {}
+                try { history.replaceState(null, "", `${location.pathname}?room=${encodeURIComponent(room)}&role=${encodeURIComponent(role)}`); } catch(e) {}
                 const url = `wss://pnp-relay.onrender.com/?room=${encodeURIComponent(room)}`;
                 let ws;
                 try { ws = new WebSocket(url); } catch (e) {
@@ -1058,18 +1056,22 @@ const [netLastErr, setNetLastErr] = useState("");
                             const stNow = latestStateRef.current;
                             const senderRole = (msg.role || (msg.payload && msg.payload.role) || "").toString();
                             if (senderRole === "guest") {
-                                // Guest controls Blue only; ignore intents when it is not Blue\'s turn
+                                // Strict: guest controls Blue only; ignore intents when it is not Blue's actionable turn.
                                 if (((stNow && stNow.currentPlayer) ? String(stNow.currentPlayer) : "") !== "blue") return;
+                                // Also ignore if the host is in a non-actionable UI state.
+                                if (!stNow || gameOver) return;
+                                if (spinning) return;
+                                if (selectingTeleport || showCropPickOption || stNow.awaitingCropPickDecision) return;
+                                if (!wheelSpunThisTurn && !(stNow.firstMove && stNow.firstMove.blue)) return;
                             }
 
                             if (intent.kind === "space_click") {
                                 // Try normal click handling first (covers targeting, UI-driven phases, etc.)
-                                const st = latestStateRef.current;
-                                const cp = st && st.currentPlayer;
-                                const beforePos = (st && st.players && cp && st.players[cp]) ? st.players[cp].position : null;
+                                const beforePos = (latestStateRef.current && latestStateRef.current.players && latestStateRef.current.players[latestStateRef.current.currentPlayer])
+                                    ? latestStateRef.current.players[latestStateRef.current.currentPlayer].position
+                                    : null;
 
-                                applyingRemoteIntentRef.current = true;
-                                try { handleSpaceClick(intent.space); } finally { applyingRemoteIntentRef.current = false; }
+                                handleSpaceClick(intent.space);
 
                                 // If this was a movement click but host UI selection state wasn't aligned,
                                 // fall back to a direct-move check using host rules.
@@ -1087,8 +1089,11 @@ const [netLastErr, setNetLastErr] = useState("");
                                     }
                                 } catch(e) {}
                             } else if (intent.kind === "end_turn") {
-                                applyingRemoteIntentRef.current = true;
-                                try { endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; }
+                                // Only the guest (Blue) can end Blue's turn.
+                                if (senderRole === "guest") {
+                                    if (((stNow && stNow.currentPlayer) ? String(stNow.currentPlayer) : "") !== "blue") return;
+                                }
+                                endTurnByPortrait();
                             }
                         } catch(e) {}
                         // nudge snapshot shortly after
@@ -2723,48 +2728,218 @@ setPickRemaining(count);
                 setGameState(ns);
             };
 
-            
             const endTurnByPortrait = () => {
-                // Online: guest sends intent to host (Blue only, and only during Blue's actionable turn)
+                // Online: guest sends intent to host
                 if (netRoleRef.current === "guest" && netStatus === "online") {
+                    // Strict: guest (Blue) can only end turn when it is actually Blue's turn and the turn is actionable.
                     try {
-                        if (!gameState) return;
-                        if (String(gameState.currentPlayer) !== "blue") return;
-                        if (spinning || selectingTeleport || freezeTargeting || pendingSpellTarget || zombieAttackReady || showCropPickOption || gameState.awaitingCropPickDecision) return;
-                        sendWs({ t:"intent", room: netRoomRef.current, role: "guest", ts: Date.now(), intent: { kind:"end_turn", ts: Date.now() } });
-                    } catch(e) {}
+                        const st = gameState;
+                        if (!st || gameOver) return;
+                        if (String(st.currentPlayer) !== "blue") return;
+                        if (spinning) return;
+                        if (selectingTeleport || showCropPickOption || st.awaitingCropPickDecision) return;
+                        const player = st.players?.blue;
+                        const acted = !!(st.hasMovedThisTurn || (player && player.frozen));
+                        if (!acted) return;
+                    } catch(e) { return; }
+                    sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"end_turn", ts: Date.now() } });
                     return;
                 }
 
-                // Online strict roles: host = Yellow, guest = Blue.
-                // Host should NOT end Blue's turn locally (wait for guest intent).
-                if (netStatus === "online" && netRoleRef.current === "host" && gameState && String(gameState.currentPlayer) === "blue" && !applyingRemoteIntentRef.current) {
+                if (!gameState || gameOver) return;
+                if (spinning) return;
+                if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
+
+                const playerKey = gameState.currentPlayer;
+                const player = gameState.players[playerKey];
+
+                const ownsZombie = (gameState.zombies || []).some(z => z.owner === playerKey);
+                const acted = !!(gameState.hasMovedThisTurn || player.frozen);
+                if (!acted) return;
+                if (ownsZombie && !zombieHasMoved && !player.frozen) {
+                    try { playSfxFile('zombie', { volume: 0.85 }); } catch(e) {}
+
+                    setTempMessage(`${(playerKey === 'yellow') ? 'Yellow' : 'Blue'}, move your zombie up to 3 spaces.`, 1800);
                     return;
                 }
 
-                // Offline or Host ending Yellow turn
-                try { endTurnFromSnapshot(gameState); } catch(e) {}
+                                // Confirmed: turn will advance.
+                playSfxFile('wheel', { volume: 0.75, rate: 1.0 });
+
+// Advance the wheel (physical action), then advance the turn.
+                const snap = { ...gameState };
+                // If the active player was frozen, this is their skipped turn. Clear it now so it only lasts one turn.
+                if (snap.players && snap.players[playerKey] && snap.players[playerKey].frozen) {
+                    try { triggerThawFx(snap.players[playerKey].position); } catch(e) {}
+                    snap.players = { ...snap.players, [playerKey]: { ...snap.players[playerKey], frozen: false } };
+                }
+                snap.cropWheel++;
+                if (snap.cropWheel > 12) {
+                    snap.cropWheel = 1;
+                    Object.keys(snap.crops).forEach(p => snap.crops[p].collected = false);
+                    setTempMessage('A new season — the crops re-emerge.', 2400);
+                    playSfxFile('newseason', { volume: 0.7 });
+                
+                        // Layer: rooster + birds (3s starting 2s in) on top of the season change
+                        try { playSfxFile('rooster', { volume: 0.55, loop: false }); } catch(e) {}
+                        try {
+                            const b = playSfxFileFrom('birds', 2.0, { volume: 0.35, loop: false });
+                            window.setTimeout(() => { try { if (b) { b.pause(); b.currentTime = 0; } } catch(e) {} }, 3000);
+                        } catch(e) {}
+}
+
+                // New turn will auto-spin occurrence (see useEffect below)
+                setWheelSpunThisTurn(false);
+                endTurnFromSnapshot(snap);
+
+                setSelectedSpace(null);
+                setValidMoves([]);
+                setSelectedZombie(null);
+                setZombieValidMoves([]);
+                setZombieHasMoved(false);
+                setZombieAttackReady(null);
+            }
+
+
+// Auto-skip a frozen player's turn (Freeze spell).
+useEffect(() => {
+    if (!gameState || gameOver) return;
+    const pkey = gameState.currentPlayer;
+    const p = gameState.players?.[pkey];
+    if (!p || !p.frozen) return;
+
+    // Play freeze ambience during the skipped turn, and keep it running until this player's next real turn begins.
+    if (p.freezeSfxPending && !freezeSfxActiveRef.current) {
+        freezeSfxActiveRef.current = true;
+        playSfxFile('ice', { volume: 0.65, loop: true });
+        playSfxFile('polarwind', { volume: 0.55, loop: true });
+    }
+    // Don't allow any interaction; automatically end the turn shortly.
+    setTempMessage(`${pkey === 'yellow' ? 'Yellow' : 'Blue'} is frozen — turn skipped.`, 1600);
+    const t = window.setTimeout(() => {
+        try { endTurnByPortrait(); } catch(e) {}
+    }, 900);
+    return () => window.clearTimeout(t);
+}, [gameState?.currentPlayer, gameState?.players?.yellow?.frozen, gameState?.players?.blue?.frozen, gameOver]);
+
+// Stop freeze ambience when the previously-frozen player begins their next real turn (one full round later).
+useEffect(() => {
+    if (!gameState || gameOver) return;
+    const pkey = gameState.currentPlayer;
+    const p = gameState.players?.[pkey];
+    if (!p) return;
+
+    if (p.freezeSfxPending && !p.frozen) {
+        try { playSfxFile('drips', { volume: 0.65, rate: 1.0 }); } catch(e) {}
+        // Ensure drips is a short one-shot even if the source file is long
+        try { setTimeout(() => stopSfx('drips'), 1600); } catch(e) {}
+        stopSfx('ice');
+        stopSfx('polarwind');
+        freezeSfxActiveRef.current = false;
+
+        try {
+            const ns = { ...gameState, players: { ...gameState.players, [pkey]: { ...gameState.players[pkey], freezeSfxPending: false } } };
+            setGameState(ns);
+        } catch (e) {}
+    }
+}, [gameState?.currentPlayer, gameState?.players?.yellow?.freezeSfxPending, gameState?.players?.blue?.freezeSfxPending, gameState?.players?.yellow?.frozen, gameState?.players?.blue?.frozen, gameOver]);
+
+// Protection ambience: loop Heal while any player is protected (typically lasts until their next turn).
+useEffect(() => {
+    if (!gameState || gameOver) return;
+    const anyProtected = !!(gameState.players?.yellow?.protected || gameState.players?.blue?.protected);
+    if (anyProtected && !protectSfxActiveRef.current) {
+        try { playSfxFile('heal', { volume: 0.42, loop: true, rate: 0.70 }); } catch(e) {}
+        protectSfxActiveRef.current = true;
+    } else if (!anyProtected && protectSfxActiveRef.current) {
+        try { stopSfx('heal'); } catch(e) {}
+        protectSfxActiveRef.current = false;
+    }
+}, [gameState?.players?.yellow?.protected, gameState?.players?.blue?.protected, gameOver]);
+
+
+
+
+;
+
+const handleWheelClick = (e) => {
+                // Wheel is no longer clickable (portrait ends turn).
+                return;
+                playSfxFile('wheel', { volume: 0.75, rate: 1.0 });
+                if (e) { try { e.preventDefault(); } catch(_){}; try { e.stopPropagation(); } catch(_){}; }
+                if (!gameState || gameOver) return;
+                if (spinning) return;
+                if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
+
+                const playerKey = gameState.currentPlayer;
+                const player = gameState.players[playerKey];
+
+                // Yellow's very first turn starts immediately (no wheel-click needed beforehand).
+                // After that, turns are advanced by clicking the wheel at the end of the active player's turn.
+                const ownsZombie = (gameState.zombies || []).some(z => z.owner === playerKey);
+                const acted = !!(gameState.hasMovedThisTurn || player.frozen);
+                if (!acted) return;
+                if (ownsZombie && !zombieHasMoved && !player.frozen) {
+                    setTempMessage(`${(playerKey === 'yellow') ? 'Yellow' : 'Blue'}, move your zombie up to 3 spaces.`, 1800);
+                    return;
+                }
+
+                // Advance the wheel (physical action), then advance the turn.
+                const snap = {...gameState};
+                snap.cropWheel++;
+                if (snap.cropWheel > 12) {
+                    snap.cropWheel = 1;
+                    Object.keys(snap.crops).forEach(p => snap.crops[p].collected = false);
+                    setTempMessage('A new season — the crops re-emerge.', 2400);
+                    playSfxFile('newseason', { volume: 0.7 });
+                }
+
+                endTurnFromSnapshot(snap);
+
+                // Reveal the next player's occurrence automatically (except for Yellow's very first move).
+                window.setTimeout(() => {
+                    const st = latestStateRef.current;
+                    if (!st) return;
+                    const nextKey = st.currentPlayer;
+                    const isFirst = !!st.firstMove?.[nextKey];
+                    if (!isFirst) {
+                        setWheelSpunThisTurn(true);
+                        spinOccurrenceWheel();
+                    } else {
+                        setWheelSpunThisTurn(true);
+                        autoShowCurrentMoves(st, maxMoveDistanceRef.current || 3);
+                    }
+                }, 0);
+
+                setSelectedSpace(null);
+                setValidMoves([]);
+                setSelectedZombie(null);
+                setZombieValidMoves([]);
+                setZombieHasMoved(false);
+                setZombieAttackReady(null);
             };
 
-            const handleSpaceClick = (space) => {
-                // Online: guest sends intent to host (Blue only, and only during Blue's actionable turn)
+
+const handleSpaceClick = (space) => {
+
+                // Online: guest sends intent to host
                 if (netRoleRef.current === "guest" && netStatus === "online") {
+                    // Strict: guest (Blue) must not send clicks unless it is Blue's actionable turn.
                     try {
-                        if (!gameState) return;
-                        if (String(gameState.currentPlayer) !== "blue") return;
-                        if (spinning || selectingTeleport || freezeTargeting || pendingSpellTarget || zombieAttackReady || showCropPickOption || gameState.awaitingCropPickDecision) return;
-                        sendWs({ t:"intent", room: netRoomRef.current, role: "guest", ts: Date.now(), intent: { kind:"space_click", space, ts: Date.now() } });
-                    } catch(e) {}
+                        const st = gameState;
+                        if (!st || gameOver) return;
+                        if (String(st.currentPlayer) !== "blue") return;
+                        if (spinning) return;
+                        if (showCropPickOption || st.awaitingCropPickDecision) return;
+                        // If this isn't a first-move turn, an occurrence must be revealed before moving/clicking-to-act.
+                        if (!wheelSpunThisTurn && !(st.firstMove && st.firstMove.blue)) return;
+                    } catch(e) { return; }
+                    sendWs({ t:"intent", room: netRoomRef.current, role:"guest", ts: Date.now(), intent: { kind:"space_click", space, ts: Date.now() } });
                     return;
                 }
 
-                // Online strict roles: host = Yellow, guest = Blue.
-                // Host should NOT allow local clicks to move Blue.
-                if (netStatus === "online" && netRoleRef.current === "host" && gameState && String(gameState.currentPlayer) === "blue" && !applyingRemoteIntentRef.current) {
-                    return;
-                }
 
-// If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
+                // If we're selecting a Freeze target (opponent vs mob), only allow clicking the highlighted target(s).
                 if (freezeTargeting && freezeTargeting.options && freezeTargeting.options.length) {
                     const hit = freezeTargeting.options.find(o => o && o.space === space);
                     if (hit) {
@@ -4220,8 +4395,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             const ready = (function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })();
                             if (!ready) return;
                             e.stopPropagation();
-                            try { applyingRemoteIntentRef.current = true;
-                                try { endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; } } catch(e2) {}
+                            try { endTurnByPortrait(); } catch(e2) {}
                         }}
                         style={{
                                     position: 'absolute',
@@ -4402,8 +4576,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 const zombieHasMoved = !!(gameState.zombieHasMoved || false);
                                 const okZombie = (!ownsZombie) || zombieHasMoved;
                                 if (!okZombie) return;
-                                applyingRemoteIntentRef.current = true;
-                                try { endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; }
+                                endTurnByPortrait();
                             } catch (err) {}
                         }}
                         style={{
@@ -4503,8 +4676,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 if (!gameState.hasMovedThisTurn) return;
                                 if (gameState.awaitingCropPickDecision) return;
                                 // End-turn is still implemented via the crop wheel logic (advances crop wheel + spins occurrence for next player).
-                                applyingRemoteIntentRef.current = true;
-                                try { endTurnByPortrait(); } finally { applyingRemoteIntentRef.current = false; }
+                                endTurnByPortrait();
                             }}
                             style={{
                                 position: 'absolute',
