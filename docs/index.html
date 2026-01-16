@@ -2184,6 +2184,14 @@ switch(spellKey) {
                 // Protection can be used any time during your turn.
                 if (spellKey === 'protection') return true;
 
+                // Freeze has NO range requirement, but must have at least one valid target (opponent not protected/not in abode OR angry mob exists).
+                if (spellKey === 'freeze') {
+                    const opp = playerKey === 'yellow' ? 'blue' : 'yellow';
+                    const oppOk = !gameState.players[opp].protected && !gameState.players[opp].inAbode;
+                    const mobOk = !!gameState.angryMob;
+                    return oppOk || mobOk;
+                }
+
                 // Death's Breath is only usable if there is a valid target (opponent adjacent/same OR angry mob adjacent/same).
                 if (spellKey === 'deathsBreath') {
                     if (p.inAbode) return false;
