@@ -2260,14 +2260,6 @@ switch(spellKey) {
                         // land slightly larger
                         setSpinScale(1.28);
                         applyOccurrence(occ);
-                        
-                        // Broadcast the occurrence to other player for display (doesn't affect their game)
-                        if (window.syncAction && !window._syncingTurn) {
-                            window.syncAction('occurrence_display', {
-                                occurrenceId: occ.id,
-                                player: gameState?.currentPlayer
-                            });
-                        }
                     }
                 }, 95);
             };
@@ -4580,30 +4572,6 @@ if (data.type === 'move') {
     }
   }
   
-  if (data.type === 'occurrence') {
-    console.log('Occurrence received:', data.data.occurrenceId);
-    // Find the occurrence and display it without spinning
-    const occ = window.OCCURRENCES?.find(o => o.id === data.data.occurrenceId);
-    if (occ && window.setCurrentOccurrence && window.setShowOccurrence) {
-      // Show the OTHER player's occurrence (for info only, doesn't affect this player)
-      console.log(`Other player got: ${occ.name}`);
-      // Could add a visual indicator here if desired
-    }
-  }
-  
-  if (data.type === 'occurrence_display') {
-    console.log('Other player occurrence:', data.data.occurrenceId, 'for player:', data.data.player);
-    // Display only - the other player's occurrence (for information, no game effect)
-    const occ = window.OCCURRENCES?.find(o => o.id === data.data.occurrenceId);
-    if (occ) {
-      console.log(`${data.data.player} got occurrence: ${occ.name}`);
-      // Optionally show a message or indicator
-      if (window.setTempMessage) {
-        const playerName = data.data.player === 'yellow' ? 'Yellow' : 'Blue';
-        window.setTempMessage(`${playerName} got: ${occ.name}`, 1500);
-      }
-    }
-  }
 };
       
       
