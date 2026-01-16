@@ -2145,14 +2145,23 @@ switch(spellKey) {
                     }
                     case 'protection':
                         newState.players[caster].protected = true;
-                        // Undo opponent zombification immediately
-                        newState.zombies = (newState.zombies || []).filter(z => z.owner !== opponent);
                         break;
                 }
 
                 newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== spellKey);
                 if (newState.players[opponent].hp <= 0) setGameOver(caster);
                 setGameState(newState);
+                
+                // Sync zombie state if spell affected zombies (Necromancy creates zombies)
+                if (spellKey === 'necromancy') {
+                    if (window.syncAction && !window._syncingTurn) {
+                        window.syncAction('zombie_state', {
+                            zombies: newState.zombies,
+                            player: caster
+                        });
+                    }
+                }
+                
                 // After the occurrence is revealed/enacted, immediately show this player's move options.
                 window.setTimeout(() => {
                     autoShowCurrentMoves(newState, maxMoveDistanceRef.current || 3);
@@ -2572,7 +2581,9 @@ setPickRemaining(count);
                 if (window.syncAction && !window._syncingTurn) {
                     window.syncAction('turn_end', {
                         currentPlayer: nextPlayer,
-                        hasMovedThisTurn: false
+                        hasMovedThisTurn: false,
+                        cropWheel: snap.cropWheel,
+                        crops: snap.crops
                     });
                 }
             }
@@ -2853,6 +2864,14 @@ if (selectingTeleport) {
                         newState.zombies.splice(zombieIdx, 1);
                         setZombieAttackReady(null);
                         setGameState(newState);
+                        
+                        // Sync zombie removal after attack
+                        if (window.syncAction && !window._syncingTurn) {
+                            window.syncAction('zombie_state', {
+                                zombies: newState.zombies,
+                                player: player
+                            });
+                        }
                         return;
                     }
 
@@ -2869,6 +2888,14 @@ if (selectingTeleport) {
                         if (newState.players[opponent].hp <= 0) setGameOver(player);
                     }
                     setGameState(newState);
+                    
+                    // Sync zombie removal after attack
+                    if (window.syncAction && !window._syncingTurn) {
+                        window.syncAction('zombie_state', {
+                            zombies: newState.zombies,
+                            player: player
+                        });
+                    }
                     return;
                 }
 
@@ -2908,6 +2935,14 @@ if (selectingTeleport) {
                 setSelectedZombie(null);
                 setZombieValidMoves([]);
                 setGameState(newState);
+                
+                // Sync zombie state to other player
+                if (window.syncAction && !window._syncingTurn) {
+                    window.syncAction('zombie_state', {
+                        zombies: newState.zombies,
+                        player: newState.currentPlayer
+                    });
+                }
            };
           
             
@@ -4556,6 +4591,17 @@ if (data.type === 'move') {
     console.log('Player cast spell:', data.data.spell);
   }
   
+  if (data.type === 'zombie_state') {
+    console.log('Zombie state updated:', data.data);
+    // Update zombie positions and ownership
+    if (data.data.zombies && window.setGameState) {
+      window.setGameState(prev => ({
+        ...prev,
+        zombies: data.data.zombies
+      }));
+    }
+  }
+  
   if (data.type === 'turn_end') {
     console.log('Turn ended, switching to:', data.data.currentPlayer);
     // Switch to the next player WITHOUT triggering another sync
@@ -4571,7 +4617,9 @@ if (data.type === 'move') {
       window.setGameState(prev => ({
         ...prev,
         currentPlayer: data.data.currentPlayer,
-        hasMovedThisTurn: data.data.hasMovedThisTurn || false
+        hasMovedThisTurn: data.data.hasMovedThisTurn || false,
+        cropWheel: data.data.cropWheel || prev.cropWheel,
+        crops: data.data.crops || prev.crops
       }));
       setTimeout(() => { window._syncingTurn = false; }, 100);
     }
