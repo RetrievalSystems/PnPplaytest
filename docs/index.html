@@ -1078,6 +1078,7 @@ useEffect(() => {
             const lastHpRef = useRef({ yellow: 9, blue: 9 });
 
             const [wheelSpunThisTurn, setWheelSpunThisTurn] = useState(false);
+            window.setWheelSpunThisTurn = setWheelSpunThisTurn;
 
             // Auto-spin the occurrence at the start of each turn (except a player's very first move).
             useEffect(() => {
@@ -4568,6 +4569,12 @@ if (data.type === 'move') {
     if (data.data.currentPlayer && window.setGameState) {
       // Use a flag to prevent re-triggering
       window._syncingTurn = true;
+      
+      // Reset wheel flag so new turn can spin
+      if (window.setWheelSpunThisTurn) {
+        window.setWheelSpunThisTurn(false);
+      }
+      
       window.setGameState(prev => ({
         ...prev,
         currentPlayer: data.data.currentPlayer,
