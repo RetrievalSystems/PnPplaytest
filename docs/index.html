@@ -2244,7 +2244,11 @@ switch(spellKey) {
                 const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
                 
                 // Only HOST actually spins (GUEST will receive the result via sync)
-                if (!isHost) return;
+                if (!isHost) {
+                    // GUEST still needs to mark that the wheel was "spun" to prevent the useEffect from looping
+                    setWheelSpunThisTurn(true);
+                    return;
+                }
                 
                 playSfxFile('wheel', { volume: 0.65 });
                 setSpinAnim(v => v + 1);
