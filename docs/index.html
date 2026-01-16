@@ -2693,7 +2693,7 @@ const handleSpaceClick = (space) => {
                     return;
                 }
              // Only allow controlling your own player
-const isHost = new URLSearchParams(window.location.search).get('host') === 'true';
+const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
 const myPlayer = isHost ? 'yellow' : 'blue';
 console.log('Click debug:', {isHost, myPlayer, currentPlayer: gameState.currentPlayer, space});
 // Only block if it's definitely NOT your turn
