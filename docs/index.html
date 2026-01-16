@@ -2790,9 +2790,20 @@ if (selectingTeleport) {
                             movePlayer(space);
                         }
                     }
+
+
+               }
+                
+                // Sync the move to other player
+                if (window.syncAction) {
+                    window.syncAction('move', {
+                        space: space,
+                        player: gameState.currentPlayer,
+                        position: gameState.players[gameState.currentPlayer]?.position
+                    });
                 }
             };
-
+            
             const moveZombie = (zombieIdx, dest, opts = {}) => {
                 const newState = {...gameState};
                 const zombie = newState.zombies[zombieIdx];
@@ -2874,8 +2885,16 @@ if (selectingTeleport) {
                 setSelectedZombie(null);
                 setZombieValidMoves([]);
                 setGameState(newState);
-            };;
-
+           };
+            
+            // Sync turn end to other player
+            if (window.syncAction) {
+                window.syncAction('turn_end', {
+                    currentPlayer: gameState.currentPlayer,
+                    hasMovedThisTurn: gameState.hasMovedThisTurn
+                });
+            }
+            
             const getPathBetween = (from, to, opts = {}) => {
                 const queue = [{pos: from, path: [from]}];
                 const visited = new Set([from]);
