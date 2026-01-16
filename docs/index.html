@@ -2832,20 +2832,18 @@ if (selectingTeleport) {
                         const canEnterNow = (space === abode) && selectedSpace && validMoves.some(s => adj.includes(s));
                         if (validMoves.includes(space) || canEnterNow) {
                             movePlayer(space);
+                            
+                            // Sync the move to other player (send the NEW position = space)
+                            if (window.syncAction) {
+                                window.syncAction('move', {
+                                    space: space,
+                                    player: gameState.currentPlayer,
+                                    position: space  // Send the destination, not the old position
+                                });
+                            }
                         }
                     }
-
-
                }
-                
-                // Sync the move to other player
-                if (window.syncAction) {
-                    window.syncAction('move', {
-                        space: space,
-                        player: gameState.currentPlayer,
-                        position: gameState.players[gameState.currentPlayer]?.position
-                    });
-                }
             };
             
             const moveZombie = (zombieIdx, dest, opts = {}) => {
@@ -3308,6 +3306,108 @@ if (travel.length > 0) {
             };
 
             const endTurn = () => endTurnFromSnapshot(gameState);
+
+            // ===== AI PLAYER =====
+            // Add ?ai=true to the URL to enable AI opponent (plays as Blue)
+            const aiEnabled = new URLSearchParams(window.location.search).get('ai') === 'true';
+            
+            useEffect(() => {
+                if (!aiEnabled || !gameState || gameOver) return;
+                if (gameState.currentPlayer !== 'blue') return;
+                if (spinning || showSpellChart || showOccurrence) return;
+                
+                // AI takes its turn after a short delay
+                const aiDelay = setTimeout(() => {
+                    try {
+                        // AI MOVE LOGIC
+                        if (!gameState.hasMovedThisTurn) {
+                            const bluePos = gameState.players.blue.position;
+                            const validMoves = getValidMoves(bluePos, maxMoveDistance, { mode: 'player', actorKey: 'blue', allowEnterOwnAbode: true });
+                            
+                            if (validMoves.length > 0) {
+                                // Simple AI: prioritize crops, then move toward yellow, or random
+                                let bestMove = null;
+                                let bestScore = -1;
+                                
+                                validMoves.forEach(move => {
+                                    let score = 0;
+                                    
+                                    // Prioritize uncollected crops
+                                    if (gameState.crops[move] && !gameState.crops[move].collected) {
+                                        const crop = gameState.crops[move].type;
+                                        const count = gameState.players.blue.inventory[crop] || 0;
+                                        if (count < CROPS[crop].slots) {
+                                            score += 100;
+                                        }
+                                    }
+                                    
+                                    // Move toward opponent if low on crops
+                                    const yellowPos = gameState.players.yellow.position;
+                                    const distToYellow = getDistance(move, yellowPos);
+                                    if (distToYellow <= 3) score += 30;
+                                    
+                                    // Slight randomness
+                                    score += Math.random() * 10;
+                                    
+                                    if (score > bestScore) {
+                                        bestScore = score;
+                                        bestMove = move;
+                                    }
+                                });
+                                
+                                if (bestMove) {
+                                    movePlayer(bestMove);
+                                    
+                                    // Sync the AI move
+                                    if (window.syncAction) {
+                                        window.syncAction('move', {
+                                            space: bestMove,
+                                            player: 'blue',
+                                            position: bestMove
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // AI SPELL CASTING
+                        setTimeout(() => {
+                            if (gameState.hasMovedThisTurn && gameState.currentPlayer === 'blue') {
+                                const blueSpells = gameState.players.blue.spells || [];
+                                
+                                // Try to cast useful spells
+                                for (const spell of blueSpells) {
+                                    if (canUseSpellNow('blue', spell)) {
+                                        // Heal if low HP
+                                        if (spell === 'heal' && gameState.players.blue.hp < 6) {
+                                            castSpellAction(spell);
+                                            break;
+                                        }
+                                        
+                                        // Attack spells if in range
+                                        if (['deathsBreath', 'fieryBlast'].includes(spell)) {
+                                            castSpellAction(spell);
+                                            break;
+                                        }
+                                    }
+                                }
+                                
+                                // End turn after a brief pause
+                                setTimeout(() => {
+                                    if (gameState.currentPlayer === 'blue' && gameState.hasMovedThisTurn) {
+                                        endTurnByPortrait();
+                                    }
+                                }, 800);
+                            }
+                        }, 600);
+                        
+                    } catch (e) {
+                        console.error('AI error:', e);
+                    }
+                }, 1200); // Wait 1.2s before AI acts
+                
+                return () => clearTimeout(aiDelay);
+            }, [gameState?.currentPlayer, gameState?.hasMovedThisTurn, gameState?.turn, spinning, showSpellChart, showOccurrence, gameOver]);
 
 
             if (!gameState) return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-amber-900 via-yellow-800 to-amber-700 text-white text-2xl">Loading...</div>;
