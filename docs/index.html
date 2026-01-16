@@ -920,6 +920,7 @@ const ABODE_BYPASS = {
 	function HerbalistWizards() {
 	            const [gameState, setGameState] = useState(() => buildInitialState());
             window.setGameState = setGameState;
+            window.OCCURRENCES = OCCURRENCES;
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
@@ -1049,6 +1050,8 @@ useEffect(() => {
 
             const [showOccurrence, setShowOccurrence] = useState(false);
             const [currentOccurrence, setCurrentOccurrence] = useState(null);
+            window.setShowOccurrence = setShowOccurrence;
+            window.setCurrentOccurrence = setCurrentOccurrence;
             const [freezeTargeting, setFreezeTargeting] = useState(null);
             useEffect(() => { try { freezeTargetingRef.current = freezeTargeting; } catch(e) {} }, [freezeTargeting]);
 
@@ -1058,6 +1061,7 @@ useEffect(() => {
             const [spinning, setSpinning] = useState(false);
             const [spinAnim, setSpinAnim] = useState(0);
             const [spinScale, setSpinScale] = useState(1);
+            window.setSpinScale = setSpinScale;
             const [spellChartMode, setSpellChartMode] = useState('view');
             const [bloomChartView, setBloomChartView] = useState('choices');
             const [bloomHoldBoard, setBloomHoldBoard] = useState(false);
@@ -2236,6 +2240,11 @@ switch(spellKey) {
 
 
             const spinOccurrenceWheel = () => {
+                const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
+                
+                // Only HOST actually spins (GUEST will receive the result via sync)
+                if (!isHost) return;
+                
                 playSfxFile('wheel', { volume: 0.65 });
                 setSpinAnim(v => v + 1);
                 setSpinScale(1.0);
@@ -2254,6 +2263,14 @@ switch(spellKey) {
                         // land slightly larger
                         setSpinScale(1.28);
                         applyOccurrence(occ);
+                        
+                        // Sync the occurrence result to GUEST
+                        if (window.syncAction && !window._syncingTurn) {
+                            window.syncAction('occurrence', {
+                                occurrenceId: occ.id,
+                                currentPlayer: gameState?.currentPlayer
+                            });
+                        }
                     }
                 }, 95);
             };
@@ -2368,6 +2385,7 @@ switch(spellKey) {
                     }, 0);
                 }
             };
+            window.applyOccurrence = applyOccurrence;
 
             
             const openPickCropFromChart = (count) => {
@@ -4556,6 +4574,18 @@ if (data.type === 'move') {
         hasMovedThisTurn: data.data.hasMovedThisTurn || false
       }));
       setTimeout(() => { window._syncingTurn = false; }, 100);
+    }
+  }
+  
+  if (data.type === 'occurrence') {
+    console.log('Occurrence received:', data.data.occurrenceId);
+    // Find the occurrence and display it without spinning
+    const occ = window.OCCURRENCES?.find(o => o.id === data.data.occurrenceId);
+    if (occ && window.setCurrentOccurrence && window.setShowOccurrence && window.applyOccurrence) {
+      window.setShowOccurrence(true);
+      window.setCurrentOccurrence(occ);
+      window.setSpinScale(1.28);
+      window.applyOccurrence(occ);
     }
   }
 };
