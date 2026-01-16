@@ -4521,11 +4521,11 @@ window.onSync = function(data) {
   console.log('🎮 Synced action:', data.type, data.data);
   
   // Handle different action types
-  if (data.type === 'move') {
+if (data.type === 'move') {
     console.log('Player moved to:', data.data.position);
     // Update the other player's position visually
-    if (data.data.player && data.data.position) {
-      setGameState(prev => ({
+    if (data.data.player && data.data.position && window.setGameState) {
+      window.setGameState(prev => ({
         ...prev,
         players: {
           ...prev.players,
@@ -4533,7 +4533,8 @@ window.onSync = function(data) {
             ...prev.players[data.data.player],
             position: data.data.position
           }
-        }
+        },
+        hasMovedThisTurn: true
       }));
     }
   }
