@@ -2890,14 +2890,13 @@ if (selectingTeleport) {
                 setZombieValidMoves([]);
                 setGameState(newState);
            };
-            
-            // Sync turn end to other player
-            if (window.syncAction) {
-                window.syncAction('turn_end', {
-                    currentPlayer: gameState.currentPlayer,
-                    hasMovedThisTurn: gameState.hasMovedThisTurn
-                });
-            }
+          // Sync turn end to other player (only if we're not already syncing)
+if (window.syncAction && !window._syncingTurn) {
+    window.syncAction('turn_end', {
+        currentPlayer: gameState.currentPlayer,
+        hasMovedThisTurn: gameState.hasMovedThisTurn
+    });
+}
             
             const getPathBetween = (from, to, opts = {}) => {
                 const queue = [{pos: from, path: [from]}];
@@ -4545,7 +4544,17 @@ window.onSync = function(data) {
   
   if (data.type === 'turn_end') {
     console.log('Turn ended, switching to:', data.data.currentPlayer);
-    // TODO: Switch turns without triggering infinite loop
+    // Switch to the next player WITHOUT triggering another sync
+    if (data.data.currentPlayer && window.setGameState) {
+      // Use a flag to prevent re-triggering
+      window._syncingTurn = true;
+      window.setGameState(prev => ({
+        ...prev,
+        currentPlayer: data.data.currentPlayer,
+        hasMovedThisTurn: data.data.hasMovedThisTurn || false
+      }));
+      setTimeout(() => { window._syncingTurn = false; }, 100);
+    }
   }
 };
       
