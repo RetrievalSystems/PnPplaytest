@@ -3880,7 +3880,12 @@ return (
                                             )}
 
                                             {yellow && (
-                                                <div className="absolute" style={{ width: '67px', height: '67px', pointerEvents: 'none' }}>
+                                                <div className="absolute" style={{ 
+                                                    width: '67px', 
+                                                    height: '67px', 
+                                                    pointerEvents: 'none',
+                                                    transform: (yellow && blue) ? 'translateX(-18px)' : 'none'  // Move left when both present
+                                                }}>
                                                     {gameState.players.yellow.protected && <div className="hw-aura hw-protect-aura" />}
                                                     {(gameState.players.yellow.frozen || gameState.players.yellow.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.yellow.protected && (
@@ -3910,7 +3915,12 @@ return (
                                                 </div>
                                             )}
                                             {blue && (
-                                                <div className="absolute" style={{ width: '67px', height: '67px', pointerEvents: 'none' }}>
+                                                <div className="absolute" style={{ 
+                                                    width: '67px', 
+                                                    height: '67px', 
+                                                    pointerEvents: 'none',
+                                                    transform: (yellow && blue) ? 'translateX(18px)' : 'none'  // Move right when both present
+                                                }}>
                                                     {gameState.players.blue.protected && <div className="hw-aura hw-protect-aura" />}
                                                     {(gameState.players.blue.frozen || gameState.players.blue.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.blue.protected && (
