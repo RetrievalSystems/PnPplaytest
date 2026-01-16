@@ -4544,14 +4544,7 @@ window.onSync = function(data) {
   
   if (data.type === 'turn_end') {
     console.log('Turn ended, switching to:', data.data.currentPlayer);
-    // Switch to the next player
-    if (data.data.currentPlayer) {
-      setGameState(prev => ({
-        ...prev,
-        currentPlayer: data.data.currentPlayer,
-        hasMovedThisTurn: data.data.hasMovedThisTurn || false
-      }));
-    }
+    // TODO: Switch turns without triggering infinite loop
   }
 };
       
