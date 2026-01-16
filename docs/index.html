@@ -2685,11 +2685,12 @@ const handleSpaceClick = (space) => {
                     return;
                 }
                 
-              // Only allow controlling your own player
-const isHost = new URLSearchParams(window.location.search).get('host') === 'true';
-const myPlayer = isHost ? 'yellow' : 'blue';
-// Only block if it's definitely NOT your turn
-if (gameState.currentPlayer && gameState.currentPlayer !== myPlayer) return;
+              // TEMPORARILY DISABLED FOR TESTING
+// // Only allow controlling your own player
+// const isHost = new URLSearchParams(window.location.search).get('host') === 'true';
+// const myPlayer = isHost ? 'yellow' : 'blue';
+// // Only block if it's definitely NOT your turn
+// if (gameState.currentPlayer && gameState.currentPlayer !== myPlayer) return;
                 /*__PENDING_TARGET_CLICK__*/
                 if (pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.length) {
                     const hit = pendingSpellTarget.targets.find(t => t.space === space);
