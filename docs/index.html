@@ -2196,20 +2196,52 @@ switch(spellKey) {
                 if (spellKey === 'deathsBreath') {
                     if (p.inAbode) return false;
                     const opp = playerKey === 'yellow' ? 'blue' : 'yellow';
-                    const oppOk = (getDistance(p.position, gameState.players[opp].position) <= 1) &&
+                    const dist = getDistance(p.position, gameState.players[opp].position);
+                    const oppOk = (dist <= 1) &&
                                   !gameState.players[opp].protected && !gameState.players[opp].inAbode;
-                    const mobOk = gameState.angryMob && (getDistance(p.position, gameState.angryMob.position) <= 1);
-                    return oppOk || mobOk;
+                    const mobDist = gameState.angryMob ? getDistance(p.position, gameState.angryMob.position) : 999;
+                    const mobOk = gameState.angryMob && (mobDist <= 1);
+                    const result = oppOk || mobOk;
+                    console.log('💀 Death\'s Breath viability:', {
+                        playerKey, 
+                        playerPos: p.position,
+                        oppPos: gameState.players[opp].position,
+                        dist,
+                        oppProtected: gameState.players[opp].protected,
+                        oppInAbode: gameState.players[opp].inAbode,
+                        oppOk,
+                        mobPos: gameState.angryMob?.position,
+                        mobDist,
+                        mobOk,
+                        result
+                    });
+                    return result;
                 }
 
                                 // Fiery Blast is only usable if there is a valid target (opponent within 3 OR angry mob within 3).
                 if (spellKey === 'fieryBlast') {
                     if (p.inAbode) return false;
                     const opp = playerKey === 'yellow' ? 'blue' : 'yellow';
-                    const oppOk = (getDistance(p.position, gameState.players[opp].position) <= 3) &&
+                    const dist = getDistance(p.position, gameState.players[opp].position);
+                    const oppOk = (dist <= 3) &&
                                   !gameState.players[opp].protected && !gameState.players[opp].inAbode;
-                    const mobOk = !!(gameState.angryMob && (getDistance(p.position, gameState.angryMob.position) <= 3));
-                    return oppOk || mobOk;
+                    const mobDist = gameState.angryMob ? getDistance(p.position, gameState.angryMob.position) : 999;
+                    const mobOk = !!(gameState.angryMob && (mobDist <= 3));
+                    const result = oppOk || mobOk;
+                    console.log('🔥 Fiery Blast viability:', {
+                        playerKey,
+                        playerPos: p.position,
+                        oppPos: gameState.players[opp].position,
+                        dist,
+                        oppProtected: gameState.players[opp].protected,
+                        oppInAbode: gameState.players[opp].inAbode,
+                        oppOk,
+                        mobPos: gameState.angryMob?.position,
+                        mobDist,
+                        mobOk,
+                        result
+                    });
+                    return result;
                 }
 
                 // Zombification: only if you don't already have a zombie active.
@@ -2804,19 +2836,29 @@ if (selectingTeleport) {
                 // Check if clicking on own zombie (anytime during turn)
                 const zombieIdx = gameState.zombies.findIndex(z => z.position === space && z.owner === gameState.currentPlayer);
                 if (zombieIdx !== -1) {
-                    console.log('Clicked zombie:', {zombieIdx, zombieHasMoved, zombieAttackReady, space});
+                    console.log('🧟 Clicked zombie:', {
+                        zombieIdx, 
+                        zombieHasMoved, 
+                        zombieAttackReady, 
+                        space,
+                        zombiePosition: gameState.zombies[zombieIdx].position,
+                        opponentPosition: gameState.players[gameState.currentPlayer === 'yellow' ? 'blue' : 'yellow'].position,
+                        mobPosition: gameState.angryMob?.position
+                    });
                     // If zombie has already moved and is sitting on the opponent, allow a commanded attack.
                     if (zombieHasMoved && zombieAttackReady === zombieIdx) {
-                        console.log('Commanding zombie attack!');
+                        console.log('⚔️ Commanding zombie attack!');
                         moveZombie(zombieIdx, space, { commandAttack: true });
                         return;
                     }
                     // Otherwise select it for movement (once per turn)
                     if (!zombieHasMoved) {
+                        console.log('🎯 Selecting zombie for movement');
                         setSelectedZombie(zombieIdx);
                         setZombieValidMoves(getValidMoves(space, 3, { mode: 'zombie', actorKey: gameState.currentPlayer }));
                         return;
                     }
+                    console.log('⚠️ Zombie already moved but not attack-ready');
                 }
 
                 // Player movement - only if hasn't moved yet
@@ -2831,14 +2873,16 @@ if (selectingTeleport) {
                         const adj = ABODE_ADJ[abode] || [];
                         const canEnterNow = (space === abode) && selectedSpace && validMoves.some(s => adj.includes(s));
                         if (validMoves.includes(space) || canEnterNow) {
+                            const willBeInAbode = (space === abode);
                             movePlayer(space);
                             
-                            // Sync the move to other player (send the NEW position = space)
+                            // Sync the move to other player (send the NEW position AND inAbode status)
                             if (window.syncAction) {
                                 window.syncAction('move', {
                                     space: space,
                                     player: gameState.currentPlayer,
-                                    position: space  // Send the destination, not the old position
+                                    position: space,  // Send the destination, not the old position
+                                    inAbode: willBeInAbode
                                 });
                             }
                         }
@@ -4686,8 +4730,8 @@ window.onSync = function(data) {
   
   // Handle different action types
 if (data.type === 'move') {
-    console.log('Player moved to:', data.data.position);
-    // Update the other player's position visually
+    console.log('Player moved to:', data.data.position, 'inAbode:', data.data.inAbode);
+    // Update the other player's position and inAbode status
     if (data.data.player && data.data.position && window.setGameState) {
       window.setGameState(prev => ({
         ...prev,
@@ -4695,7 +4739,8 @@ if (data.type === 'move') {
           ...prev.players,
           [data.data.player]: {
             ...prev.players[data.data.player],
-            position: data.data.position
+            position: data.data.position,
+            inAbode: data.data.inAbode !== undefined ? data.data.inAbode : prev.players[data.data.player].inAbode
           }
         },
         hasMovedThisTurn: true
