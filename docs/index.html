@@ -4514,20 +4514,43 @@ const renderGrid = (playerKey, spells, styleBase) => (
       };
 
 // Handle incoming synced actions
-      window.onSync = function(data) {
-        console.log('🎮 Synced action:', data.type, data.data);
-        
-        // You can add handlers here for different action types
-        if (data.type === 'move') {
-          console.log('Player moved to:', data.data.position);
+window.onSync = function(data) {
+  console.log('🎮 Synced action:', data.type, data.data);
+  
+  // Handle different action types
+  if (data.type === 'move') {
+    console.log('Player moved to:', data.data.position);
+    // Update the other player's position visually
+    if (data.data.player && data.data.position) {
+      setGameState(prev => ({
+        ...prev,
+        players: {
+          ...prev.players,
+          [data.data.player]: {
+            ...prev.players[data.data.player],
+            position: data.data.position
+          }
         }
-        if (data.type === 'spell') {
-          console.log('Player cast spell:', data.data.spell);
-        }
-        if (data.type === 'turn_end') {
-          console.log('Turn ended, now:', data.data.nextPlayer);
-        }
-      };
+      }));
+    }
+  }
+  
+  if (data.type === 'spell') {
+    console.log('Player cast spell:', data.data.spell);
+  }
+  
+  if (data.type === 'turn_end') {
+    console.log('Turn ended, switching to:', data.data.currentPlayer);
+    // Switch to the next player
+    if (data.data.currentPlayer) {
+      setGameState(prev => ({
+        ...prev,
+        currentPlayer: data.data.currentPlayer,
+        hasMovedThisTurn: data.data.hasMovedThisTurn || false
+      }));
+    }
+  }
+};
       
       
       connect();
