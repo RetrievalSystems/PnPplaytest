@@ -4493,6 +4493,23 @@ const renderGrid = (playerKey, spells, styleBase) => (
           console.warn('⚠️ WebSocket not ready');
         }
       };
+
+// Handle incoming synced actions
+      window.onSync = function(data) {
+        console.log('🎮 Synced action:', data.type, data.data);
+        
+        // You can add handlers here for different action types
+        if (data.type === 'move') {
+          console.log('Player moved to:', data.data.position);
+        }
+        if (data.type === 'spell') {
+          console.log('Player cast spell:', data.data.spell);
+        }
+        if (data.type === 'turn_end') {
+          console.log('Turn ended, now:', data.data.nextPlayer);
+        }
+      };
+      
       
       connect();
     })();
