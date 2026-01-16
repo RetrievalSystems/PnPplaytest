@@ -4420,7 +4420,9 @@ const renderGrid = (playerKey, spells, styleBase) => (
     </script>
 
 
-    <!-- MULTIPLAYER - Paste this section here -->
+  </script>
+
+    <!-- MULTIPLAYER -->
     <script>
     (function() {
       const url = new URLSearchParams(window.location.search);
@@ -4428,26 +4430,48 @@ const renderGrid = (playerKey, spells, styleBase) => (
       const role = url.get('role') || 'host';
       const isHost = role === 'host';
       
-      let ws;
+      let ws = null;
+      let reconnecting = false;
+      
       function connect() {
+        if (reconnecting) return;
+        reconnecting = true;
+        
         try {
           ws = new WebSocket('wss://pnp-relay.onrender.com');
-        } catch (e) {
-          // Some browsers (notably Safari in certain contexts) can block WS from file:// or strict settings.
-          // Don't let that prevent the UI from loading.
-          updateBadge(false);
-          setTimeout(connect, 3000);
-          return;
+          
+          ws.onopen = () => {
+            console.log('🟢 Connected');
+            reconnecting = false;
+            ws.send(JSON.stringify({type:'join_room',room:room,role:role}));
+            updateBadge(true);
+          };
+          
+          ws.onmessage = (e) => {
+            console.log('📨 Received:', e.data);
+            try {
+              const d = JSON.parse(e.data);
+              if(d.sender !== role && window.onSync) window.onSync(d);
+            } catch(err) {
+              console.error('Parse error:', err);
+            }
+          };
+          
+          ws.onerror = (e) => {
+            console.error('❌ Error:', e);
+            updateBadge(false);
+          };
+          
+          ws.onclose = () => {
+            console.log('🔴 Disconnected');
+            updateBadge(false);
+            reconnecting = false;
+            setTimeout(connect, 2000);
+          };
+        } catch(e) {
+          console.error('Connect error:', e);
+          reconnecting = false;
         }
-        ws.onopen = () => {
-          ws.send(JSON.stringify({type:'join_room',room,role}));
-          updateBadge(true);
-        };
-        ws.onmessage = (e) => {
-          const d = JSON.parse(e.data);
-          if(d.sender !== role && window.onSync) window.onSync(d);
-        };
-        ws.onclose = () => { updateBadge(false); setTimeout(connect,2000); };
       }
       
       function updateBadge(ok) {
@@ -4461,7 +4485,15 @@ const renderGrid = (playerKey, spells, styleBase) => (
         b.textContent = (ok?'🟢 ':'🔴 ')+(isHost?'HOST':'GUEST');
       }
       
-      window.syncAction = (type,data) => ws?.readyState===1 && ws.send(JSON.stringify({type,data,room,sender:role}));
+      window.syncAction = function(type, data) {
+        if(ws && ws.readyState === WebSocket.OPEN) {
+          const msg = JSON.stringify({type:type, data:data, room:room, sender:role});
+          console.log('📤 Sending:', msg);
+          ws.send(msg);
+        } else {
+          console.warn('⚠️ WebSocket not ready');
+        }
+      };
       
       connect();
     })();
