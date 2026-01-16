@@ -2553,9 +2553,17 @@ setPickRemaining(count);
                 setSelectedZombie(null);
                 setZombieValidMoves([]);
                 setZombieHasMoved(false);
-                setZombieAttackReady(null);
+               setZombieAttackReady(null);
+                
+                // Sync turn end to other player
+                const nextPlayer = snap.currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                if (window.syncAction && !window._syncingTurn) {
+                    window.syncAction('turn_end', {
+                        currentPlayer: nextPlayer,
+                        hasMovedThisTurn: false
+                    });
+                }
             }
-
 
 // Auto-skip a frozen player's turn (Freeze spell).
 useEffect(() => {
@@ -2684,13 +2692,11 @@ const handleSpaceClick = (space) => {
                     }
                     return;
                 }
-                
-              // TEMPORARILY DISABLED FOR TESTING
-// // Only allow controlling your own player
-// const isHost = new URLSearchParams(window.location.search).get('host') === 'true';
-// const myPlayer = isHost ? 'yellow' : 'blue';
-// // Only block if it's definitely NOT your turn
-// if (gameState.currentPlayer && gameState.currentPlayer !== myPlayer) return;
+             // Only allow controlling your own player
+const isHost = new URLSearchParams(window.location.search).get('host') === 'true';
+const myPlayer = isHost ? 'yellow' : 'blue';
+// Only block if it's definitely NOT your turn
+if (gameState.currentPlayer && gameState.currentPlayer !== myPlayer) return;
                 /*__PENDING_TARGET_CLICK__*/
                 if (pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.length) {
                     const hit = pendingSpellTarget.targets.find(t => t.space === space);
@@ -2890,13 +2896,7 @@ if (selectingTeleport) {
                 setZombieValidMoves([]);
                 setGameState(newState);
            };
-          // Sync turn end to other player (only if we're not already syncing)
-if (window.syncAction && !window._syncingTurn) {
-    window.syncAction('turn_end', {
-        currentPlayer: gameState.currentPlayer,
-        hasMovedThisTurn: gameState.hasMovedThisTurn
-    });
-}
+          
             
             const getPathBetween = (from, to, opts = {}) => {
                 const queue = [{pos: from, path: [from]}];
