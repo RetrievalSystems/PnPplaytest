@@ -919,6 +919,7 @@ const ABODE_BYPASS = {
 
 	function HerbalistWizards() {
 	            const [gameState, setGameState] = useState(() => buildInitialState());
+            window.setGameState = setGameState;
             const latestStateRef = useRef(gameState);
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
@@ -932,7 +933,6 @@ const ABODE_BYPASS = {
                 });
                 lastHpRef.current = { yellow: y, blue: b };
             }, [gameState?.players?.yellow?.hp, gameState?.players?.blue?.hp]);
-
                         const [mobAnimPath, setMobAnimPath] = useState([]);
 
 
