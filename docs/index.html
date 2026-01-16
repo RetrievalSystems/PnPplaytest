@@ -2796,8 +2796,10 @@ if (selectingTeleport) {
                 // Check if clicking on own zombie (anytime during turn)
                 const zombieIdx = gameState.zombies.findIndex(z => z.position === space && z.owner === gameState.currentPlayer);
                 if (zombieIdx !== -1) {
+                    console.log('Clicked zombie:', {zombieIdx, zombieHasMoved, zombieAttackReady, space});
                     // If zombie has already moved and is sitting on the opponent, allow a commanded attack.
                     if (zombieHasMoved && zombieAttackReady === zombieIdx) {
+                        console.log('Commanding zombie attack!');
                         moveZombie(zombieIdx, space, { commandAttack: true });
                         return;
                     }
@@ -3807,6 +3809,12 @@ return (
                                                     }}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
+                                                        
+                                                        // Only allow controlling your own player's zombie
+                                                        const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
+                                                        const myPlayer = isHost ? 'yellow' : 'blue';
+                                                        if (z.owner !== myPlayer) return;
+                                                        
                                                         if (z.owner !== gameState.currentPlayer) return;
 
                                                         // If your zombie has already moved and is on the opponent, you may click it again to command an attack.
