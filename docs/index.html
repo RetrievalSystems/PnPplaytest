@@ -1088,6 +1088,11 @@ useEffect(() => {
                 const isFirst = !!gameState.firstMove?.[pkey];
                 if (isFirst) return;
 
+                // Only spin if it's YOUR turn
+                const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
+                const myPlayer = isHost ? 'yellow' : 'blue';
+                if (pkey !== myPlayer) return;
+
                 // If an occurrence hasn't been spun for this turn yet, spin it automatically.
                 if (!wheelSpunThisTurn && !spinning && !showSpellChart && !showCropPickOption && !selectingTeleport && !gameState.awaitingCropPickDecision) {
                     setWheelSpunThisTurn(true);
