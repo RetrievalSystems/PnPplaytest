@@ -2685,12 +2685,11 @@ const handleSpaceClick = (space) => {
                     return;
                 }
                 
-               // Only allow controlling your own player (but allow clicking to end turn)
+              // Only allow controlling your own player
 const isHost = new URLSearchParams(window.location.search).get('host') === 'true';
 const myPlayer = isHost ? 'yellow' : 'blue';
-const myCurrentPos = gameState.players[myPlayer]?.position;
-// Block moving if it's not your turn, unless you're clicking your own position to end turn
-if (gameState.currentPlayer !== myPlayer && space !== myCurrentPos) return;
+// Only block if it's definitely NOT your turn
+if (gameState.currentPlayer && gameState.currentPlayer !== myPlayer) return;
                 /*__PENDING_TARGET_CLICK__*/
                 if (pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.length) {
                     const hit = pendingSpellTarget.targets.find(t => t.space === space);
