@@ -1074,6 +1074,7 @@ useEffect(() => {
             const [chartTargetPlayer, setChartTargetPlayer] = useState(null);
             const [selectingTeleport, setSelectingTeleport] = useState(false);
             const [gameOver, setGameOver] = useState(null);
+            window.setGameOver = setGameOver;  // Expose for multiplayer sync
             const [showWinOverlay, setShowWinOverlay] = useState(false);
             const [hpHits, setHpHits] = useState({ yellow: 0, blue: 0 });
             const lastHpRef = useRef({ yellow: 9, blue: 9 });
@@ -1711,9 +1712,18 @@ setBaseMessage(`${pname}'s turn — click here or your portrait to end turn`);
 
 
 
-// Delayed win overlay + win SFX
+// Delayed win overlay + win SFX + stop SV sound + broadcast
 useEffect(() => {
     if (!gameOver) { setShowWinOverlay(false); return; }
+    
+    // Stop the SV ambient sound when someone wins
+    try { stopSvLoop(); } catch(e) {}
+    
+    // Broadcast win to other players
+    if (window.syncAction && !window._receivedWin) {
+        window.syncAction('game_over', { winner: gameOver });
+    }
+    
     setShowWinOverlay(false);
     const t1 = window.setTimeout(() => {
         setShowWinOverlay(true);
@@ -1745,7 +1755,25 @@ useEffect(() => {
                 } catch(e) {}
             }, [gameState?.firstMove?.yellow, gameState?.firstMove?.blue]);
 
-            const restartGame = () => { try { window.location.reload(); } catch(e) {} };
+            const restartGame = () => { 
+                try { 
+                    // Broadcast restart to other players
+                    if (window.syncAction && !window._receivedRestart) {
+                        window.syncAction('restart_game', {});
+                    }
+                    
+                    // Reset flags
+                    window._receivedWin = false;
+                    window._receivedRestart = false;
+                    svStartedRef.current = false;
+                    window.__svStarted = false;
+                    
+                    // Start fresh game
+                    startNewGame();
+                } catch(e) {
+                    console.error('Restart error:', e);
+                } 
+            };
 
             const startNewGame = () => {
                 const shuffled = Object.keys(CROPS).filter(c => c !== 'F').sort(() => Math.random() - 0.5);
@@ -1784,6 +1812,33 @@ useEffect(() => {
                 }, 0);
 
                 // wheel spin is handled via wheel-click flow
+            };
+            
+            // Expose for multiplayer sync
+            window.startNewGame = startNewGame;
+            window.restartGame = restartGame;
+            
+            // Sync critical shared game state to all players
+            const syncGameState = () => {
+                if (window.syncAction && !window._syncingState) {
+                    const state = latestStateRef.current || gameState;
+                    if (!state) return;
+                    
+                    window.syncAction('game_state', {
+                        hp: {
+                            yellow: state.players.yellow.hp,
+                            blue: state.players.blue.hp
+                        },
+                        villagerMood: state.villagerMood,
+                        angryMob: state.angryMob ? {
+                            position: state.angryMob.position,
+                            target: state.angryMob.target,
+                            frozenTurns: state.angryMob.frozenTurns || 0,
+                            retreating: state.angryMob.retreating || false,
+                            vanishing: state.angryMob.vanishing || false
+                        } : null
+                    });
+                }
             };
 
             const getDistance = (from, to) => {
@@ -2152,8 +2207,13 @@ switch(spellKey) {
                 if (newState.players[opponent].hp <= 0) setGameOver(caster);
                 setGameState(newState);
                 
-                // Sync zombie state if spell affected zombies (Necromancy creates zombies)
-                if (spellKey === 'necromancy') {
+                // Sync critical state after spell (HP, mob, mood may have changed)
+                setTimeout(() => {
+                    try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
+                }, 100);
+                
+                // Sync zombie state if spell affected zombies (Zombification creates zombies)
+                if (spellKey === 'zombification') {
                     if (window.syncAction && !window._syncingTurn) {
                         window.syncAction('zombie_state', {
                             zombies: newState.zombies,
@@ -2420,6 +2480,12 @@ switch(spellKey) {
                     }
                 }
                 setGameState(newState);
+                
+                // Sync state after occurrence (villager mood / mob may have changed)
+                setTimeout(() => {
+                    try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
+                }, 100);
+                
                 // After an occurrence resolves, immediately show the current player's move options.
                 if (occ) {
                     window.setTimeout(() => {
@@ -2917,12 +2983,15 @@ if (selectingTeleport) {
                         setZombieAttackReady(null);
                         setGameState(newState);
                         
-                        // Sync zombie removal after attack
+                        // Sync zombie removal and state after attack
                         if (window.syncAction && !window._syncingTurn) {
                             window.syncAction('zombie_state', {
                                 zombies: newState.zombies,
                                 player: player
                             });
+                            setTimeout(() => {
+                                try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
+                            }, 50);
                         }
                         return;
                     }
@@ -2941,12 +3010,15 @@ if (selectingTeleport) {
                     }
                     setGameState(newState);
                     
-                    // Sync zombie removal after attack
+                    // Sync zombie removal and state after attack
                     if (window.syncAction && !window._syncingTurn) {
                         window.syncAction('zombie_state', {
                             zombies: newState.zombies,
                             player: player
                         });
+                        setTimeout(() => {
+                            try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
+                        }, 50);
                     }
                     return;
                 }
@@ -3347,6 +3419,11 @@ if (travel.length > 0) {
                 setZombieValidMoves([]);
                 setZombieHasMoved(false);
                 setZombieAttackReady(null);
+                
+                // Sync critical state after turn changes (HP, mob, mood)
+                setTimeout(() => {
+                    try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
+                }, 100);
             };
 
             const endTurn = () => endTurnFromSnapshot(gameState);
@@ -4793,6 +4870,77 @@ if (data.type === 'move') {
         crops: data.data.crops || prev.crops
       }));
       setTimeout(() => { window._syncingTurn = false; }, 100);
+    }
+  }
+  
+  if (data.type === 'game_over') {
+    console.log('🏆 Game over received:', data.data.winner);
+    // Set flag to prevent re-broadcasting
+    window._receivedWin = true;
+    // Show win screen for both players
+    if (window.setGameOver) {
+      window.setGameOver(data.data.winner);
+    }
+  }
+  
+  if (data.type === 'game_state') {
+    console.log('📊 Game state sync received:', data.data);
+    // Set flag to prevent re-broadcasting
+    window._syncingState = true;
+    
+    if (window.setGameState) {
+      window.setGameState(prev => {
+        if (!prev) return prev;
+        
+        const updated = { ...prev };
+        
+        // Update HP
+        if (data.data.hp) {
+          updated.players = {
+            ...prev.players,
+            yellow: { ...prev.players.yellow, hp: data.data.hp.yellow },
+            blue: { ...prev.players.blue, hp: data.data.hp.blue }
+          };
+        }
+        
+        // Update villager mood
+        if (data.data.villagerMood !== undefined) {
+          updated.villagerMood = data.data.villagerMood;
+        }
+        
+        // Update angry mob
+        updated.angryMob = data.data.angryMob;
+        
+        return updated;
+      });
+    }
+    
+    // Reset flag after a brief delay
+    setTimeout(() => { window._syncingState = false; }, 50);
+  }
+  
+  if (data.type === 'restart_game') {
+    console.log('🔄 Restart game received');
+    // Set flag to prevent re-broadcasting
+    window._receivedRestart = true;
+    // Restart the game for both players
+    if (window.restartGame) {
+      // Call the actual restart function from the React component
+      // We need to expose it via window
+      setTimeout(() => {
+        try {
+          window._receivedWin = false;
+          window._receivedRestart = false;
+          if (window.__svStarted) {
+            window.__svStarted = false;
+          }
+          if (window.startNewGame) {
+            window.startNewGame();
+          }
+        } catch(e) {
+          console.error('Restart handler error:', e);
+        }
+      }, 100);
     }
   }
   
