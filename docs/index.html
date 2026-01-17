@@ -58,10 +58,36 @@
         }
     
         /* --- Locked HUD stage (centers and preserves aspect ratio) --- */
-        html, body { height: 100%; overflow: hidden; background: #000; }
-        #app { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-        #hud-stage { position: relative; height: 98.7%; aspect-ratio: 2048 / 1197; }
-        #hud-stage img.hud { width: 100%; height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+        html, body { 
+            height: 100%; 
+            width: 100%;
+            overflow: hidden; 
+            background: #000; 
+            margin: 0;
+            padding: 0;
+        }
+        #app { 
+            position: fixed; 
+            inset: 0; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center;
+            overflow: hidden;
+        }
+        #hud-stage { 
+            position: relative; 
+            width: 100%;
+            height: 100%;
+            max-width: calc(100vh * 2048 / 1197);
+            max-height: calc(100vw * 1197 / 2048);
+        }
+        #hud-stage img.hud { 
+            width: 100%; 
+            height: 100%; 
+            display: block; 
+            user-select: none; 
+            -webkit-user-drag: none; 
+        }
         #board-slot {
             position: absolute;
             left: 28.80%;
@@ -1401,6 +1427,7 @@ try {
 
 const stopSvLoop = () => {
   try {
+    // Stop the svLoopRef instance
     const a = svLoopRef.current;
     if (a) {
       const startVol = (typeof a.volume === 'number') ? a.volume : 0.25;
@@ -1418,8 +1445,16 @@ const stopSvLoop = () => {
         }
       }, stepMs);
     }
+    svLoopRef.current = null;
+    
+    // Also stop the global __SV_AUDIO__ instance
+    if (window.__SV_AUDIO__) {
+      try {
+        window.__SV_AUDIO__.pause();
+        window.__SV_AUDIO__.currentTime = 0;
+      } catch(e) {}
+    }
   } catch(e) {}
-  svLoopRef.current = null;
 };
 
 const triggerFx = (space, kind = 'hit') => {
