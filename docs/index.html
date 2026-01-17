@@ -1824,10 +1824,14 @@ useEffect(() => {
                     const state = latestStateRef.current || gameState;
                     if (!state) return;
                     
-                    window.syncAction('game_state', {
+                    const syncData = {
                         hp: {
                             yellow: state.players.yellow.hp,
                             blue: state.players.blue.hp
+                        },
+                        inventory: {
+                            yellow: state.players.yellow.inventory || {},
+                            blue: state.players.blue.inventory || {}
                         },
                         villagerMood: state.villagerMood,
                         angryMob: state.angryMob ? {
@@ -1837,7 +1841,10 @@ useEffect(() => {
                             retreating: state.angryMob.retreating || false,
                             vanishing: state.angryMob.vanishing || false
                         } : null
-                    });
+                    };
+                    
+                    console.log('📤 Syncing game state:', syncData);
+                    window.syncAction('game_state', syncData);
                 }
             };
 
@@ -4884,7 +4891,11 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'game_state') {
-    console.log('📊 Game state sync received:', data.data);
+    console.log('📊 Game state sync received:', {
+      hp: data.data.hp,
+      villagerMood: data.data.villagerMood,
+      angryMob: data.data.angryMob
+    });
     // Set flag to prevent re-broadcasting
     window._syncingState = true;
     
@@ -4903,13 +4914,28 @@ if (data.type === 'move') {
           };
         }
         
+        // Update inventory (needed for Late Blight to see opponent's crops)
+        if (data.data.inventory) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, inventory: data.data.inventory.yellow },
+            blue: { ...updated.players.blue, inventory: data.data.inventory.blue }
+          };
+        }
+        
         // Update villager mood
         if (data.data.villagerMood !== undefined) {
           updated.villagerMood = data.data.villagerMood;
         }
         
-        // Update angry mob
-        updated.angryMob = data.data.angryMob;
+        // Update angry mob (preserving target!)
+        if (data.data.angryMob) {
+          console.log('👹 Updating angry mob:', data.data.angryMob);
+          updated.angryMob = data.data.angryMob;
+        } else if (data.data.angryMob === null) {
+          console.log('👹 Removing angry mob');
+          updated.angryMob = null;
+        }
         
         return updated;
       });
