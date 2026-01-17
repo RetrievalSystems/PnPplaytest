@@ -1214,9 +1214,9 @@ const boardSlotRef = useRef(null);
                 if (!el) return;
                 const update = () => {
                     const r = el.getBoundingClientRect();
-                    const pad = -80; // tighten fit: shrink board relative to the HUD grey square
+                    const pad = -20; // reduce padding to make board larger in grey square
                     const s = (r.width + pad) / 900;
-                    setBoardScale(s * 0.98);
+                    setBoardScale(s * 1.02); // slightly increase scale
                 };
                 update();
                 const ro = new ResizeObserver(update);
@@ -1635,6 +1635,11 @@ const playSfxFileTail = (key, tailSec = 3, opts = {}) => {
             useEffect(() => {
                 const handleKeyDown = (e) => {
                     if ((e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar')) {
+                        // Disable spacebar when chat input is open
+                        if (chatInputOpen.yellow || chatInputOpen.blue) {
+                            return;
+                        }
+                        
                         // Bloom hold-preview: while Space is held and the chart is hidden, do NOT allow any Space-driven toggles.
                         if (bloomHoldBoard || bloomHoldActiveRef.current) {
                             // prevent browser scrolling on space
@@ -1695,6 +1700,11 @@ const playSfxFileTail = (key, tailSec = 3, opts = {}) => {
                 
                 const handleKeyUp = (e) => {
                     if ((e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar')) {
+                        // Disable spacebar when chat input is open
+                        if (chatInputOpen.yellow || chatInputOpen.blue) {
+                            return;
+                        }
+                        
                         try { if (bloomHoldTimerRef.current) window.clearTimeout(bloomHoldTimerRef.current); } catch(err) {}
 
                         // If we were holding Space to preview the board, ALWAYS restore Bloom choices view on release.
@@ -1723,7 +1733,7 @@ window.addEventListener('keydown', handleKeyDown);
                     window.removeEventListener('keyup', handleKeyUp);
                     try { if (bloomHoldTimerRef.current) window.clearTimeout(bloomHoldTimerRef.current); } catch(err) {}
                 };
-            }, [showSpellChart, spellChartMode, showOccurrence]);
+            }, [showSpellChart, spellChartMode, showOccurrence, chatInputOpen]);
 
             // Cheat: press Capital C to fill all crop inventories (for rapid playtesting).
             useEffect(() => {
