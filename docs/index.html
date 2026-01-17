@@ -22,6 +22,17 @@
             50% { opacity: 1; transform: scale(1.05); }
         }
     
+        @keyframes fadeInSlide {
+            from { 
+                opacity: 0; 
+                transform: translateY(-10px); 
+            }
+            to { 
+                opacity: 1; 
+                transform: translateY(0); 
+            }
+        }
+    
         @k
         @keyframes zombiePulseRing {
             0%, 100% { transform: scale(1); box-shadow: 0 0 10px rgba(96,165,250,0.35); opacity: 0.75; }
@@ -1105,6 +1116,11 @@ useEffect(() => {
             const [hpHits, setHpHits] = useState({ yellow: 0, blue: 0 });
             const lastHpRef = useRef({ yellow: 9, blue: 9 });
 
+            // Chat system
+            const [chatMessages, setChatMessages] = useState({ yellow: [], blue: [] });
+            const [chatInputOpen, setChatInputOpen] = useState({ yellow: false, blue: false });
+            const chatInputRefs = useRef({ yellow: null, blue: null });
+
             const [wheelSpunThisTurn, setWheelSpunThisTurn] = useState(false);
             window.setWheelSpunThisTurn = setWheelSpunThisTurn;
 
@@ -1490,6 +1506,67 @@ const triggerCloud = (fromSpace, toSpace) => {
     setCloudFx({ id, from: fromSpace, to: toSpace });
     window.setTimeout(() => setCloudFx(null), 700);
 };
+
+const triggerFireball = (fromSpace, toSpace) => {
+    if (!fromSpace || !toSpace) return;
+    const id = `${Date.now()}-${Math.random()}`;
+    setFireballFx({ id, from: fromSpace, to: toSpace });
+    window.setTimeout(() => setFireballFx(null), 600);
+};
+
+// Chat system functions
+const sendChatMessage = (player, message) => {
+    if (!message || !message.trim()) return;
+    
+    const chatMsg = {
+        player,
+        message: message.trim(),
+        timestamp: Date.now()
+    };
+    
+    // Add to local state
+    setChatMessages(prev => ({
+        ...prev,
+        [player]: [...prev[player].slice(-2), chatMsg] // Keep last 3 messages
+    }));
+    
+    // Sync to other player
+    if (window.syncAction) {
+        window.syncAction('chat_message', chatMsg);
+    }
+    
+    // Auto-hide after 8 seconds
+    setTimeout(() => {
+        setChatMessages(prev => ({
+            ...prev,
+            [player]: prev[player].filter(m => m.timestamp !== chatMsg.timestamp)
+        }));
+    }, 8000);
+};
+
+// Set up chat message receiver
+useEffect(() => {
+    window.onChatMessage = (data) => {
+        if (!data || !data.player) return;
+        
+        setChatMessages(prev => ({
+            ...prev,
+            [data.player]: [...prev[data.player].slice(-2), data]
+        }));
+        
+        // Auto-hide after 8 seconds
+        setTimeout(() => {
+            setChatMessages(prev => ({
+                ...prev,
+                [data.player]: prev[data.player].filter(m => m.timestamp !== data.timestamp)
+            }));
+        }, 8000);
+    };
+    
+    return () => {
+        window.onChatMessage = null;
+    };
+}, []);
 
 const triggerFireball = (fromSpace, toSpace) => {
     if (!fromSpace || !toSpace) return;
@@ -4765,6 +4842,246 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             }}
                             title={(gameState.hasMovedThisTurn && !spinning && !showSpellChart && !gameOver && !gameState.awaitingCropPickDecision) ? 'End turn' : ''}
                         />
+
+                        {/* Chat UI - Yellow Player */}
+                        <div style={{
+                            position: 'absolute',
+                            left: 'calc(3.4% - 30px)',
+                            top: 'calc(2% - 10px)',
+                            zIndex: 7000,
+                            pointerEvents: 'auto'
+                        }}>
+                            {/* Chat bubble icon */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setChatInputOpen(prev => ({ ...prev, yellow: !prev.yellow }));
+                                    setTimeout(() => {
+                                        if (chatInputRefs.current.yellow && !chatInputOpen.yellow) {
+                                            chatInputRefs.current.yellow.focus();
+                                        }
+                                    }, 50);
+                                }}
+                                style={{
+                                    background: 'rgba(250, 204, 21, 0.9)',
+                                    border: '2px solid rgba(255, 255, 255, 0.8)',
+                                    borderRadius: '50%',
+                                    width: '36px',
+                                    height: '36px',
+                                    cursor: 'pointer',
+                                    fontSize: '18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                    transition: 'all 0.2s',
+                                    position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                            >
+                                💬
+                            </button>
+
+                            {/* Chat input */}
+                            {chatInputOpen.yellow && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '45px',
+                                    left: '0',
+                                    background: 'rgba(30, 30, 30, 0.95)',
+                                    border: '2px solid rgba(250, 204, 21, 0.8)',
+                                    borderRadius: '12px',
+                                    padding: '8px',
+                                    boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+                                    minWidth: '200px'
+                                }}>
+                                    <input
+                                        ref={el => chatInputRefs.current.yellow = el}
+                                        type="text"
+                                        placeholder="Quick message..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '6px 10px',
+                                            border: '1px solid rgba(250, 204, 21, 0.5)',
+                                            borderRadius: '6px',
+                                            background: 'rgba(50, 50, 50, 0.9)',
+                                            color: '#fff',
+                                            fontSize: '13px',
+                                            outline: 'none'
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                sendChatMessage('yellow', e.target.value);
+                                                e.target.value = '';
+                                                setChatInputOpen(prev => ({ ...prev, yellow: false }));
+                                            } else if (e.key === 'Escape') {
+                                                setChatInputOpen(prev => ({ ...prev, yellow: false }));
+                                            }
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: 'rgba(255,255,255,0.6)',
+                                        marginTop: '4px',
+                                        textAlign: 'center'
+                                    }}>
+                                        Press Enter to send
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Chat messages */}
+                            {chatMessages.yellow.map((msg, i) => (
+                                <div
+                                    key={msg.timestamp}
+                                    style={{
+                                        position: 'absolute',
+                                        top: `${45 + i * 50}px`,
+                                        left: '0',
+                                        background: 'rgba(250, 204, 21, 0.95)',
+                                        color: '#000',
+                                        padding: '8px 12px',
+                                        borderRadius: '12px',
+                                        border: '2px solid rgba(255, 255, 255, 0.8)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                        maxWidth: '200px',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        wordWrap: 'break-word',
+                                        animation: 'fadeInSlide 0.3s ease-out',
+                                        zIndex: 7001
+                                    }}
+                                >
+                                    {msg.message}
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Chat UI - Blue Player */}
+                        <div style={{
+                            position: 'absolute',
+                            left: 'calc(83.1% + 150px)',
+                            top: 'calc(2% - 10px)',
+                            zIndex: 7000,
+                            pointerEvents: 'auto'
+                        }}>
+                            {/* Chat bubble icon */}
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setChatInputOpen(prev => ({ ...prev, blue: !prev.blue }));
+                                    setTimeout(() => {
+                                        if (chatInputRefs.current.blue && !chatInputOpen.blue) {
+                                            chatInputRefs.current.blue.focus();
+                                        }
+                                    }, 50);
+                                }}
+                                style={{
+                                    background: 'rgba(96, 165, 250, 0.9)',
+                                    border: '2px solid rgba(255, 255, 255, 0.8)',
+                                    borderRadius: '50%',
+                                    width: '36px',
+                                    height: '36px',
+                                    cursor: 'pointer',
+                                    fontSize: '18px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+                                    transition: 'all 0.2s',
+                                    position: 'relative'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'scale(1.1)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'scale(1)';
+                                }}
+                            >
+                                💬
+                            </button>
+
+                            {/* Chat input */}
+                            {chatInputOpen.blue && (
+                                <div style={{
+                                    position: 'absolute',
+                                    top: '45px',
+                                    right: '0',
+                                    background: 'rgba(30, 30, 30, 0.95)',
+                                    border: '2px solid rgba(96, 165, 250, 0.8)',
+                                    borderRadius: '12px',
+                                    padding: '8px',
+                                    boxShadow: '0 6px 20px rgba(0,0,0,0.5)',
+                                    minWidth: '200px'
+                                }}>
+                                    <input
+                                        ref={el => chatInputRefs.current.blue = el}
+                                        type="text"
+                                        placeholder="Quick message..."
+                                        style={{
+                                            width: '100%',
+                                            padding: '6px 10px',
+                                            border: '1px solid rgba(96, 165, 250, 0.5)',
+                                            borderRadius: '6px',
+                                            background: 'rgba(50, 50, 50, 0.9)',
+                                            color: '#fff',
+                                            fontSize: '13px',
+                                            outline: 'none'
+                                        }}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter') {
+                                                sendChatMessage('blue', e.target.value);
+                                                e.target.value = '';
+                                                setChatInputOpen(prev => ({ ...prev, blue: false }));
+                                            } else if (e.key === 'Escape') {
+                                                setChatInputOpen(prev => ({ ...prev, blue: false }));
+                                            }
+                                        }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                    <div style={{
+                                        fontSize: '11px',
+                                        color: 'rgba(255,255,255,0.6)',
+                                        marginTop: '4px',
+                                        textAlign: 'center'
+                                    }}>
+                                        Press Enter to send
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Chat messages */}
+                            {chatMessages.blue.map((msg, i) => (
+                                <div
+                                    key={msg.timestamp}
+                                    style={{
+                                        position: 'absolute',
+                                        top: `${45 + i * 50}px`,
+                                        right: '0',
+                                        background: 'rgba(96, 165, 250, 0.95)',
+                                        color: '#000',
+                                        padding: '8px 12px',
+                                        borderRadius: '12px',
+                                        border: '2px solid rgba(255, 255, 255, 0.8)',
+                                        boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                        maxWidth: '200px',
+                                        fontSize: '13px',
+                                        fontWeight: '500',
+                                        wordWrap: 'break-word',
+                                        animation: 'fadeInSlide 0.3s ease-out',
+                                        zIndex: 7001
+                                    }}
+                                >
+                                    {msg.message}
+                                </div>
+                            ))}
+                        </div>
                     </>
                 );
             })()}
@@ -5002,6 +5319,13 @@ if (data.type === 'move') {
           console.error('Restart handler error:', e);
         }
       }, 100);
+    }
+  }
+  
+  if (data.type === 'chat_message') {
+    console.log('💬 Chat message received:', data.data);
+    if (window.onChatMessage) {
+      window.onChatMessage(data.data);
     }
   }
   
