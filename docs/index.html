@@ -1568,13 +1568,6 @@ useEffect(() => {
     };
 }, []);
 
-const triggerFireball = (fromSpace, toSpace) => {
-    if (!fromSpace || !toSpace) return;
-    const id = `${Date.now()}-${Math.random()}`;
-    setFireballFx({ id, from: fromSpace, to: toSpace });
-    window.setTimeout(() => setFireballFx(null), 600);
-};
-
 const triggerTeleportBeam = (fromSpace, toSpace) => {
     if (!fromSpace || !toSpace) return;
     const id = `${Date.now()}-${Math.random()}`;
