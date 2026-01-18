@@ -722,7 +722,7 @@ const ABODE_BYPASS = {
 
             return (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 7000 }} onMouseDown={onBackdrop}>
-                    <div className="relative w-full max-w-4xl">
+                    <div className="relative w-full max-w-[851px]">
                         <button
                             className="absolute -top-10 right-0 bg-white/90 hover:bg-white text-black px-3 py-1 rounded-lg shadow"
                             onClick={onClose}
@@ -4693,7 +4693,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         )}
 
 
-                        {/* Villager Mood (VM) meter in parchment area */}
+                        {/* Villager Mood (VM) meter anchored to bottom-left parchment area */}
                         {(() => {
                             try {
                                 const moodRaw = (gameState && typeof gameState.villagerMood !== 'undefined') ? gameState.villagerMood : 1;
@@ -4704,12 +4704,11 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: `calc(6.2% + ${(hudRect?.w ? (250 / hudRect.w) * 100 : 0).toFixed(4)}%)`,
-                                        top:  `calc(75.8% + ${(hudRect?.h ? (-150 / hudRect.h) * 100 : 0).toFixed(4)}%)`,
-                                        width: '24.5%',
-                                        height: '17.5%',
+                                        left: '23.5%',
+                                        bottom: '8%',
+                                        width: '13%',
+                                        height: '11%',
                                         zIndex: 5200,
-                                        transform: 'translate(60%, -150%) translate(100px, 62px)',
                                         pointerEvents: 'none'
                                     }}>
                                         <div style={{
