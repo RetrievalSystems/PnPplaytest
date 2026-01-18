@@ -4693,7 +4693,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         )}
 
 
-                        {/* Villager Mood (VM) meter anchored to bottom-left parchment area */}
+                        {/* Villager Mood (VM) highlight bar only - meter baked into board */}
                         {(() => {
                             try {
                                 const moodRaw = (gameState && typeof gameState.villagerMood !== 'undefined') ? gameState.villagerMood : 1;
@@ -4704,22 +4704,13 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: '23.5%',
-                                        bottom: '8%',
+                                        left: '36%',
+                                        top: '29%',
                                         width: '13%',
                                         height: '11%',
                                         zIndex: 5200,
                                         pointerEvents: 'none'
                                     }}>
-                                        <div style={{
-                                            position: 'absolute',
-                                            inset: 0,
-                                            backgroundImage: `url(${IMAGES.vmMeter})`,
-                                            backgroundSize: 'contain',
-                                            backgroundRepeat: 'no-repeat',
-                                            backgroundPosition: 'center',
-                                            borderRadius: '10px'
-                                        }} />
                                         {/* highlight bar */}
                                         <div style={{
                                             position: 'absolute',
