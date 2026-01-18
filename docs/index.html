@@ -2749,17 +2749,26 @@ setPickRemaining(count);
                 setShowCropPickOption(null);
 
                 const player = ns.currentPlayer;
-                const hasActiveZombie = ns.zombies.some(z => z.owner === player);
-                const needsManualEnd = (ns.players[player].spells && ns.players[player].spells.length > 0);
-
-                if (!ns.players[player].inAbode && !needsManualEnd) {
-                    if (!hasActiveZombie || zombieHasMoved) {
-                        endTurnFromSnapshot(ns);
-                        setSelectedSpace(null);
-                        setValidMoves([]);
-                        return;
-                    }
+                
+                // Special case: Yellow's first move auto-advances to Blue
+                if (ns.firstMove && ns.firstMove[player] && player === 'yellow') {
+                    ns.firstMove[player] = false;
+                    ns.currentPlayer = 'blue';
+                    ns.turn = (ns.turn || 1) + 1;
+                    ns.hasMovedThisTurn = false;
+                    setMaxMoveDistance(3);
+                    setWheelSpunThisTurn(true);
+                    setGameState(ns);
+                    setSelectedSpace(null);
+                    setValidMoves([]);
+                    window.setTimeout(() => {
+                        autoShowCurrentMoves(ns, 3);
+                    }, 0);
+                    return;
                 }
+                
+                // For all other cases (including Blue's first move), just update state
+                // Player must click their portrait to end turn
                 setGameState(ns);
             };
 
