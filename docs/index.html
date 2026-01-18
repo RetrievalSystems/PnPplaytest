@@ -901,26 +901,26 @@ const ABODE_BYPASS = {
                             })}
                         </div>
                         {mode === 'view' && !canCraftNow && (
-                            <div className="mt-3 text-center text-white/90 text-sm">
+                            <div className="mt-3 text-center text-white/90 text-sm bg-black/80 py-2 px-4 rounded">
                                 Crafting is enabled only after you have moved and are currently in your Abode.
                             </div>
                         )}
 
                         {mode === 'pickCrop' && (
-                            <div className="mt-3 text-center text-white/90 text-sm">
+                            <div className="mt-3 text-center text-white/90 text-sm bg-black/80 py-2 px-4 rounded">
                                 Pick <span className="font-semibold">{pickRemaining}</span> crop(s) by clicking any highlighted crop slot on the chart.
                             </div>
                         )}
 
                         {mode === 'bloomPickCrop' && (
-                            <div className="mt-3 text-center text-white/90 text-sm">
+                            <div className="mt-3 text-center text-white/90 text-sm bg-black/80 py-2 px-4 rounded">
                                 Pick <span className="font-semibold">{pickRemaining}</span> crop(s). <span className="font-semibold">Tap Space</span> to {bloomView === 'choices' ? 'see current inventory' : 'return to bloom choices'}. <span className="font-semibold">Hold Space</span> to view the board.
                             </div>
                         )}
 
 
                         {mode === 'removeOpponentCrop' && (
-                            <div className="mt-3 text-center text-white/90 text-sm">
+                            <div className="mt-3 text-center text-white/90 text-sm bg-black/80 py-2 px-4 rounded">
                                 Click a highlighted crop on your opponent&apos;s chart to remove it.
                             </div>
                         )}
@@ -4723,9 +4723,9 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         {/* highlight bar */}
                                         <div style={{
                                             position: 'absolute',
-                                            left: '41.5%',
-                                            right: '41.5%',
-                                            top: `${topPx + 52}px`,
+                                            left: '46%',
+                                            right: '37%',
+                                            top: `${topPx + 39}px`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
                                             background: 'rgba(220, 80, 80, 0.38)',
