@@ -48,6 +48,11 @@
             50% { opacity: 0.85; transform: scale(1.03); filter: saturate(1.5); }
         }
 
+        @keyframes vmpulse {
+            0%, 100% { opacity: 0.5; box-shadow: 0 0 20px rgba(255, 215, 80, 0.6), 0 0 8px rgba(255, 150, 150, 0.4) inset; }
+            50% { opacity: 0.75; box-shadow: 0 0 30px rgba(255, 215, 80, 0.9), 0 0 12px rgba(255, 150, 150, 0.6) inset; }
+        }
+
         @keyframes blightWobble {
           0% { opacity: 1; transform: translateX(0) scale(1); }
           25% { opacity: 0.95; transform: translateX(-6px) scale(0.95); }
@@ -4704,9 +4709,9 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: '27.7%',
+                                        left: '25.5%',
                                         top: '56.8%',
-                                        width: '22.1%',
+                                        width: '25.4%',
                                         height: '18.8%',
                                         zIndex: 5200,
                                         pointerEvents: 'none'
@@ -4719,10 +4724,11 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                             top: `${topPx + 39}px`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
-                                            background: 'rgba(255, 100, 100, 0.85)',
-                                            boxShadow: '0 0 35px rgba(255, 235, 100, 1), 0 0 15px rgba(255, 150, 150, 0.9) inset',
+                                            background: 'rgba(255, 120, 120, 0.5)',
+                                            boxShadow: '0 0 20px rgba(255, 215, 80, 0.6), 0 0 8px rgba(255, 150, 150, 0.4) inset',
                                             zIndex: 2,
-                                            transition: 'top 420ms ease'
+                                            transition: 'top 420ms ease',
+                                            animation: 'vmpulse 2s ease-in-out infinite'
                                         }} />
                                     </div>
                                 );
