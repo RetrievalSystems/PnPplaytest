@@ -3247,6 +3247,12 @@ if (selectingTeleport) {
             const movePlayer = (dest) => {
                 const player = gameState.currentPlayer;
                 const newState = {...gameState};
+                // Create deep copies of nested objects to avoid shallow copy issues
+                newState.firstMove = {...gameState.firstMove};
+                newState.players = {
+                    yellow: {...gameState.players.yellow, inventory: {...gameState.players.yellow.inventory}, spells: [...gameState.players.yellow.spells]},
+                    blue: {...gameState.players.blue, inventory: {...gameState.players.blue.inventory}, spells: [...gameState.players.blue.spells]}
+                };
 
                 // Must move at least one space (no clicking your current space as a 'move')
                 if (dest === newState.players[player].position) {
