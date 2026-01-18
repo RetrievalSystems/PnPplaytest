@@ -443,7 +443,7 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 
         const IMAGES = {
             hud: './images/HUDs with board marked.jpg',
-            board: './images/board.jpg',
+            board: './images/board.jpg?v=' + Date.now(),
             spellChart: './images/spell-chart.jpg',
             wizards: './images/wizards.jpg',
             herbs: './images/herbs.png',
@@ -4719,8 +4719,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                             top: `${topPx + 39}px`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
-                                            background: 'rgba(220, 80, 80, 0.38)',
-                                            boxShadow: '0 0 18px rgba(255, 215, 80, 0.75), 0 0 6px rgba(0,0,0,0.25) inset',
+                                            background: 'rgba(255, 100, 100, 0.85)',
+                                            boxShadow: '0 0 35px rgba(255, 235, 100, 1), 0 0 15px rgba(255, 150, 150, 0.9) inset',
                                             zIndex: 2,
                                             transition: 'top 420ms ease'
                                         }} />
