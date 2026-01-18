@@ -726,7 +726,7 @@ const ABODE_BYPASS = {
             };
 
             return (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 7000 }} onMouseDown={onBackdrop}>
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 9500 }} onMouseDown={onBackdrop}>
                     <div className="relative w-full max-w-[851px]">
                         <button
                             className="absolute -top-10 right-0 bg-white/90 hover:bg-white text-black px-3 py-1 rounded-lg shadow"
@@ -3443,6 +3443,9 @@ if (travel.length > 0) {
     try { playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
+    
+    // Update mob position in game state
+    newState.angryMob.position = mobEnd;
 
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
@@ -3497,6 +3500,7 @@ if (travel.length > 0) {
                                             if (!prev || !prev.angryMob) return prev;
                                             return { ...prev, angryMob: { ...prev.angryMob, position: retreatGoal, retreating: true, vanishing: true } };
                                         });
+                                        setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
                                     } catch(e) {}
                                     window.setTimeout(() => {
                                         try {
@@ -3504,6 +3508,7 @@ if (travel.length > 0) {
                                                 if (!prev) return prev;
                                                 return { ...prev, angryMob: null, villagerMood: 1 };
                                             });
+                                            setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
                                         } catch(e) {}
                                     }, 900);
                                 }, 3200 + retreatMs + 120);
