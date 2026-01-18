@@ -977,6 +977,7 @@ const ABODE_BYPASS = {
                 lastHpRef.current = { yellow: y, blue: b };
             }, [gameState?.players?.yellow?.hp, gameState?.players?.blue?.hp]);
                         const [mobAnimPath, setMobAnimPath] = useState([]);
+            window.setMobAnimPath = setMobAnimPath;
 
 
 /* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
@@ -3446,6 +3447,15 @@ if (travel.length > 0) {
     
     // Update mob position in game state
     newState.angryMob.position = mobEnd;
+    
+    // Sync mob movement immediately so guest sees animation
+    if (window.syncAction && !window._syncingState) {
+        window.syncAction('mob_move', {
+            path: [mobStart, ...travel],
+            newPosition: mobEnd,
+            target: newState.angryMob.target
+        });
+    }
 
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
@@ -3488,6 +3498,13 @@ if (travel.length > 0) {
                                 window.setTimeout(() => {
                                     try {
                                         setMobAnimPath([mobEnd, ...retreatPath]);
+                                        // Sync retreat animation to guest
+                                        if (window.syncAction && !window._syncingState) {
+                                            window.syncAction('mob_retreat', {
+                                                path: [mobEnd, ...retreatPath],
+                                                retreatGoal: retreatGoal
+                                            });
+                                        }
                                     } catch(e) {}
                                 }, 3200);
 
@@ -5299,6 +5316,47 @@ if (data.type === 'move') {
     
     // Reset flag after a brief delay
     setTimeout(() => { window._syncingState = false; }, 50);
+  }
+  
+  if (data.type === 'mob_move') {
+    console.log('👹 Mob movement sync received:', data.data);
+    if (window.setMobAnimPath && data.data.path) {
+      try {
+        // Play mob sound on guest
+        if (window.playAngryMobBurst) {
+          try { window.playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
+        }
+        window.setMobAnimPath(data.data.path);
+        // Update position in game state
+        if (window.setGameState && data.data.newPosition) {
+          window.setGameState(prev => {
+            if (!prev || !prev.angryMob) return prev;
+            return {
+              ...prev,
+              angryMob: {
+                ...prev.angryMob,
+                position: data.data.newPosition
+              }
+            };
+          });
+        }
+      } catch(e) {
+        console.error('Mob animation error:', e);
+      }
+    }
+  }
+  
+  if (data.type === 'mob_retreat') {
+    console.log('👹 Mob retreat sync received:', data.data);
+    if (window.setMobAnimPath && data.data.path) {
+      try {
+        setTimeout(() => {
+          window.setMobAnimPath(data.data.path);
+        }, 3200);
+      } catch(e) {
+        console.error('Mob retreat error:', e);
+      }
+    }
   }
   
   if (data.type === 'restart_game') {
