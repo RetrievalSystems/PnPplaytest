@@ -1819,7 +1819,14 @@ window.addEventListener('keydown', handleKeyDown);
                 const ownsZombie = (gameState.zombies || []).some(z => z.owner === pkey);
                 if (ownsZombie && !zombieHasMoved) {
                     if (zombieAttackReady !== null) {
-                        setBaseMessage(`${pname} — click on your zombie to command it to attack.`);
+                        const opponent = pkey === 'yellow' ? 'blue' : 'yellow';
+                        const hasProtection = gameState.players[opponent]?.protected;
+                        if (hasProtection) {
+                            const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
+                            setBaseMessage(`${pname} — ${oppName} has protection. Zombie attack will be negated.`);
+                        } else {
+                            setBaseMessage(`${pname} — click on your zombie to command it to attack.`);
+                        }
                     } else {
                         setBaseMessage(`${pname}, move your zombie up to 3 spaces.`);
                     }
@@ -3126,15 +3133,27 @@ if (selectingTeleport) {
 
                     // Attack opponent
                     if (zombie.position === oppPos && !newState.players[opponent].inAbode) {
-                        newState.players[opponent].hp -= 3;
-                        try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
-                        triggerFx(oppPos, 'zombie');
-                        // add a little extra impact like the mob
-                        triggerFx(oppPos, 'mob');
-                        // remove zombie after attack (as before)
-                        newState.zombies.splice(zombieIdx, 1);
-                        setZombieAttackReady(null);
-                        if (newState.players[opponent].hp <= 0) setGameOver(player);
+                        // Check if opponent has protection
+                        if (newState.players[opponent].protected) {
+                            const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
+                            setTempMessage(`Zombie attack negated — ${oppName} has protection.`, 2500);
+                            triggerFx(oppPos, 'zombie');
+                            // Remove zombie after failed attack
+                            newState.zombies.splice(zombieIdx, 1);
+                            setZombieAttackReady(null);
+                            // Consume the protection
+                            newState.players[opponent].protected = false;
+                        } else {
+                            newState.players[opponent].hp -= 3;
+                            try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
+                            triggerFx(oppPos, 'zombie');
+                            // add a little extra impact like the mob
+                            triggerFx(oppPos, 'mob');
+                            // remove zombie after attack (as before)
+                            newState.zombies.splice(zombieIdx, 1);
+                            setZombieAttackReady(null);
+                            if (newState.players[opponent].hp <= 0) setGameOver(player);
+                        }
                     }
                     setGameState(newState);
                     
@@ -3465,6 +3484,8 @@ if (travel.length > 0) {
                             // If protected, the mob abates instead of dealing damage
                             if (newState.players[player].protected) {
                                 triggerFx(targetPos, 'mob');
+                                // Consume the protection
+                                newState.players[player].protected = false;
                                 
                                 // Mob has caught the target: play the full 3s burst, then retreat to town square (6F).
                                 try { playAngryMobBurst(3000, 0, 0.35); } catch(e) {}
