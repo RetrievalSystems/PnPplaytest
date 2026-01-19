@@ -48,11 +48,6 @@
             50% { opacity: 0.85; transform: scale(1.03); filter: saturate(1.5); }
         }
 
-        @keyframes vmpulse {
-            0%, 100% { opacity: 0.5; box-shadow: 0 0 20px rgba(255, 215, 80, 0.6), 0 0 8px rgba(255, 150, 150, 0.4) inset; }
-            50% { opacity: 0.75; box-shadow: 0 0 30px rgba(255, 215, 80, 0.9), 0 0 12px rgba(255, 150, 150, 0.6) inset; }
-        }
-
         @keyframes blightWobble {
           0% { opacity: 1; transform: translateX(0) scale(1); }
           25% { opacity: 0.95; transform: translateX(-6px) scale(0.95); }
@@ -448,7 +443,7 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 
         const IMAGES = {
             hud: './images/HUDs with board marked.jpg',
-            board: './images/board.jpg?v=' + Date.now(),
+            board: './images/board.jpg',
             spellChart: './images/spell-chart.jpg',
             wizards: './images/wizards.jpg',
             herbs: './images/herbs.png',
@@ -726,8 +721,8 @@ const ABODE_BYPASS = {
             };
 
             return (
-                <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 9500 }} onMouseDown={onBackdrop}>
-                    <div className="relative w-full max-w-[851px]">
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 7000 }} onMouseDown={onBackdrop}>
+                    <div className="relative w-full max-w-4xl">
                         <button
                             className="absolute -top-10 right-0 bg-white/90 hover:bg-white text-black px-3 py-1 rounded-lg shadow"
                             onClick={onClose}
@@ -906,26 +901,26 @@ const ABODE_BYPASS = {
                             })}
                         </div>
                         {mode === 'view' && !canCraftNow && (
-                            <div className="mt-3 text-center text-white/90 text-sm bg-black py-2 px-4 rounded" style={{ zIndex: 10000, position: 'relative' }}>
+                            <div className="mt-3 text-center text-white/90 text-sm">
                                 Crafting is enabled only after you have moved and are currently in your Abode.
                             </div>
                         )}
 
                         {mode === 'pickCrop' && (
-                            <div className="mt-3 text-center text-white/90 text-sm bg-black py-2 px-4 rounded" style={{ zIndex: 10000, position: 'relative' }}>
+                            <div className="mt-3 text-center text-white/90 text-sm">
                                 Pick <span className="font-semibold">{pickRemaining}</span> crop(s) by clicking any highlighted crop slot on the chart.
                             </div>
                         )}
 
                         {mode === 'bloomPickCrop' && (
-                            <div className="mt-3 text-center text-white/90 text-sm bg-black py-2 px-4 rounded" style={{ zIndex: 10000, position: 'relative' }}>
+                            <div className="mt-3 text-center text-white/90 text-sm">
                                 Pick <span className="font-semibold">{pickRemaining}</span> crop(s). <span className="font-semibold">Tap Space</span> to {bloomView === 'choices' ? 'see current inventory' : 'return to bloom choices'}. <span className="font-semibold">Hold Space</span> to view the board.
                             </div>
                         )}
 
 
                         {mode === 'removeOpponentCrop' && (
-                            <div className="mt-3 text-center text-white/90 text-sm bg-black py-2 px-4 rounded" style={{ zIndex: 10000, position: 'relative' }}>
+                            <div className="mt-3 text-center text-white/90 text-sm">
                                 Click a highlighted crop on your opponent&apos;s chart to remove it.
                             </div>
                         )}
@@ -977,7 +972,6 @@ const ABODE_BYPASS = {
                 lastHpRef.current = { yellow: y, blue: b };
             }, [gameState?.players?.yellow?.hp, gameState?.players?.blue?.hp]);
                         const [mobAnimPath, setMobAnimPath] = useState([]);
-            window.setMobAnimPath = setMobAnimPath;
 
 
 /* Angry mob SFX is handled by the mob movement/attack/abate logic (no per-step restarts). */
@@ -1819,14 +1813,7 @@ window.addEventListener('keydown', handleKeyDown);
                 const ownsZombie = (gameState.zombies || []).some(z => z.owner === pkey);
                 if (ownsZombie && !zombieHasMoved) {
                     if (zombieAttackReady !== null) {
-                        const opponent = pkey === 'yellow' ? 'blue' : 'yellow';
-                        const hasProtection = gameState.players[opponent]?.protected;
-                        if (hasProtection) {
-                            const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
-                            setBaseMessage(`${pname} — ${oppName} has protection. Zombie attack will be negated.`);
-                        } else {
-                            setBaseMessage(`${pname} — click on your zombie to command it to attack.`);
-                        }
+                        setBaseMessage(`${pname} — click on your zombie to command it to attack.`);
                     } else {
                         setBaseMessage(`${pname}, move your zombie up to 3 spaces.`);
                     }
@@ -2749,26 +2736,17 @@ setPickRemaining(count);
                 setShowCropPickOption(null);
 
                 const player = ns.currentPlayer;
-                
-                // Special case: Yellow's first move auto-advances to Blue
-                if (ns.firstMove && ns.firstMove[player] && player === 'yellow') {
-                    ns.firstMove[player] = false;
-                    ns.currentPlayer = 'blue';
-                    ns.turn = (ns.turn || 1) + 1;
-                    ns.hasMovedThisTurn = false;
-                    setMaxMoveDistance(3);
-                    setWheelSpunThisTurn(true);
-                    setGameState(ns);
-                    setSelectedSpace(null);
-                    setValidMoves([]);
-                    window.setTimeout(() => {
-                        autoShowCurrentMoves(ns, 3);
-                    }, 0);
-                    return;
+                const hasActiveZombie = ns.zombies.some(z => z.owner === player);
+                const needsManualEnd = (ns.players[player].spells && ns.players[player].spells.length > 0);
+
+                if (!ns.players[player].inAbode && !needsManualEnd) {
+                    if (!hasActiveZombie || zombieHasMoved) {
+                        endTurnFromSnapshot(ns);
+                        setSelectedSpace(null);
+                        setValidMoves([]);
+                        return;
+                    }
                 }
-                
-                // For all other cases (including Blue's first move), just update state
-                // Player must click their portrait to end turn
                 setGameState(ns);
             };
 
@@ -3026,6 +3004,17 @@ if (selectingTeleport) {
                     newState.players[player].spells = newState.players[player].spells.filter(s => s !== 'teleport');
                     setGameState(newState);
                     setSelectingTeleport(false);
+                    
+                    // Sync the teleport move to other player
+                    if (window.syncAction) {
+                        window.syncAction('move', {
+                            space: space,
+                            player: player,
+                            position: space,
+                            inAbode: (space === ABODES[player])
+                        });
+                    }
+                    
                     return;
                 }
 
@@ -3142,27 +3131,15 @@ if (selectingTeleport) {
 
                     // Attack opponent
                     if (zombie.position === oppPos && !newState.players[opponent].inAbode) {
-                        // Check if opponent has protection
-                        if (newState.players[opponent].protected) {
-                            const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
-                            setTempMessage(`Zombie attack negated — ${oppName} has protection.`, 2500);
-                            triggerFx(oppPos, 'zombie');
-                            // Remove zombie after failed attack
-                            newState.zombies.splice(zombieIdx, 1);
-                            setZombieAttackReady(null);
-                            // Consume the protection
-                            newState.players[opponent].protected = false;
-                        } else {
-                            newState.players[opponent].hp -= 3;
-                            try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
-                            triggerFx(oppPos, 'zombie');
-                            // add a little extra impact like the mob
-                            triggerFx(oppPos, 'mob');
-                            // remove zombie after attack (as before)
-                            newState.zombies.splice(zombieIdx, 1);
-                            setZombieAttackReady(null);
-                            if (newState.players[opponent].hp <= 0) setGameOver(player);
-                        }
+                        newState.players[opponent].hp -= 3;
+                        try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
+                        triggerFx(oppPos, 'zombie');
+                        // add a little extra impact like the mob
+                        triggerFx(oppPos, 'mob');
+                        // remove zombie after attack (as before)
+                        newState.zombies.splice(zombieIdx, 1);
+                        setZombieAttackReady(null);
+                        if (newState.players[opponent].hp <= 0) setGameOver(player);
                     }
                     setGameState(newState);
                     
@@ -3247,12 +3224,6 @@ if (selectingTeleport) {
             const movePlayer = (dest) => {
                 const player = gameState.currentPlayer;
                 const newState = {...gameState};
-                // Create deep copies of nested objects to avoid shallow copy issues
-                newState.firstMove = {...gameState.firstMove};
-                newState.players = {
-                    yellow: {...gameState.players.yellow, inventory: {...gameState.players.yellow.inventory}, spells: [...gameState.players.yellow.spells]},
-                    blue: {...gameState.players.blue, inventory: {...gameState.players.blue.inventory}, spells: [...gameState.players.blue.spells]}
-                };
 
                 // Must move at least one space (no clicking your current space as a 'move')
                 if (dest === newState.players[player].position) {
@@ -3478,18 +3449,6 @@ if (travel.length > 0) {
     try { playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
-    
-    // Update mob position in game state
-    newState.angryMob.position = mobEnd;
-    
-    // Sync mob movement immediately so guest sees animation
-    if (window.syncAction && !window._syncingState) {
-        window.syncAction('mob_move', {
-            path: [mobStart, ...travel],
-            newPosition: mobEnd,
-            target: newState.angryMob.target
-        });
-    }
 
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
@@ -3499,8 +3458,6 @@ if (travel.length > 0) {
                             // If protected, the mob abates instead of dealing damage
                             if (newState.players[player].protected) {
                                 triggerFx(targetPos, 'mob');
-                                // Consume the protection
-                                newState.players[player].protected = false;
                                 
                                 // Mob has caught the target: play the full 3s burst, then retreat to town square (6F).
                                 try { playAngryMobBurst(3000, 0, 0.35); } catch(e) {}
@@ -3534,13 +3491,6 @@ if (travel.length > 0) {
                                 window.setTimeout(() => {
                                     try {
                                         setMobAnimPath([mobEnd, ...retreatPath]);
-                                        // Sync retreat animation to guest
-                                        if (window.syncAction && !window._syncingState) {
-                                            window.syncAction('mob_retreat', {
-                                                path: [mobEnd, ...retreatPath],
-                                                retreatGoal: retreatGoal
-                                            });
-                                        }
                                     } catch(e) {}
                                 }, 3200);
 
@@ -3553,7 +3503,6 @@ if (travel.length > 0) {
                                             if (!prev || !prev.angryMob) return prev;
                                             return { ...prev, angryMob: { ...prev.angryMob, position: retreatGoal, retreating: true, vanishing: true } };
                                         });
-                                        setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
                                     } catch(e) {}
                                     window.setTimeout(() => {
                                         try {
@@ -3561,7 +3510,6 @@ if (travel.length > 0) {
                                                 if (!prev) return prev;
                                                 return { ...prev, angryMob: null, villagerMood: 1 };
                                             });
-                                            setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
                                         } catch(e) {}
                                     }, 900);
                                 }, 3200 + retreatMs + 120);
@@ -4756,7 +4704,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                         )}
 
 
-                        {/* Villager Mood (VM) highlight bar only - meter baked into board */}
+                        {/* Villager Mood (VM) meter in parchment area */}
                         {(() => {
                             try {
                                 const moodRaw = (gameState && typeof gameState.villagerMood !== 'undefined') ? gameState.villagerMood : 1;
@@ -4767,26 +4715,35 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: '23%',
-                                        top: '56.5%',
-                                        width: '25.4%',
-                                        height: '18.8%',
+                                        left: `calc(6.2% + ${(hudRect?.w ? (250 / hudRect.w) * 100 : 0).toFixed(4)}%)`,
+                                        top:  `calc(75.8% + ${(hudRect?.h ? (-150 / hudRect.h) * 100 : 0).toFixed(4)}%)`,
+                                        width: '24.5%',
+                                        height: '17.5%',
                                         zIndex: 5200,
+                                        transform: 'translate(60%, -150%) translate(100px, 62px)',
                                         pointerEvents: 'none'
                                     }}>
+                                        <div style={{
+                                            position: 'absolute',
+                                            inset: 0,
+                                            backgroundImage: `url(${IMAGES.vmMeter})`,
+                                            backgroundSize: 'contain',
+                                            backgroundRepeat: 'no-repeat',
+                                            backgroundPosition: 'center',
+                                            borderRadius: '10px'
+                                        }} />
                                         {/* highlight bar */}
                                         <div style={{
                                             position: 'absolute',
-                                            left: '46%',
-                                            right: '35%',
-                                            top: `${topPx + 39}px`,
+                                            left: '41.5%',
+                                            right: '41.5%',
+                                            top: `${topPx + 52}px`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
-                                            background: 'rgba(255, 120, 120, 0.5)',
-                                            boxShadow: '0 0 20px rgba(255, 215, 80, 0.6), 0 0 8px rgba(255, 150, 150, 0.4) inset',
+                                            background: 'rgba(220, 80, 80, 0.38)',
+                                            boxShadow: '0 0 18px rgba(255, 215, 80, 0.75), 0 0 6px rgba(0,0,0,0.25) inset',
                                             zIndex: 2,
-                                            transition: 'top 420ms ease',
-                                            animation: 'vmpulse 2s ease-in-out infinite'
+                                            transition: 'top 420ms ease'
                                         }} />
                                     </div>
                                 );
@@ -5352,47 +5309,6 @@ if (data.type === 'move') {
     
     // Reset flag after a brief delay
     setTimeout(() => { window._syncingState = false; }, 50);
-  }
-  
-  if (data.type === 'mob_move') {
-    console.log('👹 Mob movement sync received:', data.data);
-    if (window.setMobAnimPath && data.data.path) {
-      try {
-        // Play mob sound on guest
-        if (window.playAngryMobBurst) {
-          try { window.playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
-        }
-        window.setMobAnimPath(data.data.path);
-        // Update position in game state
-        if (window.setGameState && data.data.newPosition) {
-          window.setGameState(prev => {
-            if (!prev || !prev.angryMob) return prev;
-            return {
-              ...prev,
-              angryMob: {
-                ...prev.angryMob,
-                position: data.data.newPosition
-              }
-            };
-          });
-        }
-      } catch(e) {
-        console.error('Mob animation error:', e);
-      }
-    }
-  }
-  
-  if (data.type === 'mob_retreat') {
-    console.log('👹 Mob retreat sync received:', data.data);
-    if (window.setMobAnimPath && data.data.path) {
-      try {
-        setTimeout(() => {
-          window.setMobAnimPath(data.data.path);
-        }, 3200);
-      } catch(e) {
-        console.error('Mob retreat error:', e);
-      }
-    }
   }
   
   if (data.type === 'restart_game') {
