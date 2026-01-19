@@ -528,54 +528,30 @@ const buildCropIconCandidates = (name) => {
 
 // Crop icon (PNG per herb). Tries multiple filename variants so it works even if
 // your files omit spaces/apostrophes or use kebab/underscore/lowercase names.
-// Memoized to prevent unnecessary re-renders and stabilize display
-const cropImageCache = {};
-
-const CropIcon = React.memo(({ type, style, className }) => {
+const CropIcon = ({ type, style, className }) => {
     const name = (CROPS[type]?.name || type);
-    const [currentSrc, setCurrentSrc] = React.useState(() => {
-        // Check cache first
-        if (cropImageCache[type]) {
-            return cropImageCache[type];
-        }
-        const candidates = buildCropIconCandidates(name);
-        return candidates[0];
-    });
-    const [candidateIndex, setCandidateIndex] = React.useState(0);
-    const candidates = React.useMemo(() => buildCropIconCandidates(name), [name]);
-    
-    const handleError = React.useCallback((e) => {
-        try {
-            const nextIndex = candidateIndex + 1;
-            if (nextIndex < candidates.length) {
-                setCandidateIndex(nextIndex);
-                setCurrentSrc(candidates[nextIndex]);
-            }
-        } catch (_) {}
-    }, [candidateIndex, candidates]);
-    
-    const handleLoad = React.useCallback(() => {
-        // Cache the successfully loaded image
-        cropImageCache[type] = currentSrc;
-    }, [type, currentSrc]);
-    
+    const candidates = buildCropIconCandidates(name);
     return (
         <img
             className={className}
-            src={currentSrc}
+            src={candidates[0]}
             alt={name}
+            data-ci="0"
             style={{ ...style, objectFit: 'contain' }}
             draggable="false"
-            onError={handleError}
-            onLoad={handleLoad}
+            onError={(e) => {
+                try {
+                    const img = e.currentTarget;
+                    const i = Number(img.dataset.ci || '0') + 1;
+                    if (i < candidates.length) {
+                        img.dataset.ci = String(i);
+                        img.src = candidates[i];
+                    }
+                } catch (_) {}
+            }}
         />
     );
-}, (prevProps, nextProps) => {
-    // Only re-render if type or collected status changes
-    return prevProps.type === nextProps.type && 
-           prevProps.style?.opacity === nextProps.style?.opacity &&
-           prevProps.style?.top === nextProps.style?.top;
-});
+};
 
 
         const CROPS = {
@@ -1000,30 +976,6 @@ const ABODE_BYPASS = {
                 });
                 lastHpRef.current = { yellow: y, blue: b };
             }, [gameState?.players?.yellow?.hp, gameState?.players?.blue?.hp]);
-            
-            // Preload all crop images on mount to prevent flickering
-            useEffect(() => {
-                const preloadedImages = [];
-                Object.keys(CROPS).forEach(cropType => {
-                    const cropName = CROPS[cropType].name;
-                    const candidates = buildCropIconCandidates(cropName);
-                    // Try to preload the first candidate for each crop
-                    const img = new Image();
-                    img.src = candidates[0];
-                    preloadedImages.push(img);
-                    // Try secondary candidates if first fails
-                    img.onerror = () => {
-                        if (candidates[1]) {
-                            const img2 = new Image();
-                            img2.src = candidates[1];
-                            preloadedImages.push(img2);
-                        }
-                    };
-                });
-                // Keep references to prevent garbage collection
-                return () => { preloadedImages.length = 0; };
-            }, []);
-            
                         const [mobAnimPath, setMobAnimPath] = useState([]);
             window.setMobAnimPath = setMobAnimPath;
 
@@ -1976,6 +1928,17 @@ useEffect(() => {
                 };
 
                 setGameState(initialState);
+                
+                // Host broadcasts the new initial state to guest after restart
+                setTimeout(() => {
+                    const url = new URLSearchParams(window.location.search);
+                    const role = url.get('role') || 'host';
+                    if (role === 'host' && window.syncAction) {
+                        console.log('📤 Host broadcasting restart initial state with crops:', initialState.crops);
+                        window.syncAction('initial_state', initialState);
+                    }
+                }, 300);
+                
                 setMaxMoveDistance(3);
                 setShowOccurrence(false);
                 setPendingBloom(0);
@@ -4099,7 +4062,6 @@ return (
 
                                             {crop && (
                                                 <CropIcon
-                                                    key={`crop-${space}-${crop.type}`}
                                                     className="absolute"
                                                     type={crop.type}
                                                     style={{
@@ -5226,6 +5188,30 @@ const renderGrid = (playerKey, spells, styleBase) => (
             reconnecting = false;
             ws.send(JSON.stringify({type:'join_room',room:room,role:role}));
             updateBadge(true);
+            
+            // Host broadcasts initial game state (including crop layout) to guest
+            if (isHost) {
+              setTimeout(() => {
+                if (window.setGameState) {
+                  // Get current state and send it
+                  let currentState = null;
+                  window.setGameState(prev => {
+                    currentState = prev;
+                    return prev; // Don't modify, just capture
+                  });
+                  
+                  if (currentState && ws.readyState === WebSocket.OPEN) {
+                    console.log('📤 Host broadcasting initial state with crops:', currentState.crops);
+                    ws.send(JSON.stringify({
+                      type: 'initial_state',
+                      data: currentState,
+                      room: room,
+                      sender: role
+                    }));
+                  }
+                }
+              }, 500); // Small delay to ensure guest is ready to receive
+            }
           };
           
           ws.onmessage = (e) => {
@@ -5279,6 +5265,16 @@ const renderGrid = (playerKey, spells, styleBase) => (
 // Handle incoming synced actions
 window.onSync = function(data) {
   console.log('🎮 Synced action:', data.type, data.data);
+  
+  // Handle initial state broadcast from host (includes crop layout)
+  if (data.type === 'initial_state') {
+    console.log('📥 Received initial state from host with crops:', data.data.crops);
+    if (window.setGameState && data.data) {
+      // Guest replaces their entire game state with host's
+      window.setGameState(data.data);
+    }
+    return;
+  }
   
   // Handle different action types
 if (data.type === 'move') {
