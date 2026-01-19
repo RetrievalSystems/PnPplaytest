@@ -739,27 +739,34 @@ const ABODE_BYPASS = {
                                 draggable="false"
                             />
                             
-                            {/* Pulsing yellow corner to close (bottom right) */}
+                            {/* Pulsing yellow corner to close (bottom right) - only in view mode */}
                             {mode === 'view' && (
                                 <div
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        console.log('🟨 Close corner clicked');
+                                        onClose();
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.stopPropagation();
+                                        console.log('🟨 Close corner touched');
                                         onClose();
                                     }}
                                     style={{
                                         position: 'absolute',
                                         bottom: '0',
                                         right: '0',
-                                        width: '80px',
-                                        height: '80px',
-                                        background: 'linear-gradient(135deg, transparent 0%, transparent 50%, rgba(250, 204, 21, 0.6) 50%, rgba(250, 204, 21, 0.8) 100%)',
+                                        width: '100px',
+                                        height: '100px',
+                                        background: 'linear-gradient(135deg, transparent 0%, transparent 48%, rgba(255, 235, 59, 0.5) 50%, rgba(255, 235, 59, 0.75) 100%)',
                                         cursor: 'pointer',
                                         animation: 'pulse 2s ease-in-out infinite',
-                                        borderTopLeftRadius: '8px',
+                                        borderTopLeftRadius: '12px',
                                         pointerEvents: 'auto',
-                                        zIndex: 100
+                                        zIndex: 100,
+                                        boxShadow: '0 0 20px rgba(255, 235, 59, 0.4)'
                                     }}
-                                    title="Close spell chart"
+                                    title="Tap to close spell chart"
                                 />
                             )}
 
@@ -4423,7 +4430,18 @@ return (
             {showSpellChart && (
                 <SpellChartModal
                     open={showSpellChart}
-                    onClose={() => { }}
+                    onClose={() => {
+                        // Only allow closing in view mode (not during forced crop picking)
+                        if (spellChartMode === 'view') {
+                            console.log('📖 Closing spell chart');
+                            setShowSpellChart(false);
+                            fadeOutSfx('crafting', 650);
+                            setCraftingFromChart(false);
+                            setSpellChartMode('view');
+                            setPickRemaining(0);
+                            setChartTargetPlayer(null);
+                        }
+                    }}
                     gameState={gameState}
                     canCraftNow={(() => { const p = gameState?.players?.[gameState?.currentPlayer]; return !!(p && p.inAbode && gameState.hasMovedThisTurn && !p.craftedThisTurn); })()}
                     mode={spellChartMode}
@@ -5162,7 +5180,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             <>
                                 {/* Yellow player's spell book */}
                                 <img
-                                    src="/PnPplaytest/images/spell-book.png"
+                                    src="./images/spell-book.png"
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -5178,19 +5196,12 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         setCraftingFromChart(canCraft);
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
-                                    onError={(e) => {
-                                        console.error('❌ Failed to load spell-book.png - trying fallback');
-                                        e.currentTarget.src = './images/spell-book.png';
-                                    }}
-                                    onLoad={() => {
-                                        console.log('✅ Yellow spell book image loaded');
-                                    }}
                                     style={{
                                         position: 'absolute',
                                         left: 'calc(3.4% - 50px)',
                                         top: 'calc(22% + 22px)',
-                                        width: '8%',
-                                        maxWidth: '120px',
+                                        width: '8.8%',
+                                        maxWidth: '132px',
                                         cursor: 'pointer',
                                         filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
                                         transition: 'all 0.2s',
@@ -5199,14 +5210,13 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(139, 92, 246, 0.8))';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(250, 204, 21, 0.8))';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
                                         e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
                                     }}
                                     onTouchStart={(e) => {
-                                        console.log('📖 Yellow spell book touched');
                                         e.currentTarget.style.transform = 'scale(0.95)';
                                     }}
                                     onTouchEnd={(e) => {
@@ -5217,7 +5227,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 
                                 {/* Blue player's spell book */}
                                 <img
-                                    src="/PnPplaytest/images/spell-book.png"
+                                    src="./images/spell-book.png"
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -5233,19 +5243,12 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         setCraftingFromChart(canCraft);
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
-                                    onError={(e) => {
-                                        console.error('❌ Failed to load spell-book.png - trying fallback');
-                                        e.currentTarget.src = './images/spell-book.png';
-                                    }}
-                                    onLoad={() => {
-                                        console.log('✅ Blue spell book image loaded');
-                                    }}
                                     style={{
                                         position: 'absolute',
                                         right: 'calc(3.4% - 50px)',
                                         top: 'calc(22% + 22px)',
-                                        width: '8%',
-                                        maxWidth: '120px',
+                                        width: '8.8%',
+                                        maxWidth: '132px',
                                         cursor: 'pointer',
                                         filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
                                         transition: 'all 0.2s',
@@ -5254,14 +5257,13 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(139, 92, 246, 0.8))';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(96, 165, 250, 0.8))';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
                                         e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
                                     }}
                                     onTouchStart={(e) => {
-                                        console.log('📖 Blue spell book touched');
                                         e.currentTarget.style.transform = 'scale(0.95)';
                                     }}
                                     onTouchEnd={(e) => {
