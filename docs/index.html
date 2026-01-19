@@ -5140,7 +5140,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             ))}
                         </div>
                         
-                        {/* Spell Chart Book Buttons - one under each portrait */}
+                        {/* Spell Chart Book Buttons - clickable book images under each portrait */}
                         {!showSpellChart && !gameOver && (
                             <>
                                 {/* Yellow player's spell book */}
@@ -5149,6 +5149,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        console.log('📖 Yellow spell book clicked');
                                         const gs = latestStateRef.current;
                                         const curr = gs?.players?.[gs?.currentPlayer];
                                         const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
@@ -5167,20 +5168,21 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         width: '8%',
                                         maxWidth: '120px',
                                         cursor: 'pointer',
-                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
                                         transition: 'all 0.2s',
-                                        zIndex: 7000,
+                                        zIndex: 9000,
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 12px rgba(139, 92, 246, 0.6))';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(139, 92, 246, 0.8))';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
                                     }}
                                     onTouchStart={(e) => {
+                                        console.log('📖 Yellow spell book touched');
                                         e.currentTarget.style.transform = 'scale(0.95)';
                                     }}
                                     onTouchEnd={(e) => {
@@ -5195,6 +5197,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
+                                        console.log('📖 Blue spell book clicked');
                                         const gs = latestStateRef.current;
                                         const curr = gs?.players?.[gs?.currentPlayer];
                                         const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
@@ -5213,20 +5216,21 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         width: '8%',
                                         maxWidth: '120px',
                                         cursor: 'pointer',
-                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
                                         transition: 'all 0.2s',
-                                        zIndex: 7000,
+                                        zIndex: 9000,
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.08)';
-                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 12px rgba(139, 92, 246, 0.6))';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 16px rgba(139, 92, 246, 0.8))';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))';
                                     }}
                                     onTouchStart={(e) => {
+                                        console.log('📖 Blue spell book touched');
                                         e.currentTarget.style.transform = 'scale(0.95)';
                                     }}
                                     onTouchEnd={(e) => {
