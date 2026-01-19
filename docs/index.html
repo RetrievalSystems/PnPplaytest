@@ -4406,17 +4406,7 @@ return (
             {showSpellChart && (
                 <SpellChartModal
                     open={showSpellChart}
-                    onClose={() => {
-                        // Allow closing spell chart by clicking backdrop (works on mobile too)
-                        if (spellChartMode === 'view') {
-                            setShowSpellChart(false);
-                            fadeOutSfx('crafting', 650);
-                            setCraftingFromChart(false);
-                            setSpellChartMode('view');
-                            setPickRemaining(0);
-                            setChartTargetPlayer(null);
-                        }
-                    }}
+                    onClose={() => { }}
                     gameState={gameState}
                     canCraftNow={(() => { const p = gameState?.players?.[gameState?.currentPlayer]; return !!(p && p.inAbode && gameState.hasMovedThisTurn && !p.craftedThisTurn); })()}
                     mode={spellChartMode}
@@ -5150,61 +5140,101 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             ))}
                         </div>
                         
-                        {/* Spell Chart Button - visible on all devices, essential for iPad/mobile */}
+                        {/* Spell Chart Book Buttons - one under each portrait */}
                         {!showSpellChart && !gameOver && (
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    const gs = latestStateRef.current;
-                                    const curr = gs?.players?.[gs?.currentPlayer];
-                                    const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
-                                    
-                                    setSpellChartMode('view');
-                                    setPickRemaining(0);
-                                    setChartTargetPlayer(null);
-                                    setShowSpellChart(true);
-                                    setCraftingFromChart(canCraft);
-                                    if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
-                                }}
-                                style={{
-                                    position: 'absolute',
-                                    top: '2%',
-                                    left: '50%',
-                                    transform: 'translateX(-50%)',
-                                    background: 'rgba(139, 92, 246, 0.9)',
-                                    border: '2px solid rgba(255, 255, 255, 0.8)',
-                                    borderRadius: '12px',
-                                    padding: '8px 16px',
-                                    cursor: 'pointer',
-                                    fontSize: '16px',
-                                    fontWeight: 'bold',
-                                    color: '#fff',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
-                                    transition: 'all 0.2s',
-                                    zIndex: 7000,
-                                    pointerEvents: 'auto',
-                                    textShadow: '0 2px 4px rgba(0,0,0,0.3)'
-                                }}
-                                onMouseEnter={(e) => {
-                                    e.currentTarget.style.transform = 'translateX(-50%) scale(1.05)';
-                                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(139, 92, 246, 0.5)';
-                                }}
-                                onMouseLeave={(e) => {
-                                    e.currentTarget.style.transform = 'translateX(-50%) scale(1)';
-                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
-                                }}
-                                onTouchStart={(e) => {
-                                    e.currentTarget.style.transform = 'translateX(-50%) scale(0.95)';
-                                }}
-                                onTouchEnd={(e) => {
-                                    e.currentTarget.style.transform = 'translateX(-50%) scale(1)';
-                                }}
-                            >
-                                📖 Spell Chart
-                            </button>
+                            <>
+                                {/* Yellow player's spell book */}
+                                <img
+                                    src="./images/spell-book.png"
+                                    alt="Open Spell Chart"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const gs = latestStateRef.current;
+                                        const curr = gs?.players?.[gs?.currentPlayer];
+                                        const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
+                                        
+                                        setSpellChartMode('view');
+                                        setPickRemaining(0);
+                                        setChartTargetPlayer(null);
+                                        setShowSpellChart(true);
+                                        setCraftingFromChart(canCraft);
+                                        if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        left: 'calc(3.4% - 50px)',
+                                        top: 'calc(22% + 10px)',
+                                        width: '8%',
+                                        maxWidth: '120px',
+                                        cursor: 'pointer',
+                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+                                        transition: 'all 0.2s',
+                                        zIndex: 7000,
+                                        pointerEvents: 'auto'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.08)';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 12px rgba(139, 92, 246, 0.6))';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))';
+                                    }}
+                                    onTouchStart={(e) => {
+                                        e.currentTarget.style.transform = 'scale(0.95)';
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                    draggable="false"
+                                />
+                                
+                                {/* Blue player's spell book */}
+                                <img
+                                    src="./images/spell-book.png"
+                                    alt="Open Spell Chart"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        const gs = latestStateRef.current;
+                                        const curr = gs?.players?.[gs?.currentPlayer];
+                                        const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
+                                        
+                                        setSpellChartMode('view');
+                                        setPickRemaining(0);
+                                        setChartTargetPlayer(null);
+                                        setShowSpellChart(true);
+                                        setCraftingFromChart(canCraft);
+                                        if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        right: 'calc(3.4% - 50px)',
+                                        top: 'calc(22% + 10px)',
+                                        width: '8%',
+                                        maxWidth: '120px',
+                                        cursor: 'pointer',
+                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))',
+                                        transition: 'all 0.2s',
+                                        zIndex: 7000,
+                                        pointerEvents: 'auto'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.08)';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 6px 12px rgba(139, 92, 246, 0.6))';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.filter = 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))';
+                                    }}
+                                    onTouchStart={(e) => {
+                                        e.currentTarget.style.transform = 'scale(0.95)';
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                    draggable="false"
+                                />
+                            </>
                         )}
                     </>
                 );
