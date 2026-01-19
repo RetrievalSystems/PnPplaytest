@@ -528,30 +528,54 @@ const buildCropIconCandidates = (name) => {
 
 // Crop icon (PNG per herb). Tries multiple filename variants so it works even if
 // your files omit spaces/apostrophes or use kebab/underscore/lowercase names.
-const CropIcon = ({ type, style, className }) => {
+// Memoized to prevent unnecessary re-renders and stabilize display
+const cropImageCache = {};
+
+const CropIcon = React.memo(({ type, style, className }) => {
     const name = (CROPS[type]?.name || type);
-    const candidates = buildCropIconCandidates(name);
+    const [currentSrc, setCurrentSrc] = React.useState(() => {
+        // Check cache first
+        if (cropImageCache[type]) {
+            return cropImageCache[type];
+        }
+        const candidates = buildCropIconCandidates(name);
+        return candidates[0];
+    });
+    const [candidateIndex, setCandidateIndex] = React.useState(0);
+    const candidates = React.useMemo(() => buildCropIconCandidates(name), [name]);
+    
+    const handleError = React.useCallback((e) => {
+        try {
+            const nextIndex = candidateIndex + 1;
+            if (nextIndex < candidates.length) {
+                setCandidateIndex(nextIndex);
+                setCurrentSrc(candidates[nextIndex]);
+            }
+        } catch (_) {}
+    }, [candidateIndex, candidates]);
+    
+    const handleLoad = React.useCallback(() => {
+        // Cache the successfully loaded image
+        cropImageCache[type] = currentSrc;
+    }, [type, currentSrc]);
+    
     return (
         <img
             className={className}
-            src={candidates[0]}
+            src={currentSrc}
             alt={name}
-            data-ci="0"
             style={{ ...style, objectFit: 'contain' }}
             draggable="false"
-            onError={(e) => {
-                try {
-                    const img = e.currentTarget;
-                    const i = Number(img.dataset.ci || '0') + 1;
-                    if (i < candidates.length) {
-                        img.dataset.ci = String(i);
-                        img.src = candidates[i];
-                    }
-                } catch (_) {}
-            }}
+            onError={handleError}
+            onLoad={handleLoad}
         />
     );
-};
+}, (prevProps, nextProps) => {
+    // Only re-render if type or collected status changes
+    return prevProps.type === nextProps.type && 
+           prevProps.style?.opacity === nextProps.style?.opacity &&
+           prevProps.style?.top === nextProps.style?.top;
+});
 
 
         const CROPS = {
@@ -976,6 +1000,30 @@ const ABODE_BYPASS = {
                 });
                 lastHpRef.current = { yellow: y, blue: b };
             }, [gameState?.players?.yellow?.hp, gameState?.players?.blue?.hp]);
+            
+            // Preload all crop images on mount to prevent flickering
+            useEffect(() => {
+                const preloadedImages = [];
+                Object.keys(CROPS).forEach(cropType => {
+                    const cropName = CROPS[cropType].name;
+                    const candidates = buildCropIconCandidates(cropName);
+                    // Try to preload the first candidate for each crop
+                    const img = new Image();
+                    img.src = candidates[0];
+                    preloadedImages.push(img);
+                    // Try secondary candidates if first fails
+                    img.onerror = () => {
+                        if (candidates[1]) {
+                            const img2 = new Image();
+                            img2.src = candidates[1];
+                            preloadedImages.push(img2);
+                        }
+                    };
+                });
+                // Keep references to prevent garbage collection
+                return () => { preloadedImages.length = 0; };
+            }, []);
+            
                         const [mobAnimPath, setMobAnimPath] = useState([]);
             window.setMobAnimPath = setMobAnimPath;
 
@@ -3026,17 +3074,6 @@ if (selectingTeleport) {
                     newState.players[player].spells = newState.players[player].spells.filter(s => s !== 'teleport');
                     setGameState(newState);
                     setSelectingTeleport(false);
-                    
-                    // Sync the teleport move to other player
-                    if (window.syncAction) {
-                        window.syncAction('move', {
-                            space: space,
-                            player: player,
-                            position: space,
-                            inAbode: (space === ABODES[player])
-                        });
-                    }
-                    
                     return;
                 }
 
@@ -4062,6 +4099,7 @@ return (
 
                                             {crop && (
                                                 <CropIcon
+                                                    key={`crop-${space}-${crop.type}`}
                                                     className="absolute"
                                                     type={crop.type}
                                                     style={{
