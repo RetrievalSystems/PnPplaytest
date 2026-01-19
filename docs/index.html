@@ -2107,7 +2107,7 @@ useEffect(() => {
                     if (target.kind === 'mob' && newState.angryMob && target.space === newState.angryMob.position) {
                         triggerFx(target.space, 'mob');
                         newState.angryMob = null;
-                        playSfxFile('crowdhuh', { volume: 0.35 });
+                        playAngryMobBurst(1500, 0, 0.35);
                         newState.villagerMood = 1;
                     } else if (target.kind === 'player' && target.key === opponent && getDistance(from, newState.players[opponent].position) <= 3 && !newState.players[opponent].inAbode && !newState.players[opponent].protected) {
                         newState.players[opponent].hp -= 3;
@@ -2283,7 +2283,7 @@ switch(spellKey) {
                             triggerCloud(from, mobPos);
                             triggerFx(mobPos, 'mob');
                             newState.angryMob = null;
-                            playSfxFile('crowdscream', { volume: 0.35 });
+                            playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
                         }
                         break;
@@ -2316,7 +2316,7 @@ switch(spellKey) {
                             triggerFireball(from, mobPos);
                             triggerFx(mobPos, 'mob');
                             newState.angryMob = null;
-                            playSfxFile('crowdscream', { volume: 0.35 });
+                            playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
                             setTempMessage('Fiery Blast — the mob abates.', 2000);
                         }
@@ -2525,7 +2525,7 @@ switch(spellKey) {
                             newState.villagerMood = Math.min(5, newState.villagerMood + 1);
                             if (newState.villagerMood === 5) {
                                 newState.angryMob = { position: '6F', target: newState.currentPlayer, frozenTurns: 0 };
-                                try { playSfxFile('angrymob', { volume: 0.35 }); } catch(e) {}
+                                try { playAngryMobBurst(3000, 0, 0.35); } catch(e) {}
                                 const tgt = (newState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue';
                                 setTempMessage(`Angry mob! target is ${tgt}`, 2400);
                             }
@@ -3118,7 +3118,7 @@ if (selectingTeleport) {
                     // Attack angry mob (abates it)
                     if (mobPos && zombie.position === mobPos) {
                         triggerFx(mobPos, 'mob');
-                        try { playSfxFile('zombieattackmob', { volume: 0.55 }); } catch(e) {}
+                        try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
                         // Mob abates
                         newState.angryMob = null;
                         newState.villagerMood = 1;
@@ -3475,7 +3475,7 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
 if (travel.length > 0) {
     const mobStart = newState.angryMob.position;
     // Animate the mob token stepping space-by-space (purely visual; game logic uses the final position).
-    try { playSfxFile('angrymob', { volume: 0.35 }); } catch(e) {}
+    try { playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
     
@@ -3494,16 +3494,16 @@ if (travel.length > 0) {
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
         window.setTimeout(() => setTempMessage(`Mob has caught ${tgtName}.`, 2200), 520);
-        // Attack SFX
-        playSfxFile('angrymob', { volume: 0.35 });
+        // Attack SFX: play from 3s in
+        playSfxFileFrom('angrymob', 3.0, { volume: 0.35, loop: false });
                             // If protected, the mob abates instead of dealing damage
                             if (newState.players[player].protected) {
                                 triggerFx(targetPos, 'mob');
                                 // Consume the protection
                                 newState.players[player].protected = false;
                                 
-                                // Mob has caught the target: play crowd huh, then retreat to town square (6F).
-                                try { playSfxFile('crowdhuh', { volume: 0.35 }); } catch(e) {}
+                                // Mob has caught the target: play the full 3s burst, then retreat to town square (6F).
+                                try { playAngryMobBurst(3000, 0, 0.35); } catch(e) {}
 
                                 const retreatGoal = '6F';
                                 const buildShortestPath = (startPos, goalPos) => {
@@ -4406,7 +4406,17 @@ return (
             {showSpellChart && (
                 <SpellChartModal
                     open={showSpellChart}
-                    onClose={() => { }}
+                    onClose={() => {
+                        // Allow closing spell chart by clicking backdrop (works on mobile too)
+                        if (spellChartMode === 'view') {
+                            setShowSpellChart(false);
+                            fadeOutSfx('crafting', 650);
+                            setCraftingFromChart(false);
+                            setSpellChartMode('view');
+                            setPickRemaining(0);
+                            setChartTargetPlayer(null);
+                        }
+                    }}
                     gameState={gameState}
                     canCraftNow={(() => { const p = gameState?.players?.[gameState?.currentPlayer]; return !!(p && p.inAbode && gameState.hasMovedThisTurn && !p.craftedThisTurn); })()}
                     mode={spellChartMode}
@@ -5139,6 +5149,63 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 </div>
                             ))}
                         </div>
+                        
+                        {/* Spell Chart Button - visible on all devices, essential for iPad/mobile */}
+                        {!showSpellChart && !gameOver && (
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    const gs = latestStateRef.current;
+                                    const curr = gs?.players?.[gs?.currentPlayer];
+                                    const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
+                                    
+                                    setSpellChartMode('view');
+                                    setPickRemaining(0);
+                                    setChartTargetPlayer(null);
+                                    setShowSpellChart(true);
+                                    setCraftingFromChart(canCraft);
+                                    if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
+                                }}
+                                style={{
+                                    position: 'absolute',
+                                    top: '2%',
+                                    left: '50%',
+                                    transform: 'translateX(-50%)',
+                                    background: 'rgba(139, 92, 246, 0.9)',
+                                    border: '2px solid rgba(255, 255, 255, 0.8)',
+                                    borderRadius: '12px',
+                                    padding: '8px 16px',
+                                    cursor: 'pointer',
+                                    fontSize: '16px',
+                                    fontWeight: 'bold',
+                                    color: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    boxShadow: '0 4px 12px rgba(0,0,0,0.4)',
+                                    transition: 'all 0.2s',
+                                    zIndex: 7000,
+                                    pointerEvents: 'auto',
+                                    textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                                }}
+                                onMouseEnter={(e) => {
+                                    e.currentTarget.style.transform = 'translateX(-50%) scale(1.05)';
+                                    e.currentTarget.style.boxShadow = '0 6px 16px rgba(139, 92, 246, 0.5)';
+                                }}
+                                onMouseLeave={(e) => {
+                                    e.currentTarget.style.transform = 'translateX(-50%) scale(1)';
+                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4)';
+                                }}
+                                onTouchStart={(e) => {
+                                    e.currentTarget.style.transform = 'translateX(-50%) scale(0.95)';
+                                }}
+                                onTouchEnd={(e) => {
+                                    e.currentTarget.style.transform = 'translateX(-50%) scale(1)';
+                                }}
+                            >
+                                📖 Spell Chart
+                            </button>
+                        )}
                     </>
                 );
             })()}
