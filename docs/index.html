@@ -5162,7 +5162,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                             <>
                                 {/* Yellow player's spell book */}
                                 <img
-                                    src="./images/spell-book.png"
+                                    src="/PnPplaytest/images/spell-book.png"
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -5179,8 +5179,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
                                     onError={(e) => {
-                                        console.error('❌ Failed to load spell-book.png - check ./images/ folder');
-                                        e.currentTarget.style.border = '2px dashed rgba(250,204,21,0.5)';
+                                        console.error('❌ Failed to load spell-book.png - trying fallback');
+                                        e.currentTarget.src = './images/spell-book.png';
                                     }}
                                     onLoad={() => {
                                         console.log('✅ Yellow spell book image loaded');
@@ -5217,7 +5217,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                 
                                 {/* Blue player's spell book */}
                                 <img
-                                    src="./images/spell-book.png"
+                                    src="/PnPplaytest/images/spell-book.png"
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
@@ -5234,8 +5234,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
                                     onError={(e) => {
-                                        console.error('❌ Failed to load spell-book.png - check ./images/ folder');
-                                        e.currentTarget.style.border = '2px dashed rgba(96,165,250,0.5)';
+                                        console.error('❌ Failed to load spell-book.png - trying fallback');
+                                        e.currentTarget.src = './images/spell-book.png';
                                     }}
                                     onLoad={() => {
                                         console.log('✅ Blue spell book image loaded');
