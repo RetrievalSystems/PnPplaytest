@@ -728,13 +728,6 @@ const ABODE_BYPASS = {
             return (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4" style={{ zIndex: 9500 }} onMouseDown={onBackdrop}>
                     <div className="relative w-full max-w-[851px]">
-                        <button
-                            className="absolute -top-10 right-0 bg-white/90 hover:bg-white text-black px-3 py-1 rounded-lg shadow"
-                            onClick={onClose}
-                        >
-                            Close
-                        </button>
-
                         <div
                             className="relative w-full rounded-2xl shadow-2xl overflow-hidden bg-black/20"
                             style={{ aspectRatio: `${SPELL_CHART_W} / ${SPELL_CHART_H}` }}
@@ -745,6 +738,30 @@ const ABODE_BYPASS = {
                                 className="absolute inset-0 w-full h-full object-contain select-none pointer-events-none"
                                 draggable="false"
                             />
+                            
+                            {/* Pulsing yellow corner to close (bottom right) */}
+                            {mode === 'view' && (
+                                <div
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onClose();
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: '0',
+                                        right: '0',
+                                        width: '80px',
+                                        height: '80px',
+                                        background: 'linear-gradient(135deg, transparent 0%, transparent 50%, rgba(250, 204, 21, 0.6) 50%, rgba(250, 204, 21, 0.8) 100%)',
+                                        cursor: 'pointer',
+                                        animation: 'pulse 2s ease-in-out infinite',
+                                        borderTopLeftRadius: '8px',
+                                        pointerEvents: 'auto',
+                                        zIndex: 100
+                                    }}
+                                    title="Close spell chart"
+                                />
+                            )}
 
                             
                             {/* Crop highlights */}
@@ -5161,10 +5178,17 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         setCraftingFromChart(canCraft);
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
+                                    onError={(e) => {
+                                        console.error('❌ Failed to load spell-book.png - check ./images/ folder');
+                                        e.currentTarget.style.border = '2px dashed rgba(250,204,21,0.5)';
+                                    }}
+                                    onLoad={() => {
+                                        console.log('✅ Yellow spell book image loaded');
+                                    }}
                                     style={{
                                         position: 'absolute',
                                         left: 'calc(3.4% - 50px)',
-                                        top: 'calc(22% + 10px)',
+                                        top: 'calc(22% + 22px)',
                                         width: '8%',
                                         maxWidth: '120px',
                                         cursor: 'pointer',
@@ -5209,10 +5233,17 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                         setCraftingFromChart(canCraft);
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
+                                    onError={(e) => {
+                                        console.error('❌ Failed to load spell-book.png - check ./images/ folder');
+                                        e.currentTarget.style.border = '2px dashed rgba(96,165,250,0.5)';
+                                    }}
+                                    onLoad={() => {
+                                        console.log('✅ Blue spell book image loaded');
+                                    }}
                                     style={{
                                         position: 'absolute',
                                         right: 'calc(3.4% - 50px)',
-                                        top: 'calc(22% + 10px)',
+                                        top: 'calc(22% + 22px)',
                                         width: '8%',
                                         maxWidth: '120px',
                                         cursor: 'pointer',
