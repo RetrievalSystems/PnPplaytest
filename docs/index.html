@@ -21,6 +21,12 @@
             0%, 100% { opacity: 0.8; transform: scale(1); }
             50% { opacity: 1; transform: scale(1.05); }
         }
+        
+        @keyframes vitalityPulse {
+            0% { opacity: 0; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.1); }
+            100% { opacity: 0; transform: scale(0.8); }
+        }
     
         @keyframes fadeInSlide {
             from { 
@@ -1653,6 +1659,7 @@ const triggerTeleportBeam = (fromSpace, toSpace) => {
     setTeleportBeamFx({ id, from: fromSpace, to: toSpace });
     window.setTimeout(() => setTeleportBeamFx(null), 560);
 };
+window.triggerTeleportBeam = triggerTeleportBeam;
 
 const triggerFreezeCastFx = (space) => {
     if (!space) return;
@@ -1710,6 +1717,7 @@ const playSfxFileTail = (key, tailSec = 3, opts = {}) => {
   } catch(e) {}
   return a;
 };
+window.playSfxFileTail = playSfxFileTail;
 
             useEffect(() => {
                 const handleKeyDown = (e) => {
@@ -3133,6 +3141,23 @@ if (selectingTeleport) {
                     newState.players[player].spells = newState.players[player].spells.filter(s => s !== 'teleport');
                     setGameState(newState);
                     setSelectingTeleport(false);
+                    
+                    // Sync teleport to other player (position and visual effect)
+                    if (window.syncAction && !window._syncingState) {
+                        window.syncAction('teleport', {
+                            player: player,
+                            from: fromPos,
+                            to: space,
+                            inAbode: newState.players[player].inAbode
+                        });
+                        console.log(`🔮 ${player === 'yellow' ? 'Yellow' : 'Blue'} teleported from ${fromPos} to ${space}`);
+                    }
+                    
+                    // Sync full state (for spell removal and inventory)
+                    setTimeout(() => {
+                        try { syncGameState(); } catch(e) { console.error('Teleport sync error:', e); }
+                    }, 50);
+                    
                     return;
                 }
 
@@ -4232,6 +4257,23 @@ return (
                                                         border: gameState.currentPlayer === 'yellow' ? '3px solid #FACC15' : '3px solid #60A5FA',
                                                         borderRadius: '999px',
                                                         boxShadow: gameState.currentPlayer === 'yellow' ? '0 0 18px rgba(250,204,21,0.65)' : '0 0 18px rgba(96,165,250,0.65)'
+                                                    }}
+                                                />
+                                            )}
+                                            
+                                            {/* Vitality pulsing effect - sequential pulse through valid moves */}
+                                            {canMove && vitalityThisTurnRef.current && (
+                                                <div
+                                                    className="absolute pointer-events-none"
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        borderRadius: '4px',
+                                                        background: gameState.currentPlayer === 'yellow' 
+                                                            ? 'radial-gradient(circle, rgba(250,204,21,0.6) 0%, rgba(250,204,21,0.2) 50%, transparent 100%)'
+                                                            : 'radial-gradient(circle, rgba(96,165,250,0.6) 0%, rgba(96,165,250,0.2) 50%, transparent 100%)',
+                                                        animation: 'vitalityPulse 0.8s ease-in-out infinite',
+                                                        animationDelay: `${validMoves.indexOf(space) * 0.08}s`
                                                     }}
                                                 />
                                             )}
@@ -5539,6 +5581,36 @@ if (data.type === 'move') {
   
   if (data.type === 'spell') {
     console.log('Player cast spell:', data.data.spell);
+  }
+  
+  if (data.type === 'teleport') {
+    console.log('🔮 Player teleported:', data.data);
+    // Update player position and show teleport beam effect
+    if (data.data.player && data.data.to && window.setGameState) {
+      window.setGameState(prev => ({
+        ...prev,
+        players: {
+          ...prev.players,
+          [data.data.player]: {
+            ...prev.players[data.data.player],
+            position: data.data.to,
+            inAbode: data.data.inAbode !== undefined ? data.data.inAbode : prev.players[data.data.player].inAbode
+          }
+        }
+      }));
+      
+      // Trigger the visual beam effect on guest
+      if (window.triggerTeleportBeam && data.data.from && data.data.to) {
+        window.triggerTeleportBeam(data.data.from, data.data.to);
+      }
+      
+      // Play teleport sound on guest
+      if (window.playSfxFileTail) {
+        try {
+          window.playSfxFileTail('spellcrafted', 3, { volume: 0.75 });
+        } catch(e) {}
+      }
+    }
   }
   
   if (data.type === 'zombie_state') {
