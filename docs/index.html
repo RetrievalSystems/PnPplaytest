@@ -1371,7 +1371,7 @@ const [cloudFx, setCloudFx] = useState(null); // {id, from, to}
             const [teleportBeamFx, setTeleportBeamFx] = useState(null); // {id, from, to}
 const [freezeCastFx, setFreezeCastFx] = useState(null); // {id, space}
 const [thawFx, setThawFx] = useState(null); // {id, space}
-const [musicEnabled, setMusicEnabled] = useState(true); // Music toggle state
+const [musicEnabled, setMusicEnabled] = useState({ yellow: true, blue: true }); // Music toggle state per player
 const [localPlayer, setLocalPlayer] = useState('yellow'); // Which player's perspective ('yellow' or 'blue')
 
 const audioRef = useRef(null);
@@ -1594,14 +1594,14 @@ const stopSvLoop = () => {
   } catch(e) {}
 };
 
-// Music toggle effect
+// Music toggle effect - only plays music if the local player has it enabled
 useEffect(() => {
-  if (musicEnabled) {
+  if (musicEnabled[localPlayer]) {
     startSvLoop();
   } else {
     stopSvLoop();
   }
-}, [musicEnabled]);
+}, [musicEnabled, localPlayer]);
 
 const triggerFx = (space, kind = 'hit') => {
     if (!space) return;
@@ -5525,12 +5525,12 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 <div
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setMusicEnabled(prev => !prev);
+                                        setMusicEnabled(prev => ({ ...prev, yellow: !prev.yellow }));
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        left: 'calc(3.4% - 50px)',
-                                        top: 'calc(22% + 162px)', // Below spell book
+                                        left: 'calc(3.4% - 20px)', // 30px right from original position (-50px + 30px = -20px)
+                                        top: 'calc(22% + 147px)', // 15px up from original position (162px - 15px = 147px)
                                         width: '1.47%',
                                         maxWidth: '22px',
                                         aspectRatio: '1',
@@ -5538,21 +5538,21 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        background: musicEnabled ? 'rgba(250, 204, 21, 0.2)' : 'rgba(100, 100, 100, 0.2)',
-                                        border: `2px solid ${musicEnabled ? 'rgba(250, 204, 21, 0.6)' : 'rgba(150, 150, 150, 0.4)'}`,
+                                        background: musicEnabled.yellow ? 'rgba(250, 204, 21, 0.2)' : 'rgba(100, 100, 100, 0.2)',
+                                        border: `2px solid ${musicEnabled.yellow ? 'rgba(250, 204, 21, 0.6)' : 'rgba(150, 150, 150, 0.4)'}`,
                                         borderRadius: '4px',
-                                        boxShadow: musicEnabled ? '0 2px 4px rgba(250, 204, 21, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)',
+                                        boxShadow: musicEnabled.yellow ? '0 2px 4px rgba(250, 204, 21, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)',
                                         transition: 'all 0.2s',
                                         zIndex: 9000,
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.15)';
-                                        e.currentTarget.style.boxShadow = musicEnabled ? '0 3px 8px rgba(250, 204, 21, 0.6)' : '0 3px 8px rgba(150, 150, 150, 0.5)';
+                                        e.currentTarget.style.boxShadow = musicEnabled.yellow ? '0 3px 8px rgba(250, 204, 21, 0.6)' : '0 3px 8px rgba(150, 150, 150, 0.5)';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.boxShadow = musicEnabled ? '0 2px 4px rgba(250, 204, 21, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)';
+                                        e.currentTarget.style.boxShadow = musicEnabled.yellow ? '0 2px 4px rgba(250, 204, 21, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)';
                                     }}
                                     onTouchStart={(e) => {
                                         e.currentTarget.style.transform = 'scale(0.95)';
@@ -5563,13 +5563,13 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 >
                                     <img
                                         src="./images/music.png"
-                                        alt={musicEnabled ? "Music On" : "Music Off"}
+                                        alt={musicEnabled.yellow ? "Music On" : "Music Off"}
                                         style={{ 
                                             width: '85%', 
                                             height: '85%', 
                                             objectFit: 'contain',
-                                            opacity: musicEnabled ? 1 : 0.5,
-                                            filter: musicEnabled ? 'none' : 'grayscale(0.8)'
+                                            opacity: musicEnabled.yellow ? 1 : 0.5,
+                                            filter: musicEnabled.yellow ? 'none' : 'grayscale(0.8)'
                                         }}
                                         draggable="false"
                                     />
@@ -5627,11 +5627,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 <div
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        setMusicEnabled(prev => !prev);
+                                        setMusicEnabled(prev => ({ ...prev, blue: !prev.blue }));
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        right: 'calc(3.4% - 45px)',
+                                        right: 'calc(3.4% - 15px)', // 30px further in from original position (-45px + 30px = -15px)
                                         top: 'calc(22% + 162px)', // Below spell book
                                         width: '1.47%',
                                         maxWidth: '22px',
@@ -5640,21 +5640,21 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',
-                                        background: musicEnabled ? 'rgba(96, 165, 250, 0.2)' : 'rgba(100, 100, 100, 0.2)',
-                                        border: `2px solid ${musicEnabled ? 'rgba(96, 165, 250, 0.6)' : 'rgba(150, 150, 150, 0.4)'}`,
+                                        background: musicEnabled.blue ? 'rgba(96, 165, 250, 0.2)' : 'rgba(100, 100, 100, 0.2)',
+                                        border: `2px solid ${musicEnabled.blue ? 'rgba(96, 165, 250, 0.6)' : 'rgba(150, 150, 150, 0.4)'}`,
                                         borderRadius: '4px',
-                                        boxShadow: musicEnabled ? '0 2px 4px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)',
+                                        boxShadow: musicEnabled.blue ? '0 2px 4px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)',
                                         transition: 'all 0.2s',
                                         zIndex: 9000,
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
                                         e.currentTarget.style.transform = 'scale(1.15)';
-                                        e.currentTarget.style.boxShadow = musicEnabled ? '0 3px 8px rgba(96, 165, 250, 0.6)' : '0 3px 8px rgba(150, 150, 150, 0.5)';
+                                        e.currentTarget.style.boxShadow = musicEnabled.blue ? '0 3px 8px rgba(96, 165, 250, 0.6)' : '0 3px 8px rgba(150, 150, 150, 0.5)';
                                     }}
                                     onMouseLeave={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
-                                        e.currentTarget.style.boxShadow = musicEnabled ? '0 2px 4px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)';
+                                        e.currentTarget.style.boxShadow = musicEnabled.blue ? '0 2px 4px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)';
                                     }}
                                     onTouchStart={(e) => {
                                         e.currentTarget.style.transform = 'scale(0.95)';
@@ -5665,13 +5665,13 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 >
                                     <img
                                         src="./images/music.png"
-                                        alt={musicEnabled ? "Music On" : "Music Off"}
+                                        alt={musicEnabled.blue ? "Music On" : "Music Off"}
                                         style={{ 
                                             width: '85%', 
                                             height: '85%', 
                                             objectFit: 'contain',
-                                            opacity: musicEnabled ? 1 : 0.5,
-                                            filter: musicEnabled ? 'none' : 'grayscale(0.8)'
+                                            opacity: musicEnabled.blue ? 1 : 0.5,
+                                            filter: musicEnabled.blue ? 'none' : 'grayscale(0.8)'
                                         }}
                                         draggable="false"
                                     />
