@@ -5520,7 +5520,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     draggable="false"
                                 />
                                 
-                                {/* Yellow player's music toggle - only visible to yellow player */}
+                                {/* Yellow player's music toggle - to the right of message system */}
                                 {localPlayer === 'yellow' && (
                                 <div
                                     onClick={(e) => {
@@ -5529,11 +5529,10 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        left: 'calc(3.4% - 20px)', // 30px right from original position (-50px + 30px = -20px)
-                                        top: 'calc(22% + 147px)', // 15px up from original position (162px - 15px = 147px)
-                                        width: '1.47%',
-                                        maxWidth: '22px',
-                                        aspectRatio: '1',
+                                        left: '77%',
+                                        bottom: '10px',
+                                        width: '22px',
+                                        height: '22px',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5543,7 +5542,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         borderRadius: '4px',
                                         boxShadow: musicEnabled.yellow ? '0 2px 4px rgba(250, 204, 21, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)',
                                         transition: 'all 0.2s',
-                                        zIndex: 9000,
+                                        zIndex: 7001,
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
@@ -5622,7 +5621,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     draggable="false"
                                 />
                                 
-                                {/* Blue player's music toggle - only visible to blue player */}
+                                {/* Blue player's music toggle - to the left of message system */}
                                 {localPlayer === 'blue' && (
                                 <div
                                     onClick={(e) => {
@@ -5631,11 +5630,10 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        right: 'calc(3.4% - 15px)', // 30px further in from original position (-45px + 30px = -15px)
-                                        top: 'calc(22% + 162px)', // Below spell book
-                                        width: '1.47%',
-                                        maxWidth: '22px',
-                                        aspectRatio: '1',
+                                        right: '77%',
+                                        bottom: '10px',
+                                        width: '22px',
+                                        height: '22px',
                                         cursor: 'pointer',
                                         display: 'flex',
                                         alignItems: 'center',
@@ -5645,7 +5643,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         borderRadius: '4px',
                                         boxShadow: musicEnabled.blue ? '0 2px 4px rgba(96, 165, 250, 0.3)' : '0 2px 4px rgba(0,0,0,0.3)',
                                         transition: 'all 0.2s',
-                                        zIndex: 9000,
+                                        zIndex: 7001,
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
