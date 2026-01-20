@@ -2034,6 +2034,22 @@ useEffect(() => {
                             yellow: state.players.yellow.inventory || {},
                             blue: state.players.blue.inventory || {}
                         },
+                        protected: {
+                            yellow: state.players.yellow.protected || false,
+                            blue: state.players.blue.protected || false
+                        },
+                        frozen: {
+                            yellow: state.players.yellow.frozen || false,
+                            blue: state.players.blue.frozen || false
+                        },
+                        spells: {
+                            yellow: state.players.yellow.spells || [],
+                            blue: state.players.blue.spells || []
+                        },
+                        positions: {
+                            yellow: state.players.yellow.position,
+                            blue: state.players.blue.position
+                        },
                         villagerMood: state.villagerMood,
                         angryMob: state.angryMob ? {
                             position: state.angryMob.position,
@@ -2408,12 +2424,30 @@ switch(spellKey) {
                     }
                     case 'protection':
                         newState.players[caster].protected = true;
+                        console.log(`🛡️ ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell`);
                         break;
                 }
 
                 newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== spellKey);
                 if (newState.players[opponent].hp <= 0) setGameOver(caster);
                 setGameState(newState);
+                
+                // Immediate sync for Protection spell (visual effect needs to show on both screens)
+                if (spellKey === 'protection') {
+                    if (window.syncAction && !window._syncingState) {
+                        window.syncAction('game_state', {
+                            protected: {
+                                yellow: newState.players.yellow.protected || false,
+                                blue: newState.players.blue.protected || false
+                            },
+                            hp: {
+                                yellow: newState.players.yellow.hp,
+                                blue: newState.players.blue.hp
+                            }
+                        });
+                        console.log('🛡️ Protection status synced to guest');
+                    }
+                }
                 
                 // Sync critical state after spell (HP, mob, mood may have changed)
                 setTimeout(() => {
@@ -3457,13 +3491,38 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                         setMaxMoveDistance(3);
                         setWheelSpunThisTurn(true);
 
-                        setGameState(newState);
+                        // Clear Yellow's valid moves since it's now Blue's turn
                         setSelectedSpace(null);
                         setValidMoves([]);
+                        
+                        // Show message that it's now Blue's turn
+                        setTempMessage("Blue's turn — move up to 3 spaces", 2500);
 
+                        // Important: Update state first
+                        setGameState(newState);
+                        
+                        // Sync turn change to guest player using turn_end action
+                        if (window.syncAction && !window._syncingTurn) {
+                            window.setTimeout(() => {
+                                try {
+                                    window.syncAction('turn_end', {
+                                        currentPlayer: 'blue',
+                                        hasMovedThisTurn: false,
+                                        cropWheel: newState.cropWheel,
+                                        crops: newState.crops,
+                                        firstMove: true  // Flag for Blue's first move
+                                    });
+                                    console.log('✅ Yellow first move complete - synced turn to Blue');
+                                } catch(e) {
+                                    console.error('❌ Sync failed after Yellow first move:', e);
+                                }
+                            }, 50);
+                        }
+
+                        // Show Blue's valid moves
                         window.setTimeout(() => {
                             autoShowCurrentMoves(newState, 3);
-                        }, 0);
+                        }, 100);
                         return;
                     }
                     // Blue's first move behaves like a normal turn end: player will click the crop wheel to end.
@@ -3486,6 +3545,11 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                 // End-of-turn housekeeping: crafting availability expires after this turn.
                 newState.players[player].craftedThisTurn = false;
 
+                // Reset opponent's protection when current player's turn ends
+                // This means protection lasts through one full turn cycle
+                if (newState.players[opponent].protected) {
+                    console.log(`🛡️ ${opponent === 'yellow' ? 'Yellow' : 'Blue'}'s protection expires (opponent turn ended)`);
+                }
                 newState.players[opponent].protected = false;
 if (newState.angryMob && newState.angryMob.target === player) {
                     const targetPos = newState.players[player].position;
@@ -3715,6 +3779,7 @@ if (travel.length > 0) {
                 newState.turn++;
                 newState.firstMove[player] = false;
                 newState.hasMovedThisTurn = false;
+                
                 setWheelSpunThisTurn(false);
                 setGameState(newState);
                 setShowOccurrence(false);
@@ -5494,9 +5559,15 @@ if (data.type === 'move') {
       // Use a flag to prevent re-triggering
       window._syncingTurn = true;
       
-      // Reset wheel flag so new turn can spin
+      // Reset wheel flag so new turn can spin (unless it's Blue's first move)
       if (window.setWheelSpunThisTurn) {
-        window.setWheelSpunThisTurn(false);
+        if (data.data.firstMove) {
+          // Blue's first move - allow moving without spinning
+          window.setWheelSpunThisTurn(true);
+          console.log('✅ Blue first move - wheel pre-spun');
+        } else {
+          window.setWheelSpunThisTurn(false);
+        }
       }
       
       window.setGameState(prev => ({
@@ -5523,6 +5594,8 @@ if (data.type === 'move') {
   if (data.type === 'game_state') {
     console.log('📊 Game state sync received:', {
       hp: data.data.hp,
+      protected: data.data.protected,
+      frozen: data.data.frozen,
       villagerMood: data.data.villagerMood,
       angryMob: data.data.angryMob
     });
@@ -5550,6 +5623,43 @@ if (data.type === 'move') {
             ...updated.players,
             yellow: { ...updated.players.yellow, inventory: data.data.inventory.yellow },
             blue: { ...updated.players.blue, inventory: data.data.inventory.blue }
+          };
+        }
+        
+        // Update protected status
+        if (data.data.protected) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, protected: data.data.protected.yellow },
+            blue: { ...updated.players.blue, protected: data.data.protected.blue }
+          };
+          console.log('🛡️ Protection status updated:', data.data.protected);
+        }
+        
+        // Update frozen status
+        if (data.data.frozen) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, frozen: data.data.frozen.yellow },
+            blue: { ...updated.players.blue, frozen: data.data.frozen.blue }
+          };
+        }
+        
+        // Update spells
+        if (data.data.spells) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, spells: data.data.spells.yellow },
+            blue: { ...updated.players.blue, spells: data.data.spells.blue }
+          };
+        }
+        
+        // Update positions
+        if (data.data.positions) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, position: data.data.positions.yellow },
+            blue: { ...updated.players.blue, position: data.data.positions.blue }
           };
         }
         
