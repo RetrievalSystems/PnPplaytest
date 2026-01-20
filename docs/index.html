@@ -667,12 +667,17 @@ const ABODE_BYPASS = {
             .replace(/[^a-z0-9]+/g,' ')
             .trim();
 
-        function SpellChartModal({ open, onClose, gameState, onCraftSpell, canCraftNow, mode = 'view', targetPlayerKey = null, pickRemaining = 0, onPickCrop, onRemoveCrop, bloomView = 'choices' }) {
+        function SpellChartModal({ open, onClose, gameState, onCraftSpell, canCraftNow, mode = 'view', targetPlayerKey = null, pickRemaining = 0, onPickCrop, onRemoveCrop, bloomView = 'choices', setBloomChartView, setShowSpellChart }) {
             if (!open) return null;
 
             const playerKey = (mode === 'removeOpponentCrop' && targetPlayerKey) ? targetPlayerKey : gameState.currentPlayer;
             const inv = gameState.players[playerKey].inventory || {};
             const held = new Set((gameState.players[gameState.currentPlayer]?.spells) || []);
+            
+            // Bloom corner tap/hold state
+            const [bloomCornerHolding, setBloomCornerHolding] = useState(false);
+            const bloomCornerHoldTimer = useRef(null);
+            const bloomCornerTapPending = useRef(false);
 
             const spellKeyByName = useMemo(() => {
                 const m = {};
@@ -730,7 +735,10 @@ const ABODE_BYPASS = {
                     <div className="relative w-full max-w-[851px]">
                         <div
                             className="relative w-full rounded-2xl shadow-2xl overflow-hidden bg-black/20"
-                            style={{ aspectRatio: `${SPELL_CHART_W} / ${SPELL_CHART_H}` }}
+                            style={{ 
+                                aspectRatio: `${SPELL_CHART_W} / ${SPELL_CHART_H}`,
+                                display: bloomCornerHolding ? 'none' : 'block'
+                            }}
                         >
                             <img
                                 src={IMAGES.spellChart}
@@ -739,18 +747,65 @@ const ABODE_BYPASS = {
                                 draggable="false"
                             />
                             
-                            {/* Pulsing yellow corner to close (bottom right) - only in view mode */}
-                            {mode === 'view' && (
+                            {/* Pulsing yellow corner for Bloom toggle/hold (iPad/touch devices) */}
+                            {mode === 'bloomPickCrop' && setBloomChartView && (
                                 <div
-                                    onClick={(e) => {
+                                    onMouseDown={(e) => {
                                         e.stopPropagation();
-                                        console.log('🟨 Close corner clicked');
-                                        onClose();
+                                        console.log('🟨 Bloom corner press start');
+                                        bloomCornerTapPending.current = true;
+                                        bloomCornerHoldTimer.current = setTimeout(() => {
+                                            console.log('🟨 Hold detected - hiding chart to show board');
+                                            bloomCornerTapPending.current = false;
+                                            setBloomCornerHolding(true);
+                                        }, 250);
+                                    }}
+                                    onMouseUp={(e) => {
+                                        e.stopPropagation();
+                                        clearTimeout(bloomCornerHoldTimer.current);
+                                        
+                                        if (bloomCornerHolding) {
+                                            console.log('🟨 Hold released - returning to Bloom choices');
+                                            setBloomCornerHolding(false);
+                                            setBloomChartView('choices');
+                                        } else if (bloomCornerTapPending.current) {
+                                            console.log('🟨 Tap detected - toggling choices/inventory');
+                                            bloomCornerTapPending.current = false;
+                                            setBloomChartView(v => (v === 'choices' ? 'inventory' : 'choices'));
+                                        }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        // If mouse leaves while holding, cancel the hold
+                                        if (bloomCornerHolding) {
+                                            setBloomCornerHolding(false);
+                                            setBloomChartView('choices');
+                                        }
+                                        clearTimeout(bloomCornerHoldTimer.current);
+                                        bloomCornerTapPending.current = false;
+                                    }}
+                                    onTouchStart={(e) => {
+                                        e.stopPropagation();
+                                        console.log('🟨 Bloom corner touch start');
+                                        bloomCornerTapPending.current = true;
+                                        bloomCornerHoldTimer.current = setTimeout(() => {
+                                            console.log('🟨 Hold detected - hiding chart to show board');
+                                            bloomCornerTapPending.current = false;
+                                            setBloomCornerHolding(true);
+                                        }, 250);
                                     }}
                                     onTouchEnd={(e) => {
                                         e.stopPropagation();
-                                        console.log('🟨 Close corner touched');
-                                        onClose();
+                                        clearTimeout(bloomCornerHoldTimer.current);
+                                        
+                                        if (bloomCornerHolding) {
+                                            console.log('🟨 Hold released - returning to Bloom choices');
+                                            setBloomCornerHolding(false);
+                                            setBloomChartView('choices');
+                                        } else if (bloomCornerTapPending.current) {
+                                            console.log('🟨 Tap detected - toggling choices/inventory');
+                                            bloomCornerTapPending.current = false;
+                                            setBloomChartView(v => (v === 'choices' ? 'inventory' : 'choices'));
+                                        }
                                     }}
                                     style={{
                                         position: 'absolute',
@@ -764,9 +819,12 @@ const ABODE_BYPASS = {
                                         borderTopLeftRadius: '12px',
                                         pointerEvents: 'auto',
                                         zIndex: 100,
-                                        boxShadow: '0 0 20px rgba(255, 235, 59, 0.4)'
+                                        boxShadow: '0 0 20px rgba(255, 235, 59, 0.4)',
+                                        userSelect: 'none',
+                                        WebkitUserSelect: 'none',
+                                        touchAction: 'none'
                                     }}
-                                    title="Tap to close spell chart"
+                                    title="Tap to toggle view, hold to see board"
                                 />
                             )}
 
@@ -4430,18 +4488,7 @@ return (
             {showSpellChart && (
                 <SpellChartModal
                     open={showSpellChart}
-                    onClose={() => {
-                        // Only allow closing in view mode (not during forced crop picking)
-                        if (spellChartMode === 'view') {
-                            console.log('📖 Closing spell chart');
-                            setShowSpellChart(false);
-                            fadeOutSfx('crafting', 650);
-                            setCraftingFromChart(false);
-                            setSpellChartMode('view');
-                            setPickRemaining(0);
-                            setChartTargetPlayer(null);
-                        }
-                    }}
+                    onClose={() => { }}
                     gameState={gameState}
                     canCraftNow={(() => { const p = gameState?.players?.[gameState?.currentPlayer]; return !!(p && p.inAbode && gameState.hasMovedThisTurn && !p.craftedThisTurn); })()}
                     mode={spellChartMode}
@@ -4451,6 +4498,8 @@ return (
                     onRemoveCrop={handleCropRemoval}
                     onCraftSpell={(spellKey) => { craftSpell(spellKey); }}
                     bloomView={bloomChartView}
+                    setBloomChartView={setBloomChartView}
+                    setShowSpellChart={setShowSpellChart}
                 />
             )}
 
@@ -5184,7 +5233,6 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        console.log('📖 Yellow spell book clicked');
                                         const gs = latestStateRef.current;
                                         const curr = gs?.players?.[gs?.currentPlayer];
                                         const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
@@ -5231,7 +5279,6 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     alt="Open Spell Chart"
                                     onClick={(e) => {
                                         e.stopPropagation();
-                                        console.log('📖 Blue spell book clicked');
                                         const gs = latestStateRef.current;
                                         const curr = gs?.players?.[gs?.currentPlayer];
                                         const canCraft = !!(curr && curr.inAbode && curr.craftAvailable);
