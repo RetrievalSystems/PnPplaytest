@@ -1061,8 +1061,8 @@ const ABODE_BYPASS = {
 	        villagerMood: 1,
 	        crops: cropMap,
 	        players: {
-	            yellow: { position: '11A', hp: 9, inventory: {}, spells: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false },
-	            blue: { position: '1K', hp: 9, inventory: {}, spells: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false }
+	            yellow: { position: '11A', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false },
+	            blue: { position: '1K', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false }
 	        },
 	        firstMove: { yellow: true, blue: true },
 	        angryMob: null,
@@ -2053,8 +2053,8 @@ useEffect(() => {
                     villagerMood: 1,
                     crops: cropMap,
                     players: {
-                        yellow: { position: '11A', hp: 9, inventory: {}, spells: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false },
-                        blue: { position: '1K', hp: 9, inventory: {}, spells: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false }
+                        yellow: { position: '11A', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false },
+                        blue: { position: '1K', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false }
                     },
                     firstMove: { yellow: true, blue: true },
                     angryMob: null,
@@ -2111,6 +2111,10 @@ useEffect(() => {
                         spells: {
                             yellow: state.players.yellow.spells || [],
                             blue: state.players.blue.spells || []
+                        },
+                        spellsCraftedThisTurn: {
+                            yellow: state.players.yellow.spellsCraftedThisTurn || [],
+                            blue: state.players.blue.spellsCraftedThisTurn || []
                         },
                         positions: {
                             yellow: state.players.yellow.position,
@@ -2259,6 +2263,12 @@ useEffect(() => {
                 });
 
                 newState.players[player].spells.push(spellKey);
+                // Track that this spell was crafted this turn (for immediate use restrictions)
+                if (!newState.players[player].spellsCraftedThisTurn) {
+                    newState.players[player].spellsCraftedThisTurn = [];
+                }
+                newState.players[player].spellsCraftedThisTurn.push(spellKey);
+                
                 setGameState(newState);
                 // Craft SFX: play ~3s then fade
                 playSfxFile('spellcrafted', { volume: 0.75 });
@@ -2573,16 +2583,27 @@ switch(spellKey) {
                 const p = gameState.players[playerKey];
                 if (!p) return false;
 
+                // Check if this spell was just crafted this turn
+                const justCrafted = (p.spellsCraftedThisTurn || []).includes(spellKey);
+                
+                // Only Heal, Late Bloom, and Late Blight can be used immediately after crafting
+                const canUseImmediately = (spellKey === 'heal' || spellKey === 'lateBloom' || spellKey === 'lateBlight');
+                
+                // If spell was just crafted and it's not one of the immediate-use spells, cannot use it this turn
+                if (justCrafted && !canUseImmediately) {
+                    return false;
+                }
                 
                 // Frozen players cannot cast any spells this turn.
                 if (p.frozen) return false;
-// Teleport can be used any time during your turn, including from the Abode, and can target the Abode.
+
+                // Teleport requires no special conditions (but respects the justCrafted check above)
                 if (spellKey === 'teleport') return true;
 
-                // Heal / Late Bloom / Late Blight can be used immediately (even in Abode).
+                // Heal / Late Bloom / Late Blight can be used (already passed justCrafted check if applicable)
                 if (spellKey === 'heal' || spellKey === 'lateBloom' || spellKey === 'lateBlight') return true;
 
-                // Protection can be used any time during your turn.
+                // Protection can be used any time during your turn (but respects justCrafted check)
                 if (spellKey === 'protection') return true;
 
                 // Freeze has NO range requirement, but must have at least one valid target (opponent not protected/not in abode OR angry mob exists).
@@ -3897,6 +3918,12 @@ if (travel.length > 0) {
                 newState.firstMove[player] = false;
                 newState.hasMovedThisTurn = false;
                 
+                // Clear the spellsCraftedThisTurn list for the new current player (they're starting a fresh turn)
+                if (!newState.players[opponent].spellsCraftedThisTurn) {
+                    newState.players[opponent].spellsCraftedThisTurn = [];
+                }
+                newState.players[opponent].spellsCraftedThisTurn = [];
+                
                 setWheelSpunThisTurn(false);
                 setGameState(newState);
                 setShowOccurrence(false);
@@ -4477,23 +4504,12 @@ return (
                                             )}
 
                                             {yellow && (
-                                                <div 
-                                                    className="absolute" 
-                                                    style={{ 
-                                                        width: '67px', 
-                                                        height: '67px', 
-                                                        pointerEvents: 'auto',
-                                                        cursor: 'pointer',
-                                                        transform: (yellow && blue) ? 'translateX(-18px)' : 'none'  // Move left when both present
-                                                    }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (localPlayer === 'yellow') {
-                                                            manualResync();
-                                                        }
-                                                    }}
-                                                    title={localPlayer === 'yellow' ? 'Click to resync game state' : 'Yellow wizard'}
-                                                >
+                                                <div className="absolute" style={{ 
+                                                    width: '67px', 
+                                                    height: '67px', 
+                                                    pointerEvents: 'none',
+                                                    transform: (yellow && blue) ? 'translateX(-18px)' : 'none'  // Move left when both present
+                                                }}>
                                                     {gameState.players.yellow.protected && <div className="hw-aura hw-protect-aura" />}
                                                     {(gameState.players.yellow.frozen || gameState.players.yellow.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.yellow.protected && (
@@ -4520,33 +4536,19 @@ return (
                                                             transform: (gameState.angryMob?.vanishing ? 'translate(-70px, -70px) scale(0)' : 'none'),
                                                             transition: (gameState.angryMob?.vanishing ? 'transform 900ms ease-in' : 'none'),
                                                             objectFit: 'contain', 
-                                                            filter: isResyncing && localPlayer === 'yellow' 
-                                                                ? 'drop-shadow(0 0 20px rgba(250,204,21,0.9)) drop-shadow(0 6px 8px rgba(0,0,0,0.55))' 
-                                                                : 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))',
-                                                            animation: isResyncing && localPlayer === 'yellow' ? 'pulse 1s ease-in-out infinite' : 'none'
+                                                            filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))'
                                                         }}
                                                         draggable="false"
                                                     />
                                                 </div>
                                             )}
                                             {blue && (
-                                                <div 
-                                                    className="absolute" 
-                                                    style={{ 
-                                                        width: '67px', 
-                                                        height: '67px', 
-                                                        pointerEvents: 'auto',
-                                                        cursor: 'pointer',
-                                                        transform: (yellow && blue) ? 'translateX(18px)' : 'none'  // Move right when both present
-                                                    }}
-                                                    onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        if (localPlayer === 'blue') {
-                                                            manualResync();
-                                                        }
-                                                    }}
-                                                    title={localPlayer === 'blue' ? 'Click to resync game state' : 'Blue wizard'}
-                                                >
+                                                <div className="absolute" style={{ 
+                                                    width: '67px', 
+                                                    height: '67px', 
+                                                    pointerEvents: 'none',
+                                                    transform: (yellow && blue) ? 'translateX(18px)' : 'none'  // Move right when both present
+                                                }}>
                                                     {gameState.players.blue.protected && <div className="hw-aura hw-protect-aura" />}
                                                     {(gameState.players.blue.frozen || gameState.players.blue.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.blue.protected && (
@@ -4571,10 +4573,7 @@ return (
                                                             width: '67px', 
                                                             height: '67px', 
                                                             objectFit: 'contain', 
-                                                            filter: isResyncing && localPlayer === 'blue'
-                                                                ? 'drop-shadow(0 0 20px rgba(96,165,250,0.9)) drop-shadow(0 6px 8px rgba(0,0,0,0.55))'
-                                                                : 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))',
-                                                            animation: isResyncing && localPlayer === 'blue' ? 'pulse 1s ease-in-out infinite' : 'none'
+                                                            filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))'
                                                         }}
                                                         draggable="false"
                                                     />
@@ -5641,6 +5640,61 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 </div>
                                 )}
                                 
+                                {/* Yellow player's resync button - invisible, next to music */}
+                                {localPlayer === 'yellow' && (
+                                <div
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        manualResync();
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        left: 'calc(77% + 28px)', // 28px to the right of music button
+                                        bottom: '10px',
+                                        width: '22px',
+                                        height: '22px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: isResyncing ? 'rgba(250, 204, 21, 0.3)' : 'rgba(250, 204, 21, 0.05)',
+                                        border: `2px solid ${isResyncing ? 'rgba(250, 204, 21, 0.8)' : 'rgba(250, 204, 21, 0.2)'}`,
+                                        borderRadius: '4px',
+                                        boxShadow: isResyncing ? '0 2px 8px rgba(250, 204, 21, 0.5)' : 'none',
+                                        transition: 'all 0.2s',
+                                        zIndex: 7001,
+                                        pointerEvents: 'auto',
+                                        animation: isResyncing ? 'pulse 1s ease-in-out infinite' : 'none'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.15)';
+                                        e.currentTarget.style.background = 'rgba(250, 204, 21, 0.2)';
+                                        e.currentTarget.style.border = '2px solid rgba(250, 204, 21, 0.5)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.background = isResyncing ? 'rgba(250, 204, 21, 0.3)' : 'rgba(250, 204, 21, 0.05)';
+                                        e.currentTarget.style.border = isResyncing ? '2px solid rgba(250, 204, 21, 0.8)' : '2px solid rgba(250, 204, 21, 0.2)';
+                                    }}
+                                    onTouchStart={(e) => {
+                                        e.currentTarget.style.transform = 'scale(0.95)';
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                    title="Resync game state"
+                                >
+                                    <div style={{
+                                        fontSize: '14px',
+                                        color: isResyncing ? 'rgba(250, 204, 21, 1)' : 'rgba(250, 204, 21, 0.4)',
+                                        fontWeight: 'bold',
+                                        transition: 'color 0.2s'
+                                    }}>
+                                        🔄
+                                    </div>
+                                </div>
+                                )}
+                                
                                 {/* Blue player's spell book */}
                                 <img
                                     src="./images/spell-book.png"
@@ -5739,6 +5793,61 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         }}
                                         draggable="false"
                                     />
+                                </div>
+                                )}
+                                
+                                {/* Blue player's resync button - invisible, next to music */}
+                                {localPlayer === 'blue' && (
+                                <div
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        manualResync();
+                                    }}
+                                    style={{
+                                        position: 'absolute',
+                                        right: 'calc(77% + 28px)', // 28px to the left of music button
+                                        bottom: '10px',
+                                        width: '22px',
+                                        height: '22px',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: isResyncing ? 'rgba(96, 165, 250, 0.3)' : 'rgba(96, 165, 250, 0.05)',
+                                        border: `2px solid ${isResyncing ? 'rgba(96, 165, 250, 0.8)' : 'rgba(96, 165, 250, 0.2)'}`,
+                                        borderRadius: '4px',
+                                        boxShadow: isResyncing ? '0 2px 8px rgba(96, 165, 250, 0.5)' : 'none',
+                                        transition: 'all 0.2s',
+                                        zIndex: 7001,
+                                        pointerEvents: 'auto',
+                                        animation: isResyncing ? 'pulse 1s ease-in-out infinite' : 'none'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1.15)';
+                                        e.currentTarget.style.background = 'rgba(96, 165, 250, 0.2)';
+                                        e.currentTarget.style.border = '2px solid rgba(96, 165, 250, 0.5)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                        e.currentTarget.style.background = isResyncing ? 'rgba(96, 165, 250, 0.3)' : 'rgba(96, 165, 250, 0.05)';
+                                        e.currentTarget.style.border = isResyncing ? '2px solid rgba(96, 165, 250, 0.8)' : '2px solid rgba(96, 165, 250, 0.2)';
+                                    }}
+                                    onTouchStart={(e) => {
+                                        e.currentTarget.style.transform = 'scale(0.95)';
+                                    }}
+                                    onTouchEnd={(e) => {
+                                        e.currentTarget.style.transform = 'scale(1)';
+                                    }}
+                                    title="Resync game state"
+                                >
+                                    <div style={{
+                                        fontSize: '14px',
+                                        color: isResyncing ? 'rgba(96, 165, 250, 1)' : 'rgba(96, 165, 250, 0.4)',
+                                        fontWeight: 'bold',
+                                        transition: 'color 0.2s'
+                                    }}>
+                                        🔄
+                                    </div>
                                 </div>
                                 )}
                             </>
@@ -6012,6 +6121,15 @@ if (data.type === 'move') {
           };
         }
         
+        // Update spellsCraftedThisTurn
+        if (data.data.spellsCraftedThisTurn) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, spellsCraftedThisTurn: data.data.spellsCraftedThisTurn.yellow || [] },
+            blue: { ...updated.players.blue, spellsCraftedThisTurn: data.data.spellsCraftedThisTurn.blue || [] }
+          };
+        }
+        
         // Update positions
         if (data.data.positions) {
           updated.players = {
@@ -6137,6 +6255,7 @@ if (data.type === 'move') {
               hp: state.players.yellow.hp,
               inventory: state.players.yellow.inventory,
               spells: state.players.yellow.spells,
+              spellsCraftedThisTurn: state.players.yellow.spellsCraftedThisTurn || [],
               inAbode: state.players.yellow.inAbode,
               frozen: state.players.yellow.frozen,
               protected: state.players.yellow.protected,
@@ -6147,6 +6266,7 @@ if (data.type === 'move') {
               hp: state.players.blue.hp,
               inventory: state.players.blue.inventory,
               spells: state.players.blue.spells,
+              spellsCraftedThisTurn: state.players.blue.spellsCraftedThisTurn || [],
               inAbode: state.players.blue.inAbode,
               frozen: state.players.blue.frozen,
               protected: state.players.blue.protected,
