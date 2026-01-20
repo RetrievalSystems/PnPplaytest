@@ -1406,6 +1406,9 @@ const SFX_FILES = {
 
   grunt: './sounds/grunt.mp3',
   drips: './sounds/drips.mp3',
+  
+  lethargy: './sounds/lethargy.mp3',
+  bloom: './sounds/bloom.mp3',
 };
 
 const sfxCacheRef = useRef({});
@@ -2668,6 +2671,7 @@ switch(spellKey) {
                         break;
                     case 'lethargy':
                         setTempMessage('Lethargy - move only one space this turn', 1800);
+                        playSfxFile('lethargy', { volume: 0.8 });
                         distOverride = 1;
                         setMaxMoveDistance(1);
                         break;
@@ -2681,6 +2685,7 @@ switch(spellKey) {
                     case 'bloom': {
                         // Bloom: after a short beat, open the spell chart for picking a crop (no board click needed).
                         setPendingBloom(1);
+                        playSfxFile('bloom', { volume: 0.75 });
                         setTempMessage(`${(newState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue'} — Bloom.`, 1400);
                         window.setTimeout(() => {
                             try {
