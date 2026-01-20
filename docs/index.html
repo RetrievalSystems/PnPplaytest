@@ -27,6 +27,16 @@
             50% { opacity: 1; transform: scale(1.1); }
             100% { opacity: 0; transform: scale(0.8); }
         }
+        
+        @keyframes mobPulseYellow {
+            0%, 100% { filter: drop-shadow(0 6px 8px rgba(0,0,0,0.55)) drop-shadow(0 0 0px rgba(250,204,21,0)); }
+            50% { filter: drop-shadow(0 6px 8px rgba(0,0,0,0.55)) drop-shadow(0 0 20px rgba(250,204,21,0.9)); }
+        }
+        
+        @keyframes mobPulseBlue {
+            0%, 100% { filter: drop-shadow(0 6px 8px rgba(0,0,0,0.55)) drop-shadow(0 0 0px rgba(96,165,250,0)); }
+            50% { filter: drop-shadow(0 6px 8px rgba(0,0,0,0.55)) drop-shadow(0 0 20px rgba(96,165,250,0.9)); }
+        }
     
         @keyframes fadeInSlide {
             from { 
@@ -2049,6 +2059,10 @@ useEffect(() => {
                         frozen: {
                             yellow: state.players.yellow.frozen || false,
                             blue: state.players.blue.frozen || false
+                        },
+                        freezeSfxPending: {
+                            yellow: state.players.yellow.freezeSfxPending || false,
+                            blue: state.players.blue.freezeSfxPending || false
                         },
                         spells: {
                             yellow: state.players.yellow.spells || [],
@@ -4442,7 +4456,17 @@ return (
                                                     src={IMAGES.angryMob}
                                                     alt="Angry mob"
                                                     className="absolute"
-                                                    style={{ width: '56px', height: '56px', objectFit: 'contain', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))' }}
+                                                    style={{ 
+                                                        width: '56px', 
+                                                        height: '56px', 
+                                                        objectFit: 'contain', 
+                                                        filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))',
+                                                        animation: gameState.angryMob?.target === 'yellow' 
+                                                            ? 'mobPulseYellow 1.2s ease-in-out infinite'
+                                                            : gameState.angryMob?.target === 'blue'
+                                                            ? 'mobPulseBlue 1.2s ease-in-out infinite'
+                                                            : 'none'
+                                                    }}
                                                     draggable="false"
                                                 />
                                             )}
@@ -5668,6 +5692,7 @@ if (data.type === 'move') {
       hp: data.data.hp,
       protected: data.data.protected,
       frozen: data.data.frozen,
+      freezeSfxPending: data.data.freezeSfxPending,
       villagerMood: data.data.villagerMood,
       angryMob: data.data.angryMob
     });
@@ -5714,6 +5739,15 @@ if (data.type === 'move') {
             ...updated.players,
             yellow: { ...updated.players.yellow, frozen: data.data.frozen.yellow },
             blue: { ...updated.players.blue, frozen: data.data.frozen.blue }
+          };
+        }
+        
+        // Update freezeSfxPending status
+        if (data.data.freezeSfxPending) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, freezeSfxPending: data.data.freezeSfxPending.yellow },
+            blue: { ...updated.players.blue, freezeSfxPending: data.data.freezeSfxPending.blue }
           };
         }
         
