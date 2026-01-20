@@ -1076,6 +1076,7 @@ const ABODE_BYPASS = {
             window.setGameState = setGameState;
             window.OCCURRENCES = OCCURRENCES;
             const latestStateRef = useRef(gameState);
+            window.latestStateRef = latestStateRef; // Expose for resync
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
@@ -1373,6 +1374,7 @@ const [freezeCastFx, setFreezeCastFx] = useState(null); // {id, space}
 const [thawFx, setThawFx] = useState(null); // {id, space}
 const [musicEnabled, setMusicEnabled] = useState({ yellow: true, blue: true }); // Music toggle state per player
 const [localPlayer, setLocalPlayer] = useState('yellow'); // Which player's perspective ('yellow' or 'blue')
+const [isResyncing, setIsResyncing] = useState(false); // Manual resync state
 
 const audioRef = useRef(null);
 
@@ -2127,6 +2129,33 @@ useEffect(() => {
                     console.log('📤 Syncing game state:', syncData);
                     window.syncAction('game_state', syncData);
                 }
+            };
+
+            // Manual resync function - requests full game state from opponent
+            const manualResync = () => {
+                if (isResyncing) return; // Prevent multiple resyncs
+                
+                setIsResyncing(true);
+                console.log('🔄 Manual resync requested');
+                
+                // Request full state from opponent
+                if (window.syncAction) {
+                    window.syncAction('request_full_state', { requester: localPlayer });
+                }
+                
+                // Also try to sync our current state
+                try {
+                    syncGameState();
+                } catch(e) {
+                    console.error('Resync error:', e);
+                }
+                
+                // Show resync feedback for 2 seconds
+                setTempMessage('🔄 Resyncing game state...', 2000);
+                
+                setTimeout(() => {
+                    setIsResyncing(false);
+                }, 2000);
             };
 
             const getDistance = (from, to) => {
@@ -4448,12 +4477,23 @@ return (
                                             )}
 
                                             {yellow && (
-                                                <div className="absolute" style={{ 
-                                                    width: '67px', 
-                                                    height: '67px', 
-                                                    pointerEvents: 'none',
-                                                    transform: (yellow && blue) ? 'translateX(-18px)' : 'none'  // Move left when both present
-                                                }}>
+                                                <div 
+                                                    className="absolute" 
+                                                    style={{ 
+                                                        width: '67px', 
+                                                        height: '67px', 
+                                                        pointerEvents: 'auto',
+                                                        cursor: 'pointer',
+                                                        transform: (yellow && blue) ? 'translateX(-18px)' : 'none'  // Move left when both present
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (localPlayer === 'yellow') {
+                                                            manualResync();
+                                                        }
+                                                    }}
+                                                    title={localPlayer === 'yellow' ? 'Click to resync game state' : 'Yellow wizard'}
+                                                >
                                                     {gameState.players.yellow.protected && <div className="hw-aura hw-protect-aura" />}
                                                     {(gameState.players.yellow.frozen || gameState.players.yellow.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.yellow.protected && (
@@ -4474,21 +4514,39 @@ return (
                                                         src={IMAGES.yellowWizard}
                                                         alt="Yellow wizard"
                                                         className="absolute"
-                                                        style={{ width: '67px', height: '67px',
-                                                        transform: (gameState.angryMob?.vanishing ? 'translate(-70px, -70px) scale(0)' : 'none'),
-                                                        transition: (gameState.angryMob?.vanishing ? 'transform 900ms ease-in' : 'none'),
-                                                        objectFit: 'contain', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))' }}
+                                                        style={{ 
+                                                            width: '67px', 
+                                                            height: '67px',
+                                                            transform: (gameState.angryMob?.vanishing ? 'translate(-70px, -70px) scale(0)' : 'none'),
+                                                            transition: (gameState.angryMob?.vanishing ? 'transform 900ms ease-in' : 'none'),
+                                                            objectFit: 'contain', 
+                                                            filter: isResyncing && localPlayer === 'yellow' 
+                                                                ? 'drop-shadow(0 0 20px rgba(250,204,21,0.9)) drop-shadow(0 6px 8px rgba(0,0,0,0.55))' 
+                                                                : 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))',
+                                                            animation: isResyncing && localPlayer === 'yellow' ? 'pulse 1s ease-in-out infinite' : 'none'
+                                                        }}
                                                         draggable="false"
                                                     />
                                                 </div>
                                             )}
                                             {blue && (
-                                                <div className="absolute" style={{ 
-                                                    width: '67px', 
-                                                    height: '67px', 
-                                                    pointerEvents: 'none',
-                                                    transform: (yellow && blue) ? 'translateX(18px)' : 'none'  // Move right when both present
-                                                }}>
+                                                <div 
+                                                    className="absolute" 
+                                                    style={{ 
+                                                        width: '67px', 
+                                                        height: '67px', 
+                                                        pointerEvents: 'auto',
+                                                        cursor: 'pointer',
+                                                        transform: (yellow && blue) ? 'translateX(18px)' : 'none'  // Move right when both present
+                                                    }}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        if (localPlayer === 'blue') {
+                                                            manualResync();
+                                                        }
+                                                    }}
+                                                    title={localPlayer === 'blue' ? 'Click to resync game state' : 'Blue wizard'}
+                                                >
                                                     {gameState.players.blue.protected && <div className="hw-aura hw-protect-aura" />}
                                                     {(gameState.players.blue.frozen || gameState.players.blue.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.blue.protected && (
@@ -4509,7 +4567,15 @@ return (
                                                         src={IMAGES.blueWizard}
                                                         alt="Blue wizard"
                                                         className="absolute"
-                                                        style={{ width: '67px', height: '67px', objectFit: 'contain', filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))' }}
+                                                        style={{ 
+                                                            width: '67px', 
+                                                            height: '67px', 
+                                                            objectFit: 'contain', 
+                                                            filter: isResyncing && localPlayer === 'blue'
+                                                                ? 'drop-shadow(0 0 20px rgba(96,165,250,0.9)) drop-shadow(0 6px 8px rgba(0,0,0,0.55))'
+                                                                : 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))',
+                                                            animation: isResyncing && localPlayer === 'blue' ? 'pulse 1s ease-in-out infinite' : 'none'
+                                                        }}
                                                         draggable="false"
                                                     />
                                                 </div>
@@ -6047,6 +6113,85 @@ if (data.type === 'move') {
     console.log('💬 Chat message received:', data.data);
     if (window.onChatMessage) {
       window.onChatMessage(data.data);
+    }
+  }
+  
+  // Handle manual resync request
+  if (data.type === 'request_full_state') {
+    console.log('🔄 Full state requested by opponent');
+    // Send our complete game state
+    if (window.syncAction && window.latestStateRef && window.latestStateRef.current) {
+      const state = window.latestStateRef.current;
+      window.syncAction('full_state_response', {
+        gameState: {
+          currentPlayer: state.currentPlayer,
+          hasMovedThisTurn: state.hasMovedThisTurn,
+          cropWheel: state.cropWheel,
+          crops: state.crops,
+          villagerMood: state.villagerMood,
+          angryMob: state.angryMob,
+          zombies: state.zombies,
+          players: {
+            yellow: {
+              position: state.players.yellow.position,
+              hp: state.players.yellow.hp,
+              inventory: state.players.yellow.inventory,
+              spells: state.players.yellow.spells,
+              inAbode: state.players.yellow.inAbode,
+              frozen: state.players.yellow.frozen,
+              protected: state.players.yellow.protected,
+              freezeSfxPending: state.players.yellow.freezeSfxPending
+            },
+            blue: {
+              position: state.players.blue.position,
+              hp: state.players.blue.hp,
+              inventory: state.players.blue.inventory,
+              spells: state.players.blue.spells,
+              inAbode: state.players.blue.inAbode,
+              frozen: state.players.blue.frozen,
+              protected: state.players.blue.protected,
+              freezeSfxPending: state.players.blue.freezeSfxPending
+            }
+          }
+        }
+      });
+    }
+  }
+  
+  // Handle full state response
+  if (data.type === 'full_state_response') {
+    console.log('🔄 Full state received from opponent:', data.data);
+    if (window.setGameState && data.data.gameState) {
+      window._syncingState = true;
+      window.setGameState(prev => {
+        const gs = data.data.gameState;
+        return {
+          ...prev,
+          currentPlayer: gs.currentPlayer,
+          hasMovedThisTurn: gs.hasMovedThisTurn,
+          cropWheel: gs.cropWheel || prev.cropWheel,
+          crops: gs.crops || prev.crops,
+          villagerMood: gs.villagerMood,
+          angryMob: gs.angryMob,
+          zombies: gs.zombies || [],
+          players: {
+            yellow: {
+              ...prev.players.yellow,
+              ...gs.players.yellow
+            },
+            blue: {
+              ...prev.players.blue,
+              ...gs.players.blue
+            }
+          }
+        };
+      });
+      setTimeout(() => { window._syncingState = false; }, 100);
+      
+      // Show success message
+      if (window.setTempMessage) {
+        window.setTempMessage('✅ Game state resynced!', 1500);
+      }
     }
   }
   
