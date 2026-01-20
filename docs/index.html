@@ -752,10 +752,8 @@ const ABODE_BYPASS = {
                                 <div
                                     onMouseDown={(e) => {
                                         e.stopPropagation();
-                                        console.log('🟨 Bloom corner press start');
                                         bloomCornerTapPending.current = true;
                                         bloomCornerHoldTimer.current = setTimeout(() => {
-                                            console.log('🟨 Hold detected - hiding chart to show board');
                                             bloomCornerTapPending.current = false;
                                             setBloomCornerHolding(true);
                                         }, 250);
@@ -765,17 +763,14 @@ const ABODE_BYPASS = {
                                         clearTimeout(bloomCornerHoldTimer.current);
                                         
                                         if (bloomCornerHolding) {
-                                            console.log('🟨 Hold released - returning to Bloom choices');
                                             setBloomCornerHolding(false);
                                             setBloomChartView('choices');
                                         } else if (bloomCornerTapPending.current) {
-                                            console.log('🟨 Tap detected - toggling choices/inventory');
                                             bloomCornerTapPending.current = false;
                                             setBloomChartView(v => (v === 'choices' ? 'inventory' : 'choices'));
                                         }
                                     }}
                                     onMouseLeave={(e) => {
-                                        // If mouse leaves while holding, cancel the hold
                                         if (bloomCornerHolding) {
                                             setBloomCornerHolding(false);
                                             setBloomChartView('choices');
@@ -785,10 +780,8 @@ const ABODE_BYPASS = {
                                     }}
                                     onTouchStart={(e) => {
                                         e.stopPropagation();
-                                        console.log('🟨 Bloom corner touch start');
                                         bloomCornerTapPending.current = true;
                                         bloomCornerHoldTimer.current = setTimeout(() => {
-                                            console.log('🟨 Hold detected - hiding chart to show board');
                                             bloomCornerTapPending.current = false;
                                             setBloomCornerHolding(true);
                                         }, 250);
@@ -798,11 +791,9 @@ const ABODE_BYPASS = {
                                         clearTimeout(bloomCornerHoldTimer.current);
                                         
                                         if (bloomCornerHolding) {
-                                            console.log('🟨 Hold released - returning to Bloom choices');
                                             setBloomCornerHolding(false);
                                             setBloomChartView('choices');
                                         } else if (bloomCornerTapPending.current) {
-                                            console.log('🟨 Tap detected - toggling choices/inventory');
                                             bloomCornerTapPending.current = false;
                                             setBloomChartView(v => (v === 'choices' ? 'inventory' : 'choices'));
                                         }
@@ -3576,87 +3567,136 @@ if (travel.length > 0) {
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
         window.setTimeout(() => setTempMessage(`Mob has caught ${tgtName}.`, 2200), 520);
-        // Attack SFX: play from 3s in
-        playSfxFileFrom('angrymob', 3.0, { volume: 0.35, loop: false });
-                            // If protected, the mob abates instead of dealing damage
-                            if (newState.players[player].protected) {
-                                triggerFx(targetPos, 'mob');
-                                // Consume the protection
-                                newState.players[player].protected = false;
-                                
-                                // Mob has caught the target: play the full 3s burst, then retreat to town square (6F).
-                                try { playAngryMobBurst(3000, 0, 0.35); } catch(e) {}
-
-                                const retreatGoal = '6F';
-                                const buildShortestPath = (startPos, goalPos) => {
-                                    try {
-                                        const queue = [{ pos: startPos, path: [] }];
-                                        const visited = new Set([startPos]);
-                                        while (queue.length) {
-                                            const { pos, path } = queue.shift();
-                                            if (pos === goalPos) return path;
-                                            getAdjacentSpaces(pos, { mode: 'mob' }).forEach(adj => {
-                                                if (!visited.has(adj)) {
-                                                    visited.add(adj);
-                                                    queue.push({ pos: adj, path: [...path, adj] });
-                                                }
-                                            });
-                                        }
-                                    } catch(e) {}
-                                    return [];
-                                };
-
-                                const retreatPath = buildShortestPath(mobEnd, retreatGoal);
-
-                                // Keep the mob alive during retreat; mark as retreating/vanishing.
-                                newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
-                                newState.villagerMood = 1;
-
-                                // After the 3s sound burst, animate the retreat space-by-space back to 6F.
-                                window.setTimeout(() => {
-                                    try {
-                                        setMobAnimPath([mobEnd, ...retreatPath]);
-                                        // Sync retreat animation to guest
-                                        if (window.syncAction && !window._syncingState) {
-                                            window.syncAction('mob_retreat', {
-                                                path: [mobEnd, ...retreatPath],
-                                                retreatGoal: retreatGoal
-                                            });
-                                        }
-                                    } catch(e) {}
-                                }, 3200);
-
-                                // Once retreat steps complete, shrink & drift NW, then remove.
-                                const stepMs = 180;
-                                const retreatMs = Math.max(0, (retreatPath.length + 1) * stepMs);
-                                window.setTimeout(() => {
-                                    try {
-                                        setGameState(prev => {
-                                            if (!prev || !prev.angryMob) return prev;
-                                            return { ...prev, angryMob: { ...prev.angryMob, position: retreatGoal, retreating: true, vanishing: true } };
-                                        });
-                                        setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
-                                    } catch(e) {}
-                                    window.setTimeout(() => {
-                                        try {
-                                            setGameState(prev => {
-                                                if (!prev) return prev;
-                                                return { ...prev, angryMob: null, villagerMood: 1 };
-                                            });
-                                            setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
-                                        } catch(e) {}
-                                    }, 900);
-                                }, 3200 + retreatMs + 120);
-
-                                window.setTimeout(() => setTempMessage('Mob has abated.', 2000), 520);
-                            } else {
-                                newState.players[player].hp -= 3;
-                                triggerFx(targetPos, 'mob');
-                                newState.angryMob = null;
-                                newState.villagerMood = 1;
-                                if (newState.players[player].hp <= 0) setGameOver(opponent);
-                            }
+        
+        // Update mob position to target space so it's visible during attack
+        newState.angryMob.position = mobEnd;
+        
+        // Attack SFX
+        playSfxFile('angrymob', { volume: 0.35 });
+        
+        // Build retreat path back to 6F
+        const retreatGoal = '6F';
+        const buildShortestPath = (startPos, goalPos) => {
+            try {
+                const queue = [{ pos: startPos, path: [] }];
+                const visited = new Set([startPos]);
+                while (queue.length) {
+                    const { pos, path } = queue.shift();
+                    if (pos === goalPos) return path;
+                    getAdjacentSpaces(pos, { mode: 'mob' }).forEach(adj => {
+                        if (!visited.has(adj)) {
+                            visited.add(adj);
+                            queue.push({ pos: adj, path: [...path, adj] });
                         }
+                    });
+                }
+            } catch(e) {}
+            return [];
+        };
+
+        const retreatPath = buildShortestPath(mobEnd, retreatGoal);
+        const stepMs = 180;
+        const retreatMs = Math.max(0, (retreatPath.length + 1) * stepMs);
+        
+        // If protected, the mob abates instead of dealing damage
+        if (newState.players[player].protected) {
+            triggerFx(targetPos, 'mob');
+            // Consume the protection
+            newState.players[player].protected = false;
+            
+            // Play crowd huh sound
+            try { playSfxFile('crowdhuh', { volume: 0.35 }); } catch(e) {}
+
+            // Keep the mob alive during retreat; mark as retreating/vanishing.
+            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
+            newState.villagerMood = 1;
+
+            // After attack animation, animate the retreat space-by-space back to 6F.
+            window.setTimeout(() => {
+                try {
+                    setMobAnimPath([mobEnd, ...retreatPath]);
+                    // Sync retreat animation to guest
+                    if (window.syncAction && !window._syncingState) {
+                        window.syncAction('mob_retreat', {
+                            path: [mobEnd, ...retreatPath],
+                            retreatGoal: retreatGoal
+                        });
+                    }
+                } catch(e) {}
+            }, 800);
+
+            // Once retreat steps complete, shrink & drift NW, then remove.
+            window.setTimeout(() => {
+                try {
+                    setGameState(prev => {
+                        if (!prev || !prev.angryMob) return prev;
+                        return { ...prev, angryMob: { ...prev.angryMob, position: retreatGoal, retreating: true, vanishing: true } };
+                    });
+                    setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
+                } catch(e) {}
+                window.setTimeout(() => {
+                    try {
+                        setGameState(prev => {
+                            if (!prev) return prev;
+                            return { ...prev, angryMob: null, villagerMood: 1 };
+                        });
+                        setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
+                    } catch(e) {}
+                }, 900);
+            }, 800 + retreatMs + 120);
+
+            window.setTimeout(() => setTempMessage('Mob has abated.', 2000), 520);
+        } else {
+            // Unprotected: deal damage, then retreat
+            triggerFx(targetPos, 'mob');
+            newState.players[player].hp -= 3;
+            
+            // Keep the mob alive during retreat
+            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
+            newState.villagerMood = 1;
+            
+            // Check for game over
+            if (newState.players[player].hp <= 0) {
+                window.setTimeout(() => setGameOver(opponent), 800 + retreatMs + 1000);
+            }
+
+            // After attack animation, animate the retreat space-by-space back to 6F.
+            window.setTimeout(() => {
+                try {
+                    setMobAnimPath([mobEnd, ...retreatPath]);
+                    // Sync retreat animation to guest
+                    if (window.syncAction && !window._syncingState) {
+                        window.syncAction('mob_retreat', {
+                            path: [mobEnd, ...retreatPath],
+                            retreatGoal: retreatGoal
+                        });
+                    }
+                } catch(e) {}
+            }, 800);
+
+            // Once retreat steps complete, shrink & drift NW, then remove.
+            window.setTimeout(() => {
+                try {
+                    setGameState(prev => {
+                        if (!prev || !prev.angryMob) return prev;
+                        return { ...prev, angryMob: { ...prev.angryMob, position: retreatGoal, retreating: true, vanishing: true } };
+                    });
+                    setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
+                } catch(e) {}
+                window.setTimeout(() => {
+                    try {
+                        setGameState(prev => {
+                            if (!prev) return prev;
+                            return { ...prev, angryMob: null, villagerMood: 1 };
+                        });
+                        setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
+                    } catch(e) {}
+                }, 900);
+            }, 800 + retreatMs + 120);
+
+            window.setTimeout(() => setTempMessage('Mob has abated.', 2000), 520);
+        }
+    }
                     }
 
                     if (newState.angryMob) {
