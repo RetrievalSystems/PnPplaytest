@@ -163,6 +163,23 @@
   animation: hwFireMove 520ms ease-out forwards;
 }
 
+/* Fiery Blast expanding sphere animation */
+@keyframes hwFierySphereExpand {
+  0% { transform: translate(-50%, -50%) scale(0.2); opacity: 0.9; }
+  50% { opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(6); opacity: 0; }
+}
+.hw-fiery-sphere {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 40% 40%, rgba(255,255,255,0.85), rgba(255,200,80,0.8) 18%, rgba(255,100,20,0.75) 45%, rgba(220,50,0,0.6) 68%, rgba(180,20,0,0) 85%);
+  filter: blur(1px) drop-shadow(0 0 20px rgba(255,120,0,0.8));
+  pointer-events: none;
+  animation: hwFierySphereExpand 950ms ease-out forwards;
+}
+
 
 
 /* Teleport beam (straight-line flash across board) */
@@ -1350,6 +1367,7 @@ const boardSlotRef = useRef(null);
 const [fxEvents, setFxEvents] = useState([]); // {id, space, kind}
 const [cloudFx, setCloudFx] = useState(null); // {id, from, to}
             const [fireballFx, setFireballFx] = useState(null);
+            const [fierySphereFx, setFierySphereFx] = useState(null); // {id, fromSpace}
             const [teleportBeamFx, setTeleportBeamFx] = useState(null); // {id, from, to}
 const [freezeCastFx, setFreezeCastFx] = useState(null); // {id, space}
 const [thawFx, setThawFx] = useState(null); // {id, space}
@@ -1406,9 +1424,6 @@ const SFX_FILES = {
 
   grunt: './sounds/grunt.mp3',
   drips: './sounds/drips.mp3',
-  
-  lethargy: './sounds/lethargy.mp3',
-  bloom: './sounds/bloom.mp3',
 };
 
 const sfxCacheRef = useRef({});
@@ -1616,6 +1631,13 @@ const triggerFireball = (fromSpace, toSpace) => {
     const id = `${Date.now()}-${Math.random()}`;
     setFireballFx({ id, from: fromSpace, to: toSpace });
     window.setTimeout(() => setFireballFx(null), 600);
+};
+
+const triggerFierySphere = (fromSpace) => {
+    if (!fromSpace) return;
+    const id = `${Date.now()}-${Math.random()}`;
+    setFierySphereFx({ id, fromSpace });
+    window.setTimeout(() => setFierySphereFx(null), 1000);
 };
 
 // Chat system functions
@@ -2306,7 +2328,7 @@ const castSpellAction = (spellKey) => {
                 
 
                 // If this spell can target either opponent or mob and BOTH are valid, ask the user to choose.
-                if (['freeze','deathsBreath','fieryBlast'].includes(spellKey)) {
+                if (['freeze','deathsBreath'].includes(spellKey)) {
                     const targets = getSpellTargets(spellKey);
                     if (targets.length > 1) {
                         setPendingSpellTarget({ spellKey, targets });
@@ -2425,20 +2447,26 @@ switch(spellKey) {
                             return;
                         }
 
+                        // Trigger the expanding sphere effect from caster's position
+                        triggerFierySphere(from);
 
+                        // Hit ALL targets within 3 spaces
                         if (oppOk) {
                             newState.players[opponent].hp -= 3;
-                        try { playSfxFile('zombie', { volume: 0.45 }); } catch(e) {}
-                            triggerFireball(from, oppPos);
+                            try { playSfxFile('zombie', { volume: 0.45 }); } catch(e) {}
                             triggerFx(oppPos, 'spell');
                             if (newState.players[opponent].hp <= 0) setGameOver(caster);
-                        } else if (mobOk) {
-                            triggerFireball(from, mobPos);
+                        }
+                        if (mobOk) {
                             triggerFx(mobPos, 'mob');
                             newState.angryMob = null;
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
-                            setTempMessage('Fiery Blast — the mob abates.', 2000);
+                            if (oppOk) {
+                                setTempMessage('Fiery Blast — hits both opponent and mob!', 2000);
+                            } else {
+                                setTempMessage('Fiery Blast — the mob abates.', 2000);
+                            }
                         }
                         break;
                     }
@@ -2671,7 +2699,7 @@ switch(spellKey) {
                         break;
                     case 'lethargy':
                         setTempMessage('Lethargy - move only one space this turn', 1800);
-                        playSfxFile('lethargy', { volume: 0.8 });
+                        playSfxFile('pah', { volume: 0.8 });
                         distOverride = 1;
                         setMaxMoveDistance(1);
                         break;
@@ -2685,7 +2713,6 @@ switch(spellKey) {
                     case 'bloom': {
                         // Bloom: after a short beat, open the spell chart for picking a crop (no board click needed).
                         setPendingBloom(1);
-                        playSfxFile('bloom', { volume: 0.75 });
                         setTempMessage(`${(newState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue'} — Bloom.`, 1400);
                         window.setTimeout(() => {
                             try {
@@ -4207,6 +4234,20 @@ return (
                                         '--dy': dy + 'px',
                                         '--s0': 0.75,
                                         '--s1': 1.20
+                                    }}
+                                />
+                            );
+                        })()}
+
+                        {fierySphereFx && (() => {
+                            const center = spaceCenterPx(fierySphereFx.fromSpace);
+                            return (
+                                <div
+                                    key={fierySphereFx.id}
+                                    className="hw-fiery-sphere"
+                                    style={{
+                                        left: center.x + 'px',
+                                        top: center.y + 'px'
                                     }}
                                 />
                             );
