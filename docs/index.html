@@ -683,10 +683,15 @@ const ABODE_BYPASS = {
             .replace(/[^a-z0-9]+/g,' ')
             .trim();
 
-        function SpellChartModal({ open, onClose, gameState, onCraftSpell, canCraftNow, mode = 'view', targetPlayerKey = null, pickRemaining = 0, onPickCrop, onRemoveCrop, bloomView = 'choices', setBloomChartView, setShowSpellChart }) {
+        function SpellChartModal({ open, onClose, gameState, onCraftSpell, canCraftNow, mode = 'view', targetPlayerKey = null, localPlayerKey = null, pickRemaining = 0, onPickCrop, onRemoveCrop, bloomView = 'choices', setBloomChartView, setShowSpellChart }) {
             if (!open) return null;
 
-            const playerKey = (mode === 'removeOpponentCrop' && targetPlayerKey) ? targetPlayerKey : gameState.currentPlayer;
+            // In view mode, always show the local player's inventory, not the current player's
+            const playerKey = (mode === 'removeOpponentCrop' && targetPlayerKey) 
+                ? targetPlayerKey 
+                : (mode === 'view' && localPlayerKey) 
+                ? localPlayerKey 
+                : gameState.currentPlayer;
             const inv = gameState.players[playerKey].inventory || {};
             const held = new Set((gameState.players[gameState.currentPlayer]?.spells) || []);
             
@@ -4665,6 +4670,7 @@ return (
                     mode={spellChartMode}
                     pickRemaining={pickRemaining}
                     targetPlayerKey={chartTargetPlayer}
+                    localPlayerKey={new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue'}
                     onPickCrop={handleChartPickCrop}
                     onRemoveCrop={handleCropRemoval}
                     onCraftSpell={(spellKey) => { craftSpell(spellKey); }}
@@ -5418,7 +5424,7 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     style={{
                                         position: 'absolute',
                                         left: 'calc(3.4% - 50px)',
-                                        top: 'calc(22% + 22px)',
+                                        top: 'calc(22% + 32px)',
                                         width: '8.8%',
                                         maxWidth: '132px',
                                         cursor: 'pointer',
@@ -5463,8 +5469,8 @@ const renderGrid = (playerKey, spells, styleBase) => (
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        right: 'calc(3.4% - 50px)',
-                                        top: 'calc(22% + 22px)',
+                                        right: 'calc(3.4% - 45px)',
+                                        top: 'calc(22% + 32px)',
                                         width: '8.8%',
                                         maxWidth: '132px',
                                         cursor: 'pointer',
