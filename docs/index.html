@@ -1061,8 +1061,8 @@ const ABODE_BYPASS = {
 	        villagerMood: 1,
 	        crops: cropMap,
 	        players: {
-	            yellow: { position: '11A', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false },
-	            blue: { position: '1K', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false }
+	            yellow: { position: '11A', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, protectionTurns: 0, craftAvailable: false, craftedThisTurn: false },
+	            blue: { position: '1K', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, protectionTurns: 0, craftAvailable: false, craftedThisTurn: false }
 	        },
 	        firstMove: { yellow: true, blue: true },
 	        angryMob: null,
@@ -2053,8 +2053,8 @@ useEffect(() => {
                     villagerMood: 1,
                     crops: cropMap,
                     players: {
-                        yellow: { position: '11A', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false },
-                        blue: { position: '1K', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, craftAvailable: false, craftedThisTurn: false }
+                        yellow: { position: '11A', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, protectionTurns: 0, craftAvailable: false, craftedThisTurn: false },
+                        blue: { position: '1K', hp: 9, inventory: {}, spells: [], spellsCraftedThisTurn: [], inAbode: true, frozen: false, protected: false, protectionTurns: 0, craftAvailable: false, craftedThisTurn: false }
                     },
                     firstMove: { yellow: true, blue: true },
                     angryMob: null,
@@ -2552,7 +2552,8 @@ switch(spellKey) {
                     }
                     case 'protection':
                         newState.players[caster].protected = true;
-                        console.log(`🛡️ ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell`);
+                        newState.players[caster].protectionTurns = 2; // Lasts for 2 turn endings (full round)
+                        console.log(`🛡️ ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell (lasts 2 turns)`);
                         break;
                 }
 
@@ -2567,6 +2568,10 @@ switch(spellKey) {
                             protected: {
                                 yellow: newState.players.yellow.protected || false,
                                 blue: newState.players.blue.protected || false
+                            },
+                            protectionTurns: {
+                                yellow: newState.players.yellow.protectionTurns || 0,
+                                blue: newState.players.blue.protectionTurns || 0
                             },
                             hp: {
                                 yellow: newState.players.yellow.hp,
@@ -3411,18 +3416,16 @@ if (selectingTeleport) {
                             const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
                             setTempMessage(`Zombie attack negated — ${oppName} has protection.`, 2500);
                             triggerFx(oppPos, 'zombie');
-                            // Remove zombie after failed attack
-                            newState.zombies.splice(zombieIdx, 1);
+                            // Zombie survives when attack is negated by protection
                             setZombieAttackReady(null);
-                            // Consume the protection
-                            newState.players[opponent].protected = false;
+                            // Protection is NOT consumed - it lasts the full round regardless
                         } else {
                             newState.players[opponent].hp -= 3;
                             try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
                             triggerFx(oppPos, 'zombie');
                             // add a little extra impact like the mob
                             triggerFx(oppPos, 'mob');
-                            // remove zombie after attack (as before)
+                            // remove zombie after successful attack
                             newState.zombies.splice(zombieIdx, 1);
                             setZombieAttackReady(null);
                             if (newState.players[opponent].hp <= 0) setGameOver(player);
@@ -3702,12 +3705,21 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                 // End-of-turn housekeeping: crafting availability expires after this turn.
                 newState.players[player].craftedThisTurn = false;
 
-                // Reset opponent's protection when current player's turn ends
-                // This means protection lasts through one full turn cycle
-                if (newState.players[opponent].protected) {
-                    console.log(`🛡️ ${opponent === 'yellow' ? 'Yellow' : 'Blue'}'s protection expires (opponent turn ended)`);
-                }
-                newState.players[opponent].protected = false;
+                // Decrement protection turns for BOTH players and clear when expired
+                // This ensures protection lasts for a full round (2 turn endings)
+                ['yellow', 'blue'].forEach(playerKey => {
+                    if (newState.players[playerKey].protectionTurns > 0) {
+                        newState.players[playerKey].protectionTurns--;
+                        console.log(`🛡️ ${playerKey === 'yellow' ? 'Yellow' : 'Blue'}'s protection: ${newState.players[playerKey].protectionTurns} turns remaining`);
+                        
+                        if (newState.players[playerKey].protectionTurns <= 0) {
+                            newState.players[playerKey].protected = false;
+                            newState.players[playerKey].protectionTurns = 0;
+                            console.log(`🛡️ ${playerKey === 'yellow' ? 'Yellow' : 'Blue'}'s protection expired`);
+                        }
+                    }
+                });
+                
 if (newState.angryMob && newState.angryMob.target === player) {
                     const targetPos = newState.players[player].position;
 const stepLimit = 4;
@@ -3822,8 +3834,8 @@ if (travel.length > 0) {
         // If protected, the mob abates instead of dealing damage
         if (newState.players[player].protected) {
             triggerFx(targetPos, 'mob');
-            // Consume the protection
-            newState.players[player].protected = false;
+            // Protection is NOT consumed - it lasts the full round regardless
+            // The mob abates and retreats
             
             // Play crowd huh sound
             try { playSfxFile('crowdhuh', { volume: 0.35 }); } catch(e) {}
@@ -6113,6 +6125,15 @@ if (data.type === 'move') {
           console.log('🛡️ Protection status updated:', data.data.protected);
         }
         
+        // Update protectionTurns
+        if (data.data.protectionTurns) {
+          updated.players = {
+            ...updated.players,
+            yellow: { ...updated.players.yellow, protectionTurns: data.data.protectionTurns.yellow || 0 },
+            blue: { ...updated.players.blue, protectionTurns: data.data.protectionTurns.blue || 0 }
+          };
+        }
+        
         // Update frozen status
         if (data.data.frozen) {
           updated.players = {
@@ -6278,6 +6299,7 @@ if (data.type === 'move') {
               inAbode: state.players.yellow.inAbode,
               frozen: state.players.yellow.frozen,
               protected: state.players.yellow.protected,
+              protectionTurns: state.players.yellow.protectionTurns || 0,
               freezeSfxPending: state.players.yellow.freezeSfxPending
             },
             blue: {
@@ -6289,6 +6311,7 @@ if (data.type === 'move') {
               inAbode: state.players.blue.inAbode,
               frozen: state.players.blue.frozen,
               protected: state.players.blue.protected,
+              protectionTurns: state.players.blue.protectionTurns || 0,
               freezeSfxPending: state.players.blue.freezeSfxPending
             }
           }
