@@ -2140,7 +2140,26 @@ useEffect(() => {
                 if (isResyncing) return; // Prevent multiple resyncs
                 
                 setIsResyncing(true);
-                console.log('🔄 Manual resync requested');
+                console.log('🔄 Resync requested');
+                
+                // Clear all blocking states
+                setSpinning(false);
+                setShowSpellChart(false);
+                setShowOccurrence(false);
+                setShowCropPickOption(null);
+                setSelectingTeleport(false);
+                setPendingBloom(0);
+                setPickRemaining(0);
+                setCraftingFromChart(false);
+                setSpellChartMode('view');
+                
+                // Clear any stuck crop pick decisions
+                if (gameState?.awaitingCropPickDecision) {
+                    setGameState(prev => ({
+                        ...prev,
+                        awaitingCropPickDecision: false
+                    }));
+                }
                 
                 // Request full state from opponent
                 if (window.syncAction) {
@@ -2155,7 +2174,7 @@ useEffect(() => {
                 }
                 
                 // Show resync feedback for 2 seconds
-                setTempMessage('🔄 Resyncing game state...', 2000);
+                setTempMessage('🔄 Resyncing...', 1500);
                 
                 setTimeout(() => {
                     setIsResyncing(false);
@@ -5682,7 +5701,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     onTouchEnd={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
                                     }}
-                                    title="Resync game state"
+                                    title="Resync if stuck"
                                 >
                                     <div style={{
                                         fontSize: '14px',
@@ -5838,7 +5857,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     onTouchEnd={(e) => {
                                         e.currentTarget.style.transform = 'scale(1)';
                                     }}
-                                    title="Resync game state"
+                                    title="Resync if stuck"
                                 >
                                     <div style={{
                                         fontSize: '14px',
@@ -6310,7 +6329,7 @@ if (data.type === 'move') {
       
       // Show success message
       if (window.setTempMessage) {
-        window.setTempMessage('✅ Game state resynced!', 1500);
+        window.setTempMessage('✅ Resynced', 1500);
       }
     }
   }
