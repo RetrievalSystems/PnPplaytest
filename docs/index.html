@@ -2561,6 +2561,29 @@ switch(spellKey) {
                         newState.zombies = (newState.zombies || []);
                         newState.zombies.push({ owner: caster, position: '6F' });
                         try { playSfxFile('zombie', { volume: 0.4 }); } catch(e) {}
+                        
+                        // If foxglove is present at 6F and not collected, the zombie auto-collects it
+                        if (newState.crops['6F'] && !newState.crops['6F'].collected && newState.crops['6F'].type === 'F') {
+                            const foxgloveCount = newState.players[caster].inventory['F'] || 0;
+                            const maxSlots = CROPS['F'].slots;
+                            
+                            if (foxgloveCount < maxSlots) {
+                                // Auto-collect
+                                newState.players[caster].inventory['F'] = foxgloveCount + 1;
+                                newState.crops['6F'].collected = true;
+                                setCollectedMessage(CROPS['F']?.name || 'Foxglove');
+                                setTempMessage('Your zombie collects Foxglove as it spawns.', 2000);
+                            } else {
+                                // Full slots - show pick/leave option
+                                newState.awaitingCropPickDecision = true;
+                                setGameState(newState);
+                                setShowCropPickOption({ space: '6F', crop: 'F', from: 'zombie-spawn', owner: caster });
+                                setPendingSpellTarget(null);
+                                setSelectedSpace(null);
+                                setValidMoves([]);
+                                return; // Wait for decision before continuing
+                            }
+                        }
                         break;
                     }
                     case 'protection':
@@ -3020,6 +3043,51 @@ setPickRemaining(count);
                 setShowCropPickOption(null);
 
                 const player = ns.currentPlayer;
+                
+                // Special handling for turn-start crop collection
+                if (opt && opt.from === 'turn-start') {
+                    // Turn is just starting, continue with normal turn-start flow
+                    setWheelSpunThisTurn(false);
+                    setGameState(ns);
+                    setShowOccurrence(false);
+                    setPendingBloom(0);
+                    setMaxMoveDistance(3);
+                    setSelectedZombie(null);
+                    setZombieValidMoves([]);
+                    setZombieHasMoved(false);
+                    setZombieAttackReady(null);
+                    
+                    // Sync critical state after turn changes
+                    setTimeout(() => {
+                        try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
+                    }, 100);
+                    return;
+                }
+                
+                // Special handling for zombie-spawn crop collection
+                if (opt && opt.from === 'zombie-spawn') {
+                    // Continue with spell casting flow
+                    setGameState(ns);
+                    
+                    // Remove the zombification spell
+                    ns.players[opt.owner].spells = ns.players[opt.owner].spells.filter(s => s !== 'zombification');
+                    
+                    // Sync zombie state
+                    if (window.syncAction && !window._syncingTurn) {
+                        window.syncAction('zombie_state', {
+                            zombies: ns.zombies,
+                            player: opt.owner
+                        });
+                    }
+                    
+                    // Show move options
+                    window.setTimeout(() => {
+                        autoShowCurrentMoves(ns, maxMoveDistanceRef.current || 3);
+                    }, 0);
+                    
+                    setGameState(ns);
+                    return;
+                }
                 
                 // Special case: Yellow's first move auto-advances to Blue
                 if (ns.firstMove && ns.firstMove[player] && player === 'yellow') {
@@ -3730,6 +3798,68 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                 setValidMoves([]);
             };
 
+            // Helper function to handle crop collection when a player starts their turn on a regrown crop
+            const handleTurnStartCropCollection = (state) => {
+                const currentPlayer = state.currentPlayer;
+                const opponent = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                const currentPos = state.players[currentPlayer].position;
+                const opponentPos = state.players[opponent].position;
+                
+                // Check if current player is on a crop space
+                if (state.crops[currentPos] && !state.crops[currentPos].collected) {
+                    const crop = state.crops[currentPos].type;
+                    const count = state.players[currentPlayer].inventory[crop] || 0;
+                    const maxSlots = CROPS[crop].slots;
+                    
+                    // Check if both players are on the same crop space
+                    const bothOnSameCrop = (currentPos === opponentPos);
+                    const opponentCount = state.players[opponent].inventory[crop] || 0;
+                    const opponentFull = (opponentCount >= maxSlots);
+                    const currentFull = (count >= maxSlots);
+                    
+                    // If both players are on the same crop and either has full slots, auto-collect for both (no pick/leave option)
+                    if (bothOnSameCrop) {
+                        if (opponentFull || currentFull) {
+                            // Auto-collect for both players (no choice)
+                            // Current player gets it since their turn just started
+                            if (count < maxSlots) {
+                                state.players[currentPlayer].inventory[crop] = count + 1;
+                            }
+                            // Opponent also gets it if they have room
+                            if (opponentCount < maxSlots) {
+                                state.players[opponent].inventory[crop] = opponentCount + 1;
+                            }
+                            state.crops[currentPos].collected = true;
+                            setCollectedMessage(CROPS[crop]?.name || crop);
+                            setTempMessage(`Both players collect ${CROPS[crop]?.name || crop} as it regrows.`, 2000);
+                        } else {
+                            // Both have room and neither is full - show pick/leave for current player only
+                            // (opponent will get their chance when their turn starts)
+                            state.awaitingCropPickDecision = true;
+                            setGameState(state);
+                            setShowCropPickOption({ space: currentPos, crop, from: 'turn-start' });
+                            return false; // Indicate that we're waiting for decision
+                        }
+                    } else {
+                        // Only current player is on the crop
+                        if (count < maxSlots) {
+                            // Auto-collect
+                            state.players[currentPlayer].inventory[crop] = count + 1;
+                            state.crops[currentPos].collected = true;
+                            setCollectedMessage(CROPS[crop]?.name || crop);
+                            setTempMessage(`${currentPlayer === 'yellow' ? 'Yellow' : 'Blue'} collects ${CROPS[crop]?.name || crop} as it regrows.`, 2000);
+                        } else {
+                            // Full slots - show pick/leave option
+                            state.awaitingCropPickDecision = true;
+                            setGameState(state);
+                            setShowCropPickOption({ space: currentPos, crop, from: 'turn-start' });
+                            return false; // Indicate that we're waiting for decision
+                        }
+                    }
+                }
+                return true; // No decision needed, continue with turn start
+            };
+
             const endTurnFromSnapshot = (stateSnapshot) => {
                 const newState = {...stateSnapshot};
                 const player = newState.currentPlayer;
@@ -3997,6 +4127,14 @@ if (travel.length > 0) {
                     newState.players[opponent].spellsCraftedThisTurn = [];
                 }
                 newState.players[opponent].spellsCraftedThisTurn = [];
+                
+                // Check if the new current player is standing on a crop that just regrew
+                // This happens when crops reset (wheel goes from 12 to 1)
+                const canContinue = handleTurnStartCropCollection(newState);
+                if (!canContinue) {
+                    // Player is being shown pick/leave option, don't continue with turn start yet
+                    return;
+                }
                 
                 setWheelSpunThisTurn(false);
                 setGameState(newState);
