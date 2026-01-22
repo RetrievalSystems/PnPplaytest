@@ -3293,6 +3293,17 @@ if (selectingTeleport) {
                     setGameState(newState);
                     setSelectingTeleport(false);
                     
+                    // Clear movement state so player can move from new location (if they haven't moved yet and aren't in abode)
+                    setSelectedSpace(null);
+                    setValidMoves([]);
+                    
+                    // If not in abode and haven't moved yet, show move options from new position
+                    if (!newState.players[player].inAbode && !newState.hasMovedThisTurn) {
+                        window.setTimeout(() => {
+                            autoShowCurrentMoves(newState, maxMoveDistanceRef.current || 3);
+                        }, 100);
+                    }
+                    
                     // Sync teleport to other player (position and visual effect)
                     if (window.syncAction && !window._syncingState) {
                         window.syncAction('teleport', {
@@ -4413,7 +4424,12 @@ return (
                                     return (
                                         <div
                                             key={space}
-                                            onClick={() => { if (!isAbodeCell) handleSpaceClick(space); }}
+                                            onClick={() => { 
+                                                // Allow clicking abode cells during teleport selection
+                                                if (!isAbodeCell || selectingTeleport) {
+                                                    handleSpaceClick(space);
+                                                }
+                                            }}
                                             className="relative flex items-center justify-center cursor-pointer"
                                             style={{
                                                 background: (canMove || canMoveZombie)
