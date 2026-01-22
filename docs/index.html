@@ -890,6 +890,8 @@ const ABODE_BYPASS = {
                                 const greenShouldPulse = (maxSlots === 2 && count === 1);
 
                                 // Yellow "Bloom choice" highlight (all available slots you can still fill)
+                                // IMPORTANT: Don't check outlets here - players should be able to collect crops
+                                // even if they already have all spells that use that crop (e.g., aloe when you have Heal)
                                 const showYellow = (count < maxSlots);
 
                                 // Base classes
@@ -938,9 +940,8 @@ const ABODE_BYPASS = {
                                     // Bloom / Late Bloom: show either (a) choices-only (yellow pulsing) or (b) inventory-only (green).
                                     const showInventory = (bloomView === 'inventory');
                                     if (showInventory) {
-                                        // In Bloom inventory view, show ALL crops (filled slots and empty slots), not just ones with outlets
-                                        const showInBloomInventory = (count > 0 || count < maxSlots);
-                                        if (!showInBloomInventory) return null;
+                                        // In Bloom inventory view, show all crops you HAVE (regardless of outlets)
+                                        if (count <= 0) return null;
                                         return (
                                             <div
                                                 key={`crop-inv-${i}`}
@@ -1195,7 +1196,7 @@ useEffect(() => {
                         const pname = (pkey === 'yellow') ? 'Yellow' : 'Blue';
                         const ownsZombie = (gs.zombies || []).some(z => z.owner === pkey);
                         if (gs.hasMovedThisTurn && (!ownsZombie || zombieHasMoved)) {
-                            setHudMessage(`${pname}'s turn — click here or your portrait to end turn`);
+                            setHudMessage(`${pname}'s turn — click your portrait to end turn`);
                         }
                     }, 0);
                 }, ms);
@@ -1979,7 +1980,7 @@ window.addEventListener('keydown', handleKeyDown);
                     }
                     return;
                 }
-setBaseMessage(`${pname}'s turn — click here or your portrait to end turn`);
+setBaseMessage(`${pname}'s turn — click your portrait to end turn`);
             }, [gameState, gameOver, showCropPickOption, showSpellChart, spellChartMode, pickRemaining, selectingTeleport, pendingBloom, wheelSpunThisTurn]);
 
 
@@ -3301,8 +3302,14 @@ if (selectingTeleport) {
                     setSelectedSpace(null);
                     setValidMoves([]);
                     
+                    // If teleported into abode, turn ends immediately
+                    if (newState.players[player].inAbode) {
+                        window.setTimeout(() => {
+                            try { endTurnByPortrait(); } catch(e) {}
+                        }, 200);
+                    }
                     // If not in abode and haven't moved yet, show move options from new position
-                    if (!newState.players[player].inAbode && !newState.hasMovedThisTurn) {
+                    else if (!newState.hasMovedThisTurn) {
                         window.setTimeout(() => {
                             autoShowCurrentMoves(newState, maxMoveDistanceRef.current || 3);
                         }, 100);
@@ -3623,7 +3630,7 @@ if (selectingTeleport) {
                     // Once the player has moved, shrink + fade the occurrence glyph so it doesn't confuse the rest of the turn.
                     try { setShowOccurrence(false); setCurrentOccurrence(null); setSpinScale(1.0); } catch(e) {}
 
-setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or your portrait to end turn`, 1600);
+setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                     if (firstFull) {
                         // Freeze auto-advance until the player chooses Pick/Leave.
@@ -3647,7 +3654,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or y
                         newState.players[player].craftedThisTurn = false;
                     }
                     newState.hasMovedThisTurn = true;
-                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click here or your portrait to end turn`, 1600);
+                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                 if (!isVitality && newState.crops[dest] && !newState.crops[dest].collected) {
                     const crop = newState.crops[dest].type;
@@ -5294,7 +5301,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             pointerEvents: (showCropPickOption ? 'auto' : ((function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })() ? 'auto' : 'none'))
                         }}>
                             {((function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })())
-                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click here or your portrait to end turn')
+                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click your portrait to end turn')
                                 : hudMessage}
                         {showCropPickOption && (
                           <span style={{ marginLeft: '12px', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
