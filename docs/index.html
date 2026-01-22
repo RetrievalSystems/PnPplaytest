@@ -3813,13 +3813,9 @@ if (travel.length > 0) {
 
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
-        window.setTimeout(() => setTempMessage(`Mob has caught ${tgtName}.`, 2200), 520);
         
         // Update mob position to target space so it's visible during attack
         newState.angryMob.position = mobEnd;
-        
-        // Attack SFX
-        playSfxFile('angrymob', { volume: 0.35 });
         
         // Build retreat path back to 6F
         const retreatGoal = '6F';
@@ -3843,22 +3839,29 @@ if (travel.length > 0) {
 
         const retreatPath = buildShortestPath(mobEnd, retreatGoal);
         const stepMs = 180;
+        const approachMs = travel.length * stepMs; // Time for mob to reach target
         const retreatMs = Math.max(0, (retreatPath.length + 1) * stepMs);
+        
+        // Wait for approach, then play attack SFX and show message
+        window.setTimeout(() => {
+            playSfxFile('angrymob', { volume: 0.35 });
+            setTempMessage(`Mob has caught ${tgtName}.`, 2200);
+        }, approachMs);
         
         // If protected, the mob abates instead of dealing damage
         if (newState.players[player].protected) {
-            triggerFx(targetPos, 'confusion');
-            // Protection is NOT consumed - it lasts the full round regardless
-            // The mob abates and retreats
-            
-            // Play crowd huh sound
-            try { playSfxFile('crowdhuh', { volume: 0.35 }); } catch(e) {}
+            // Wait for mob to reach target before showing confusion
+            window.setTimeout(() => {
+                triggerFx(targetPos, 'confusion');
+                // Play crowd huh sound
+                try { playSfxFile('crowdhuh', { volume: 0.35 }); } catch(e) {}
+            }, approachMs);
 
             // Keep the mob alive during retreat; mark as retreating/vanishing.
             newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
             newState.villagerMood = 1;
 
-            // After attack animation, animate the retreat space-by-space back to 6F.
+            // After approach + attack animation, animate the retreat space-by-space back to 6F.
             window.setTimeout(() => {
                 try {
                     setMobAnimPath([mobEnd, ...retreatPath]);
@@ -3870,7 +3873,7 @@ if (travel.length > 0) {
                         });
                     }
                 } catch(e) {}
-            }, 800);
+            }, approachMs + 800);
 
             // Once retreat steps complete, shrink & drift NW, then remove.
             window.setTimeout(() => {
@@ -3890,12 +3893,16 @@ if (travel.length > 0) {
                         setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
                     } catch(e) {}
                 }, 900);
-            }, 800 + retreatMs + 120);
+            }, approachMs + 800 + retreatMs + 120);
 
-            window.setTimeout(() => setTempMessage('Mob has abated.', 2000), 520);
+            window.setTimeout(() => setTempMessage('Mob has abated.', 2000), approachMs + 520);
         } else {
             // Unprotected: deal damage, then retreat
-            triggerFx(targetPos, 'mob');
+            // Wait for mob to reach target before showing attack
+            window.setTimeout(() => {
+                triggerFx(targetPos, 'mob');
+            }, approachMs);
+            
             newState.players[player].hp -= 3;
             
             // Keep the mob alive during retreat
@@ -3904,10 +3911,10 @@ if (travel.length > 0) {
             
             // Check for game over
             if (newState.players[player].hp <= 0) {
-                window.setTimeout(() => setGameOver(opponent), 800 + retreatMs + 1000);
+                window.setTimeout(() => setGameOver(opponent), approachMs + 800 + retreatMs + 1000);
             }
 
-            // After attack animation, animate the retreat space-by-space back to 6F.
+            // After approach + attack animation, animate the retreat space-by-space back to 6F.
             window.setTimeout(() => {
                 try {
                     setMobAnimPath([mobEnd, ...retreatPath]);
@@ -3919,7 +3926,7 @@ if (travel.length > 0) {
                         });
                     }
                 } catch(e) {}
-            }, 800);
+            }, approachMs + 800);
 
             // Once retreat steps complete, shrink & drift NW, then remove.
             window.setTimeout(() => {
@@ -3939,9 +3946,9 @@ if (travel.length > 0) {
                         setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
                     } catch(e) {}
                 }, 900);
-            }, 800 + retreatMs + 120);
+            }, approachMs + 800 + retreatMs + 120);
 
-            window.setTimeout(() => setTempMessage('Mob has abated.', 2000), 520);
+            window.setTimeout(() => setTempMessage('Mob has abated.', 2000), approachMs + 520);
         }
     }
                     }
