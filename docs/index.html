@@ -938,13 +938,15 @@ const ABODE_BYPASS = {
                                     // Bloom / Late Bloom: show either (a) choices-only (yellow pulsing) or (b) inventory-only (green).
                                     const showInventory = (bloomView === 'inventory');
                                     if (showInventory) {
-                                        if (!showGreen) return null;
+                                        // In Bloom inventory view, show ALL crops (filled slots and empty slots), not just ones with outlets
+                                        const showInBloomInventory = (count > 0 || count < maxSlots);
+                                        if (!showInBloomInventory) return null;
                                         return (
                                             <div
                                                 key={`crop-inv-${i}`}
                                                 className={greenCls}
                                                 style={style}
-                                                title={`${slot.name} (you have ${count})`}
+                                                title={`${slot.name} (${count}/${maxSlots} slots)`}
                                             />
                                         );
                                     } else {
@@ -2326,15 +2328,13 @@ useEffect(() => {
                     // Freeze has NO range.
                     // Valid targets: opponent anywhere (not in abode, not protected) OR angry mob anywhere.
                     if (target.kind === 'mob' && newState.angryMob && target.space === newState.angryMob.position) {
-                        triggerFx(target.space, 'mob');
-                        newState.angryMob = null;
-                        playAngryMobBurst(1500, 0, 0.35);
-                        newState.villagerMood = 1;
-                    } else if (target.kind === 'player' && target.key === opponent && getDistance(from, newState.players[opponent].position) <= 3 && !newState.players[opponent].inAbode && !newState.players[opponent].protected) {
-                        newState.players[opponent].hp -= 3;
-                        triggerFx(newState.players[opponent].position, 'mob');
-                        playSfxFile('fieryblast', { volume: 0.7 });
-                        if (newState.players[opponent].hp <= 0) setGameOver(caster);
+                        newState.angryMob.frozenTurns = 1;
+                        triggerFreezeCastFx(target.space);
+                        try { playSfxFile('freeze', { volume: 0.6 }); } catch(e) {}
+                    } else if (target.kind === 'player' && target.key === opponent && !newState.players[opponent].inAbode && !newState.players[opponent].protected) {
+                        newState.players[opponent].frozen = true;
+                        newState.players[opponent].freezeSfxPending = true;
+                        triggerFreezeCastFx(newState.players[opponent].position);
                     }
                 }
 
@@ -2570,7 +2570,11 @@ switch(spellKey) {
                 }
 
                 newState.players[caster].spells = newState.players[caster].spells.filter(s => s !== spellKey);
-                if (newState.players[opponent].hp <= 0) setGameOver(caster);
+                // Only check for game over if this was a damage-dealing spell
+                const damageSpells = ['fieryBlast', 'deathsBreath'];
+                if (damageSpells.includes(spellKey) && newState.players[opponent].hp <= 0) {
+                    setGameOver(caster);
+                }
                 setGameState(newState);
                 
                 // Immediate sync for Protection spell (visual effect needs to show on both screens)
