@@ -405,15 +405,15 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       }
       
       @keyframes hudPulseStrong {
-        0% { opacity: 0.85; filter: brightness(1.1); transform: scale(1.0); }
-        50% { opacity: 1.0; filter: brightness(1.5); transform: scale(1.03); }
-        100% { opacity: 0.85; filter: brightness(1.1); transform: scale(1.0); }
+        0% { opacity: 0.85; filter: brightness(1.1); }
+        50% { opacity: 1.0; filter: brightness(1.5); }
+        100% { opacity: 0.85; filter: brightness(1.1); }
       }
       
       @keyframes hudPulseVeryStrong {
-        0% { opacity: 0.80; filter: brightness(1.2); transform: scale(1.0); }
-        50% { opacity: 1.0; filter: brightness(1.8); transform: scale(1.05); }
-        100% { opacity: 0.80; filter: brightness(1.2); transform: scale(1.0); }
+        0% { opacity: 0.80; filter: brightness(1.2); }
+        50% { opacity: 1.0; filter: brightness(1.8); }
+        100% { opacity: 0.80; filter: brightness(1.2); }
       }
         50% { transform: scale(1.02); opacity: 1; }
         100% { transform: scale(1); opacity: 0.88; }
@@ -5504,7 +5504,23 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             cursor: (function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })() ? 'pointer' : 'default',
                             pointerEvents: (showCropPickOption ? 'auto' : ((function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })() ? 'auto' : 'none'))
                         }}>
-                            {((function(){ try { const p=gameState?.currentPlayer; const pl=gameState?.players?.[p]; const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); const owns=(gameState?.zombies||[]).some(z=>z.owner===p); const okZombie=(!owns)||zombieHasMoved; const blocked=spinning||selectingTeleport||showCropPickOption||gameState?.awaitingCropPickDecision||showSpellChart||showOccurrence||gameOver; return (!blocked)&&acted&&okZombie; } catch(e){ return false; } })())
+                            {((function(){ 
+                              try { 
+                                // If awaiting crop decision, return false to show hudMessage (inventory full message)
+                                if (showCropPickOption || gameState?.awaitingCropPickDecision) {
+                                  return false;
+                                }
+                                
+                                // Otherwise check if ready to end turn
+                                const p=gameState?.currentPlayer; 
+                                const pl=gameState?.players?.[p]; 
+                                const acted=!!(gameState?.hasMovedThisTurn||pl?.frozen); 
+                                const owns=(gameState?.zombies||[]).some(z=>z.owner===p); 
+                                const okZombie=(!owns)||zombieHasMoved; 
+                                const blocked=spinning||selectingTeleport||showSpellChart||showOccurrence||gameOver; 
+                                return (!blocked)&&acted&&okZombie; 
+                              } catch(e){ return false; } 
+                            })())
                                 ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click your portrait to end turn')
                                 : hudMessage}
                         {showCropPickOption && (
