@@ -403,6 +403,18 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
         50% { opacity: 1.0; filter: brightness(1.25); }
         100% { opacity: 0.90; filter: brightness(1.0); }
       }
+      
+      @keyframes hudPulseStrong {
+        0% { opacity: 0.85; filter: brightness(1.1); transform: scale(1.0); }
+        50% { opacity: 1.0; filter: brightness(1.5); transform: scale(1.03); }
+        100% { opacity: 0.85; filter: brightness(1.1); transform: scale(1.0); }
+      }
+      
+      @keyframes hudPulseVeryStrong {
+        0% { opacity: 0.80; filter: brightness(1.2); transform: scale(1.0); }
+        50% { opacity: 1.0; filter: brightness(1.8); transform: scale(1.05); }
+        100% { opacity: 0.80; filter: brightness(1.2); transform: scale(1.0); }
+      }
         50% { transform: scale(1.02); opacity: 1; }
         100% { transform: scale(1); opacity: 0.88; }
       }
@@ -1388,6 +1400,7 @@ const [thawFx, setThawFx] = useState(null); // {id, space}
 const [musicEnabled, setMusicEnabled] = useState({ yellow: true, blue: true }); // Music toggle state per player
 const [localPlayer, setLocalPlayer] = useState('yellow'); // Which player's perspective ('yellow' or 'blue')
 const [isResyncing, setIsResyncing] = useState(false); // Manual resync state
+const [decisionAttempts, setDecisionAttempts] = useState(0); // Track attempts to end turn while awaiting crop decision
 
 const audioRef = useRef(null);
 
@@ -3065,6 +3078,10 @@ setPickRemaining(count);
 
             const handleCropPickDecision = (shouldPick) => {
                 if (!gameState || !showCropPickOption) return;
+                
+                // Reset the attempts counter since player is now making a decision
+                setDecisionAttempts(0);
+                
                 const ns = JSON.parse(JSON.stringify(gameState));
                 const opt = showCropPickOption;
 
@@ -3149,7 +3166,14 @@ setPickRemaining(count);
             const endTurnByPortrait = () => {
                 if (!gameState || gameOver) return;
                 if (spinning) return;
-                if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) return;
+                if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) {
+                    // Player tried to end turn while a crop pick decision is pending
+                    if (showCropPickOption || gameState.awaitingCropPickDecision) {
+                        setDecisionAttempts(prev => prev + 1);
+                        try { playSfxFile('pah', { volume: 0.5 }); } catch(e) {}
+                    }
+                    return;
+                }
 
                 const playerKey = gameState.currentPlayer;
                 const player = gameState.players[playerKey];
@@ -5456,7 +5480,14 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 const p = gs.currentPlayer;
                                 const ownsZombie = (gs.zombies || []).some(z => z.owner === p);
                                 const okZombie = (!ownsZombie) || zombieHasMoved;
-                                if (showCropPickOption || gs.awaitingCropPickDecision) return 'hudPulse 1.2s ease-in-out infinite';
+                                
+                                // Progressive pulsing based on attempts to end turn while awaiting decision
+                                if (showCropPickOption || gs.awaitingCropPickDecision) {
+                                    if (decisionAttempts >= 3) return 'hudPulseVeryStrong 0.8s ease-in-out infinite';
+                                    if (decisionAttempts >= 1) return 'hudPulseStrong 1.0s ease-in-out infinite';
+                                    return 'hudPulse 1.2s ease-in-out infinite';
+                                }
+                                
                                 try { if (typeof needsBloomChoice !== 'undefined' && needsBloomChoice) return 'hudPulse 1.2s ease-in-out infinite'; } catch(e) {}
                                 if (gs.hasMovedThisTurn && !okZombie) return 'hudPulse 1.2s ease-in-out infinite';
                                 if (gs.hasMovedThisTurn && okZombie) return 'hudPulse 1.2s ease-in-out infinite';
@@ -5507,7 +5538,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 if (showSpellChart) return;
                                 if (spinning) return;
                                 if (!gameState.hasMovedThisTurn) return;
-                                if (gameState.awaitingCropPickDecision) return;
+                                if (gameState.awaitingCropPickDecision) {
+                                    setDecisionAttempts(prev => prev + 1);
+                                    try { playSfxFile('pah', { volume: 0.5 }); } catch(e) {}
+                                    return;
+                                }
                                 // End-turn is still implemented via the crop wheel logic (advances crop wheel + spins occurrence for next player).
                                 endTurnByPortrait();
                             }}
