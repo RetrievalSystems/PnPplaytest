@@ -2908,6 +2908,41 @@ switch(spellKey) {
                 }
                 setGameState(newState);
                 
+                // Sync occurrence result to opponent
+                const playerName = newState.currentPlayer === 'yellow' ? 'Yellow' : 'Blue';
+                let occurrenceMessage = '';
+                switch(occ.id) {
+                    case 'upset':
+                        occurrenceMessage = `${playerName} upset a villager`;
+                        if (newState.angryMob) {
+                            occurrenceMessage += ' — angry mob spawned!';
+                        }
+                        break;
+                    case 'lethargy':
+                        occurrenceMessage = `${playerName} got Lethargy`;
+                        break;
+                    case 'vitality':
+                        occurrenceMessage = `${playerName} got Vitality`;
+                        break;
+                    case 'bloom':
+                        occurrenceMessage = `${playerName} got Bloom`;
+                        break;
+                    case 'blight':
+                        occurrenceMessage = `${playerName} got Blight`;
+                        break;
+                    case 'nothing':
+                        occurrenceMessage = `${playerName} — nothing happens`;
+                        break;
+                }
+                
+                if (window.syncAction && !window._syncingState) {
+                    window.syncAction('occurrence_result', {
+                        player: newState.currentPlayer,
+                        occurrence: occ.id,
+                        message: occurrenceMessage
+                    });
+                }
+                
                 // Sync state after occurrence (villager mood / mob may have changed)
                 setTimeout(() => {
                     try { syncGameState(); } catch(e) { console.error('Sync error:', e); }
@@ -5354,7 +5389,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 const moodRaw = (gameState && typeof gameState.villagerMood !== 'undefined') ? gameState.villagerMood : 1;
                                 const mood = Math.max(1, Math.min(5, Number(moodRaw) || 1)); // 1..5
                                 const barH = 0.07; // indicator thickness (as a fraction of meter height)
-                                const stepPx = 10; // each 'villager upset' moves ~10px
+                                const stepPx = 12; // each 'villager upset' moves ~12px
                                 const topPx = (mood - 1) * stepPx;
                                 return (
                                     <div style={{
@@ -5371,7 +5406,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                             position: 'absolute',
                                             left: '46%',
                                             right: '35%',
-                                            top: `${topPx + 39}px`,
+                                            top: `${topPx + 41}px`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
                                             background: 'rgba(255, 50, 30, 0.75)',
@@ -6436,6 +6471,14 @@ if (data.type === 'move') {
     console.log('💬 Chat message received:', data.data);
     if (window.onChatMessage) {
       window.onChatMessage(data.data);
+    }
+  }
+  
+  if (data.type === 'occurrence_result') {
+    console.log('🎲 Occurrence result received:', data.data);
+    // Display the occurrence message for the opponent
+    if (window.setTempMessage && data.data.message) {
+      window.setTempMessage(data.data.message, 2200);
     }
   }
   
