@@ -1448,6 +1448,7 @@ const SFX_FILES = {
   birds: './sounds/birds.mp3',
 
   sv: './sounds/SV.mp3',
+  sv2: './sounds/SV2.mp3',
 
   vitality: './sounds/vitality.mp3',
   spellcrafted: './sounds/spellcrafted.mp3',
@@ -1488,7 +1489,9 @@ useEffect(() => {
 
 
 const svLoopRef = useRef(null);
+const sv2LoopRef = useRef(null);
 const svStartedRef = useRef(false);
+const sv2ActiveRef = useRef(false);
 
 
 const fadeOutSfx = (key, ms = 700) => {
@@ -1622,14 +1625,69 @@ const stopSvLoop = () => {
   } catch(e) {}
 };
 
+const switchToSv2 = () => {
+  if (sv2ActiveRef.current) return; // Already playing SV2
+  sv2ActiveRef.current = true;
+  
+  try {
+    // Stop SV loop
+    stopSvLoop();
+    
+    // Start SV2 loop
+    const a = playSfxFile('sv2', { volume: 0.32, loop: true, rate: 1.0 });
+    if (a) {
+      sv2LoopRef.current = a;
+      try { a.loop = true; } catch(e) {}
+    }
+  } catch(e) {}
+};
+
+const stopSv2Loop = () => {
+  try {
+    const a = sv2LoopRef.current;
+    if (a) {
+      const startVol = (typeof a.volume === 'number') ? a.volume : 0.25;
+      const steps = 12;
+      const stepMs = 45;
+      let i = 0;
+      const id = window.setInterval(() => {
+        i += 1;
+        const v = Math.max(0, startVol * (1 - i / steps));
+        try { a.volume = v; } catch(e) {}
+        if (i >= steps) {
+          window.clearInterval(id);
+          try { a.pause(); } catch(e) {}
+          try { a.currentTime = 0; } catch(e) {}
+        }
+      }, stepMs);
+    }
+    sv2LoopRef.current = null;
+    sv2ActiveRef.current = false;
+  } catch(e) {}
+};
+
 // Music toggle effect - only plays music if the local player has it enabled
 useEffect(() => {
   if (musicEnabled[localPlayer]) {
     startSvLoop();
   } else {
     stopSvLoop();
+    stopSv2Loop();
   }
 }, [musicEnabled, localPlayer]);
+
+// Monitor HP changes and switch to SV2 when either player falls below 4HP
+useEffect(() => {
+  if (!gameState || !gameState.players) return;
+  
+  const yellowHp = gameState.players.yellow?.hp || 9;
+  const blueHp = gameState.players.blue?.hp || 9;
+  
+  // If either player is below 4HP and music is enabled, switch to SV2
+  if ((yellowHp < 4 || blueHp < 4) && musicEnabled[localPlayer]) {
+    switchToSv2();
+  }
+}, [gameState?.players?.yellow?.hp, gameState?.players?.blue?.hp, musicEnabled, localPlayer]);
 
 const triggerFx = (space, kind = 'hit') => {
     if (!space) return;
@@ -3406,6 +3464,11 @@ if (selectingTeleport) {
                     playSfxFileTail('spellcrafted', 3, { volume: 0.75 });
                     newState.players[player].position = space;
                     newState.players[player].inAbode = (space === ABODES[player]);
+                    
+                    // Play enterabode sound when entering abode
+                    if (newState.players[player].inAbode) {
+                        try { playSfxFile('enterabode', { volume: 0.7 }); } catch(e) {}
+                    }
 
                     // If you land on an uncollected crop, you collect it (or get Pick/Leave if already full).
                     if (newState.crops[space] && !newState.crops[space].collected) {
@@ -3749,6 +3812,12 @@ if (selectingTeleport) {
                     // Complete the move
                     newState.players[player].position = dest;
                     newState.players[player].inAbode = (dest === ABODES[player]);
+                    
+                    // Play enterabode sound when entering abode
+                    if (newState.players[player].inAbode) {
+                        try { playSfxFile('enterabode', { volume: 0.7 }); } catch(e) {}
+                    }
+                    
                     // Crafting is only enabled on the SAME turn you ENTER your own abode.
                     if (dest === ABODES[player] && !gameState.players[player].inAbode) {
                         newState.players[player].craftAvailable = true;
@@ -3781,6 +3850,12 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
 
                 newState.players[player].position = dest;
                 newState.players[player].inAbode = (dest === ABODES[player]);
+                
+                // Play enterabode sound when entering abode
+                if (newState.players[player].inAbode) {
+                    try { playSfxFile('enterabode', { volume: 0.7 }); } catch(e) {}
+                }
+                
                     // Crafting is only enabled on the SAME turn you ENTER your own abode.
                     if (dest === ABODES[player] && !gameState.players[player].inAbode) {
                         newState.players[player].craftAvailable = true;
