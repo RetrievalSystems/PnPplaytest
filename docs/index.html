@@ -5219,7 +5219,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         gridTemplateColumns: 'repeat(3, 1fr)',
                         gridAutoRows: 'auto',
                         alignItems: 'start',
-                        gap: '2px',
+                        gap: '1px',
                         // Spell cards must be clickable. Only disable interaction while the spell chart modal is open.
                         pointerEvents: showSpellChart ? 'none' : 'auto',
                         opacity: showSpellChart ? 0.55 : 1,
@@ -5245,7 +5245,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         background: 'transparent',
                                         cursor: enabled ? 'pointer' : 'default',
                                         opacity: 1,
-                                        transform: 'scale(0.92)',
+                                        transform: 'scale(0.87)',
                                         // Opponent cards: always bright. Own cards: dim when not playable
                                         filter: isOpponent ? 'none' : (enabled ? 'none' : 'grayscale(0.55) brightness(0.85)')
                                     }}
@@ -5291,7 +5291,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             right: '3.5%',
                             top: 'calc(27.6% + 80px)',
                             width: '17.6%', /* -10% */
-                            transform: 'translate(68px, 20px)' /* 10px more right, 3px more down */
+                            transform: 'translate(73px, 23px)' /* 5px more right, 3px more down */
                         })}
 
 
