@@ -4018,6 +4018,12 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
 }
 if (travel.length > 0) {
     const mobStart = newState.angryMob.position;
+    console.log('🔥 Mob attack sequence starting:', {
+        mobStart,
+        travel,
+        mobEnd: travel[travel.length - 1],
+        targetPos
+    });
     // Animate the mob token stepping space-by-space (purely visual; game logic uses the final position).
     try { playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
     setMobAnimPath([mobStart, ...travel]);
@@ -5202,7 +5208,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         gridTemplateColumns: 'repeat(3, 1fr)',
                         gridAutoRows: 'auto',
                         alignItems: 'start',
-                        gap: '6px',
+                        gap: '3px',
                         // Spell cards must be clickable. Only disable interaction while the spell chart modal is open.
                         pointerEvents: showSpellChart ? 'none' : 'auto',
                         opacity: showSpellChart ? 0.55 : 1,
@@ -5274,7 +5280,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             right: '3.5%',
                             top: 'calc(27.6% + 80px)',
                             width: '17.6%', /* -10% */
-                            transform: 'translate(58px, 17px)' /* 17px right, 5px down from previous */
+                            transform: 'translate(68px, 20px)' /* 10px more right, 3px more down */
                         })}
 
 
