@@ -5199,6 +5199,13 @@ return (
 const renderGrid = (playerKey, spells, styleBase) => {
                     // Check if these are opponent's cards
                     const isOpponent = (playerKey !== localPlayerKey);
+                    console.log('🃏 Rendering spell grid:', {
+                        playerKey,
+                        localPlayerKey,
+                        isOpponent,
+                        spellCount: spells.length,
+                        spells: spells.slice(0, 3) // First 3 for brevity
+                    });
                     
                     return (
                     <div style={{
@@ -5208,7 +5215,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         gridTemplateColumns: 'repeat(3, 1fr)',
                         gridAutoRows: 'auto',
                         alignItems: 'start',
-                        gap: '3px',
+                        gap: '2px',
                         // Spell cards must be clickable. Only disable interaction while the spell chart modal is open.
                         pointerEvents: showSpellChart ? 'none' : 'auto',
                         opacity: showSpellChart ? 0.55 : 1,
@@ -5255,6 +5262,13 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                             alt={isOpponent ? 'Spell Card' : (SPELLS[k]?.name || String(k))}
                                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                                             draggable="false"
+                                            onError={(e) => console.error('🃏 Card image failed to load:', {
+                                                playerKey,
+                                                slot: i,
+                                                spellKey: k,
+                                                isOpponent,
+                                                src: isOpponent ? IMAGES.spellCardBack : (getSpellCardUrl(k) || '')
+                                            })}
                                         />
                                         {/* Label removed - spell names are built into the card images */}
                                     </div>
