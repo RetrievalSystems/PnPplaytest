@@ -2520,6 +2520,7 @@ switch(spellKey) {
                             triggerCloud(from, mobPos);
                             triggerFx(mobPos, 'mob');
                             newState.angryMob = null;
+                            try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
                         }
@@ -2555,6 +2556,7 @@ switch(spellKey) {
                         if (mobOk) {
                             triggerFx(mobPos, 'mob');
                             newState.angryMob = null;
+                            try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
                             if (oppOk) {
@@ -3169,8 +3171,14 @@ setPickRemaining(count);
                 if (selectingTeleport || showCropPickOption || gameState.awaitingCropPickDecision) {
                     // Player tried to end turn while a crop pick decision is pending
                     if (showCropPickOption || gameState.awaitingCropPickDecision) {
-                        setDecisionAttempts(prev => prev + 1);
-                        try { playSfxFile('pah', { volume: 0.5 }); } catch(e) {}
+                        setDecisionAttempts(prev => {
+                            const newCount = prev + 1;
+                            // Play pah sound on 3rd attempt and all subsequent attempts
+                            if (newCount >= 3) {
+                                try { playSfxFile('pah', { volume: 0.5 }); } catch(e) {}
+                            }
+                            return newCount;
+                        });
                     }
                     return;
                 }
@@ -3551,6 +3559,7 @@ if (selectingTeleport) {
                     if (mobPos && zombie.position === mobPos) {
                         triggerFx(mobPos, 'mob');
                         try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
+                        try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                         // Mob abates
                         newState.angryMob = null;
                         newState.villagerMood = 1;
@@ -5555,8 +5564,14 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 if (spinning) return;
                                 if (!gameState.hasMovedThisTurn) return;
                                 if (gameState.awaitingCropPickDecision) {
-                                    setDecisionAttempts(prev => prev + 1);
-                                    try { playSfxFile('pah', { volume: 0.5 }); } catch(e) {}
+                                    setDecisionAttempts(prev => {
+                                        const newCount = prev + 1;
+                                        // Play pah sound on 3rd attempt and all subsequent attempts
+                                        if (newCount >= 3) {
+                                            try { playSfxFile('pah', { volume: 0.5 }); } catch(e) {}
+                                        }
+                                        return newCount;
+                                    });
                                     return;
                                 }
                                 // End-turn is still implemented via the crop wheel logic (advances crop wheel + spins occurrence for next player).
