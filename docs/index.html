@@ -5228,7 +5228,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         background: 'transparent',
                                         cursor: enabled ? 'pointer' : 'default',
                                         opacity: 1,
-                                        transform: 'scale(0.85)',
+                                        transform: 'scale(0.92)',
                                         // Opponent cards: always bright. Own cards: dim when not playable
                                         filter: isOpponent ? 'none' : (enabled ? 'none' : 'grayscale(0.55) brightness(0.85)')
                                     }}
@@ -5266,7 +5266,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             left: '3.2%',
                             top: 'calc(27.6% + 80px)',
                             width: '17.6%', /* -10% */
-                            transform: 'translate(-31px, 35px)' /* +7 right, +5 down */
+                            transform: 'translate(-36px, 30px)' /* 5px left, 5px up from previous */
                         })}
 
                         {/* Right player bay */}
@@ -5274,7 +5274,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             right: '3.5%',
                             top: 'calc(27.6% + 80px)',
                             width: '17.6%', /* -10% */
-                            transform: 'translate(41px, 12px)' /* -7 left */
+                            transform: 'translate(58px, 17px)' /* 17px right, 5px down from previous */
                         })}
 
 
