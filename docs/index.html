@@ -4042,11 +4042,11 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
     if (!newState.players[player].inAbode) {
         const queue = [{ pos: newState.angryMob.position, path: [] }];
         const visited = new Set([newState.angryMob.position]);
-        let path = [];
+        let fullPath = [];
 
-        while (queue.length > 0 && path.length === 0) {
+        while (queue.length > 0 && fullPath.length === 0) {
             const { pos, path: p } = queue.shift();
-            if (pos === targetPos) { path = p; break; }
+            if (pos === targetPos) { fullPath = p; break; }
             getAdjacentSpaces(pos, { mode: 'mob' }).forEach(adj => {
                 if (!visited.has(adj)) {
                     visited.add(adj);
@@ -4055,7 +4055,13 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
             });
         }
 
-        for (let i = 0; i < Math.min(stepLimit, path.length); i++) travel.push(path[i]);
+        // If we found a complete path to the target, take up to stepLimit moves
+        // This ensures the mob will reach the target if it's within range
+        if (fullPath.length > 0) {
+            for (let i = 0; i < Math.min(stepLimit, fullPath.length); i++) {
+                travel.push(fullPath[i]);
+            }
+        }
     }
 
     // If the target is in an abode (unreachable), or if shortest-path ran out,
@@ -4069,19 +4075,20 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
         return best[Math.floor(Math.random() * best.length)];
     };
 
-    // Seed a first step if needed.
+    // Seed a first step if needed (when target is in abode).
     if (travel.length === 0) {
         const first = greedyStepToward(newState.angryMob.position, null);
         if (first) travel.push(first);
     }
 
-    while (travel.length < stepLimit) {
+    // Continue filling remaining steps (only when target is in abode or unreachable)
+    while (travel.length < stepLimit && travel.length > 0) {
         const cur = travel[travel.length - 1];
-        const prev = (travel.length >= 2) ? travel[travel.length - 2] : newState.angryMob.position;
-
-        // Stop early only if we've actually reached a non-abode target on the board.
+        
+        // Stop if we've reached the target space
         if (cur === targetPos && !newState.players[player].inAbode) break;
-
+        
+        const prev = (travel.length >= 2) ? travel[travel.length - 2] : newState.angryMob.position;
         const next = greedyStepToward(cur, prev);
         if (!next) break;
         travel.push(next);
@@ -4089,10 +4096,20 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
 }
 if (travel.length > 0) {
     const mobStart = newState.angryMob.position;
+    const mobEnd = travel[travel.length - 1];
+    
+    console.log('👹 Mob movement:', { 
+        start: mobStart, 
+        end: mobEnd, 
+        target: targetPos, 
+        steps: travel.length,
+        willCatch: mobEnd === targetPos,
+        path: travel 
+    });
+    
     // Animate the mob token stepping space-by-space (purely visual; game logic uses the final position).
     try { playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
     setMobAnimPath([mobStart, ...travel]);
-    const mobEnd = travel[travel.length - 1];
     
     // Update mob position in game state
     newState.angryMob.position = mobEnd;
@@ -4108,6 +4125,8 @@ if (travel.length > 0) {
 
     if (mobEnd === targetPos && !newState.players[player].inAbode) {
         const tgtName = (player === 'yellow') ? 'Yellow' : 'Blue';
+        
+        console.log('👹 ⚡ MOB CAUGHT TARGET! Attack sequence starting...', { mobEnd, targetPos, travel });
         
         // Update mob position to target space so it's visible during attack
         newState.angryMob.position = mobEnd;
@@ -4137,20 +4156,21 @@ if (travel.length > 0) {
         const approachMs = travel.length * stepMs; // Time for mob to reach target
         const retreatMs = Math.max(0, (retreatPath.length + 1) * stepMs);
         
-        // Wait for approach, then play attack SFX and show message
+        // Wait for approach animation, then show attack message and play attack SFX
         window.setTimeout(() => {
-            playSfxFile('angrymob', { volume: 0.35 });
-            setTempMessage(`Mob has caught ${tgtName}.`, 2200);
+            setTempMessage(`💥 Mob has caught ${tgtName}!`, 2200);
+            try { playSfxFile('angrymob', { volume: 0.45 }); } catch(e) {}
         }, approachMs);
         
         // If protected, the mob abates instead of dealing damage
         if (newState.players[player].protected) {
-            // Wait for mob to reach target before showing confusion
+            // Wait for mob to reach target before showing confusion effect
             window.setTimeout(() => {
                 triggerFx(targetPos, 'confusion');
                 // Play crowd huh sound
                 try { playSfxFile('crowdhuh', { volume: 0.35 }); } catch(e) {}
-            }, approachMs);
+                setTempMessage(`🛡️ ${tgtName}'s protection blocks the attack!`, 2000);
+            }, approachMs + 200);
 
             // Keep the mob alive during retreat; mark as retreating/vanishing.
             newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
@@ -4193,10 +4213,11 @@ if (travel.length > 0) {
             window.setTimeout(() => setTempMessage('Mob has abated.', 2000), approachMs + 520);
         } else {
             // Unprotected: deal damage, then retreat
-            // Wait for mob to reach target before showing attack
+            // Wait for mob to reach target before showing attack visual effect
             window.setTimeout(() => {
                 triggerFx(targetPos, 'mob');
-            }, approachMs);
+                setTempMessage(`💥 ${tgtName} takes 3 damage from the mob!`, 2200);
+            }, approachMs + 200);
             
             newState.players[player].hp -= 3;
             
@@ -4245,6 +4266,13 @@ if (travel.length > 0) {
 
             window.setTimeout(() => setTempMessage('Mob has abated.', 2000), approachMs + 520);
         }
+    } else {
+        console.log('👹 Mob moved but did not catch target', { 
+            mobEnd, 
+            targetPos, 
+            distance: getDistance(mobEnd, targetPos),
+            inAbode: newState.players[player].inAbode 
+        });
     }
                     }
 
