@@ -2319,6 +2319,12 @@ useEffect(() => {
                 newState.players[player].spellsCraftedThisTurn.push(spellKey);
                 
                 setGameState(newState);
+                
+                // Sync spell inventory to opponent
+                setTimeout(() => {
+                    try { syncGameState(); } catch(e) { console.error('Craft sync error:', e); }
+                }, 50);
+                
                 // Craft SFX: play ~3s then fade
                 playSfxFile('spellcrafted', { volume: 0.75 });
                 window.setTimeout(() => fadeOutSfx('spellcrafted', 650), 3000);
@@ -2359,6 +2365,11 @@ useEffect(() => {
                 newState.players[caster].spells = (newState.players[caster].spells || []).filter(s => s !== spellKey);
                 setGameState(newState);
                 setPendingSpellTarget(null);
+                
+                // Sync spell list after using a spell
+                setTimeout(() => {
+                    try { syncGameState(); } catch(e) { console.error('Cast sync error:', e); }
+                }, 50);
             };
 
 const castSpellAction = (spellKey) => {
@@ -5199,13 +5210,6 @@ return (
 const renderGrid = (playerKey, spells, styleBase) => {
                     // Check if these are opponent's cards
                     const isOpponent = (playerKey !== localPlayerKey);
-                    console.log('🃏 Rendering spell grid:', {
-                        playerKey,
-                        localPlayerKey,
-                        isOpponent,
-                        spellCount: spells.length,
-                        spells: spells.slice(0, 3) // First 3 for brevity
-                    });
                     
                     return (
                     <div style={{
@@ -5262,13 +5266,6 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                             alt={isOpponent ? 'Spell Card' : (SPELLS[k]?.name || String(k))}
                                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                                             draggable="false"
-                                            onError={(e) => console.error('🃏 Card image failed to load:', {
-                                                playerKey,
-                                                slot: i,
-                                                spellKey: k,
-                                                isOpponent,
-                                                src: isOpponent ? IMAGES.spellCardBack : (getSpellCardUrl(k) || '')
-                                            })}
                                         />
                                         {/* Label removed - spell names are built into the card images */}
                                     </div>
