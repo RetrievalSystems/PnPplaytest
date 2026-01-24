@@ -5228,6 +5228,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         background: 'transparent',
                                         cursor: enabled ? 'pointer' : 'default',
                                         opacity: 1,
+                                        transform: 'scale(0.85)',
                                         // Opponent cards: always bright. Own cards: dim when not playable
                                         filter: isOpponent ? 'none' : (enabled ? 'none' : 'grayscale(0.55) brightness(0.85)')
                                     }}
@@ -5249,25 +5250,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                             style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain' }}
                                             draggable="false"
                                         />
-                                        {/* Only show spell name label for own cards */}
-                                        {!isOpponent && (
-                                        <div style={{
-                                            position: 'absolute',
-                                            left: 0,
-                                            right: 0,
-                                            bottom: 0,
-                                            fontSize: '10px',
-                                            lineHeight: '12px',
-                                            padding: '2px 3px',
-                                            background: 'rgba(0,0,0,0.6)',
-                                            color: 'white',
-                                            textAlign: 'center',
-                                            pointerEvents: 'none',
-                                            textShadow: '0 1px 2px rgba(0,0,0,0.9)'
-                                        }}>
-                                            {SPELLS[k]?.name || k}
-                                        </div>
-                                        )}
+                                        {/* Label removed - spell names are built into the card images */}
                                     </div>
                                 </button>
                             );
