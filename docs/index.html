@@ -5216,7 +5216,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         position: 'absolute',
                         ...resolveHudStyle(styleBase),
                         display: 'grid',
-                        gridTemplateColumns: 'repeat(3, 1fr)',
+                        gridTemplateColumns: 'repeat(3, 29%)',
                         gridAutoRows: 'auto',
                         alignItems: 'start',
                         gap: '1px',
@@ -5240,13 +5240,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     style={{
                                         width: '100%',
                                         padding: 0,
-                                        margin: '-6.5%',
                                         border: enabled ? '2px solid rgba(255,255,255,0.25)' : '2px solid rgba(0,0,0,0)',
                                         borderRadius: '6px',
                                         background: 'transparent',
                                         cursor: enabled ? 'pointer' : 'default',
                                         opacity: 1,
-                                        transform: 'scale(0.87)',
                                         // Opponent cards: always bright. Own cards: dim when not playable
                                         filter: isOpponent ? 'none' : (enabled ? 'none' : 'grayscale(0.55) brightness(0.85)')
                                     }}
