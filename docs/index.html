@@ -190,6 +190,22 @@
   animation: hwFierySphereExpand 950ms ease-out forwards;
 }
 
+@keyframes hwDeathsBreathHaze {
+  0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0.85; }
+  50% { opacity: 0.7; }
+  100% { transform: translate(-50%, -50%) scale(2.5); opacity: 0; }
+}
+.hw-deaths-breath-haze {
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 50% 50%, rgba(255,255,255,0.6), rgba(220,220,230,0.5) 20%, rgba(180,180,190,0.4) 50%, rgba(140,140,150,0.2) 75%, rgba(100,100,110,0) 90%);
+  filter: blur(2px) drop-shadow(0 0 15px rgba(200,200,200,0.6));
+  pointer-events: none;
+  animation: hwDeathsBreathHaze 700ms ease-out forwards;
+}
+
 
 
 /* Teleport beam (straight-line flash across board) */
@@ -1399,6 +1415,7 @@ const [fxEvents, setFxEvents] = useState([]); // {id, space, kind}
 const [cloudFx, setCloudFx] = useState(null); // {id, from, to}
             const [fireballFx, setFireballFx] = useState(null);
             const [fierySphereFx, setFierySphereFx] = useState(null); // {id, fromSpace}
+            const [deathsBreathHazeFx, setDeathsBreathHazeFx] = useState(null); // {id, fromSpace}
             const [teleportBeamFx, setTeleportBeamFx] = useState(null); // {id, from, to}
 const [freezeCastFx, setFreezeCastFx] = useState(null); // {id, space}
 const [thawFx, setThawFx] = useState(null); // {id, space}
@@ -1685,6 +1702,14 @@ const triggerFierySphere = (fromSpace) => {
     window.setTimeout(() => setFierySphereFx(null), 1000);
 };
 window.triggerFierySphere = triggerFierySphere;
+
+const triggerDeathsBreathHaze = (fromSpace) => {
+    if (!fromSpace) return;
+    const id = `${Date.now()}-${Math.random()}`;
+    setDeathsBreathHazeFx({ id, fromSpace });
+    window.setTimeout(() => setDeathsBreathHazeFx(null), 700);
+};
+window.triggerDeathsBreathHaze = triggerDeathsBreathHaze;
 
 // Chat system functions
 const sendChatMessage = (player, message) => {
@@ -2547,13 +2572,14 @@ switch(spellKey) {
                         // Prefer hitting the opponent if valid; otherwise abate the mob if valid.
                         if (oppOk) {
                             newState.players[opponent].hp -= 4;
+                            triggerDeathsBreathHaze(from); // White expanding haze from caster
                             triggerCloud(from, oppPos);
                             triggerFx(oppPos, 'spell');
                             
-                            // Sync cloud effect to opponent
+                            // Sync cloud effect and haze to opponent
                             if (window.syncAction && !window._syncingState) {
                                 window.syncAction('spell_effect', {
-                                    effect: 'cloud',
+                                    effect: 'deathsBreath',
                                     from: from,
                                     to: oppPos
                                 });
@@ -2562,13 +2588,14 @@ switch(spellKey) {
                             if (newState.players[opponent].hp <= 0) setGameOver(caster);
                         } else if (mobOk) {
                             // Mob abates immediately
+                            triggerDeathsBreathHaze(from); // White expanding haze from caster
                             triggerCloud(from, mobPos);
                             triggerFx(mobPos, 'mob');
                             
-                            // Sync cloud effect to opponent
+                            // Sync cloud effect and haze to opponent
                             if (window.syncAction && !window._syncingState) {
                                 window.syncAction('spell_effect', {
-                                    effect: 'cloud',
+                                    effect: 'deathsBreath',
                                     from: from,
                                     to: mobPos
                                 });
@@ -4151,8 +4178,8 @@ if (travel.length > 0) {
             }, approachMs);
 
             // Keep the mob alive during retreat; mark as retreating/vanishing.
-            // Animation will handle position updates
-            newState.angryMob = { ...newState.angryMob, retreating: true, vanishing: false };
+            // Set position to mobEnd so it's at the target when retreat starts
+            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
             newState.villagerMood = 1;
 
             // After approach + attack animation, animate the retreat space-by-space back to 6F.
@@ -4201,8 +4228,8 @@ if (travel.length > 0) {
             
             newState.players[player].hp -= 3;
             
-            // Keep the mob alive during retreat - animation will handle position
-            newState.angryMob = { ...newState.angryMob, retreating: true, vanishing: false };
+            // Keep the mob alive during retreat - set position to mobEnd
+            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
             newState.villagerMood = 1;
             
             // Check for game over
@@ -4251,7 +4278,7 @@ if (travel.length > 0) {
     }
                     }
 
-                    if (newState.angryMob) {
+                    if (newState.angryMob && !newState.angryMob.retreating) {
                         newState.villagerMood--;
                         if (newState.villagerMood <= 1) {
                             // Mob times out / abates after 4 moves if it hasn't caught the target.
@@ -4670,6 +4697,20 @@ return (
                                 <div
                                     key={fierySphereFx.id}
                                     className="hw-fiery-sphere"
+                                    style={{
+                                        left: center.x + 'px',
+                                        top: center.y + 'px'
+                                    }}
+                                />
+                            );
+                        })()}
+
+                        {deathsBreathHazeFx && (() => {
+                            const center = spaceCenterPx(deathsBreathHazeFx.fromSpace);
+                            return (
+                                <div
+                                    key={deathsBreathHazeFx.id}
+                                    className="hw-deaths-breath-haze"
                                     style={{
                                         left: center.x + 'px',
                                         top: center.y + 'px'
@@ -6576,7 +6617,10 @@ if (data.type === 'move') {
   if (data.type === 'spell_effect') {
     console.log('✨ Spell effect sync received:', data.data);
     try {
-      if (data.data.effect === 'cloud' && window.triggerCloud) {
+      if (data.data.effect === 'deathsBreath' && window.triggerDeathsBreathHaze && window.triggerCloud) {
+        window.triggerDeathsBreathHaze(data.data.from);
+        window.triggerCloud(data.data.from, data.data.to);
+      } else if (data.data.effect === 'cloud' && window.triggerCloud) {
         window.triggerCloud(data.data.from, data.data.to);
       } else if (data.data.effect === 'fierySphere' && window.triggerFierySphere) {
         window.triggerFierySphere(data.data.from);
