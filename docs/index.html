@@ -1669,6 +1669,7 @@ const triggerCloud = (fromSpace, toSpace) => {
     setCloudFx({ id, from: fromSpace, to: toSpace });
     window.setTimeout(() => setCloudFx(null), 700);
 };
+window.triggerCloud = triggerCloud;
 
 const triggerFireball = (fromSpace, toSpace) => {
     if (!fromSpace || !toSpace) return;
@@ -1683,6 +1684,7 @@ const triggerFierySphere = (fromSpace) => {
     setFierySphereFx({ id, fromSpace });
     window.setTimeout(() => setFierySphereFx(null), 1000);
 };
+window.triggerFierySphere = triggerFierySphere;
 
 // Chat system functions
 const sendChatMessage = (player, message) => {
@@ -1752,6 +1754,7 @@ const triggerFreezeCastFx = (space) => {
     setFreezeCastFx({ id, space });
     window.setTimeout(() => setFreezeCastFx(null), 1400);
 };
+window.triggerFreezeCastFx = triggerFreezeCastFx;
 
 
 const triggerThawFx = (space) => {
@@ -2356,10 +2359,26 @@ useEffect(() => {
                         newState.angryMob.frozenTurns = 1;
                         triggerFreezeCastFx(target.space);
                         try { playSfxFile('freeze', { volume: 0.6 }); } catch(e) {}
+                        
+                        // Sync freeze effect to opponent
+                        if (window.syncAction && !window._syncingState) {
+                            window.syncAction('spell_effect', {
+                                effect: 'freeze',
+                                target: target.space
+                            });
+                        }
                     } else if (target.kind === 'player' && target.key === opponent && !newState.players[opponent].inAbode && !newState.players[opponent].protected) {
                         newState.players[opponent].frozen = true;
                         newState.players[opponent].freezeSfxPending = true;
                         triggerFreezeCastFx(newState.players[opponent].position);
+                        
+                        // Sync freeze effect to opponent
+                        if (window.syncAction && !window._syncingState) {
+                            window.syncAction('spell_effect', {
+                                effect: 'freeze',
+                                target: newState.players[opponent].position
+                            });
+                        }
                     }
                 }
 
@@ -2530,11 +2549,31 @@ switch(spellKey) {
                             newState.players[opponent].hp -= 4;
                             triggerCloud(from, oppPos);
                             triggerFx(oppPos, 'spell');
+                            
+                            // Sync cloud effect to opponent
+                            if (window.syncAction && !window._syncingState) {
+                                window.syncAction('spell_effect', {
+                                    effect: 'cloud',
+                                    from: from,
+                                    to: oppPos
+                                });
+                            }
+                            
                             if (newState.players[opponent].hp <= 0) setGameOver(caster);
                         } else if (mobOk) {
                             // Mob abates immediately
                             triggerCloud(from, mobPos);
                             triggerFx(mobPos, 'mob');
+                            
+                            // Sync cloud effect to opponent
+                            if (window.syncAction && !window._syncingState) {
+                                window.syncAction('spell_effect', {
+                                    effect: 'cloud',
+                                    from: from,
+                                    to: mobPos
+                                });
+                            }
+                            
                             newState.angryMob = null;
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
@@ -2561,6 +2600,14 @@ switch(spellKey) {
 
                         // Trigger the expanding sphere effect from caster's position
                         triggerFierySphere(from);
+                        
+                        // Sync fiery sphere effect to opponent
+                        if (window.syncAction && !window._syncingState) {
+                            window.syncAction('spell_effect', {
+                                effect: 'fierySphere',
+                                from: from
+                            });
+                        }
 
                         // Hit ALL targets within 3 spaces
                         if (oppOk) {
@@ -4045,8 +4092,8 @@ if (travel.length > 0) {
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
     
-    // Update the mob's final position in newState (after animation completes, mob should be here)
-    newState.angryMob.position = mobEnd;
+    // DON'T update mob position in newState - let animation handle it
+    // newState.angryMob.position = mobEnd;
     
     // Sync mob movement immediately so guest sees animation
     if (window.syncAction && !window._syncingState) {
@@ -4104,7 +4151,8 @@ if (travel.length > 0) {
             }, approachMs);
 
             // Keep the mob alive during retreat; mark as retreating/vanishing.
-            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
+            // Animation will handle position updates
+            newState.angryMob = { ...newState.angryMob, retreating: true, vanishing: false };
             newState.villagerMood = 1;
 
             // After approach + attack animation, animate the retreat space-by-space back to 6F.
@@ -4133,6 +4181,7 @@ if (travel.length > 0) {
                 } catch(e) {}
                 window.setTimeout(() => {
                     try {
+                        window._mobAnimating = false; // Clear flag before removing mob
                         setGameState(prev => {
                             if (!prev) return prev;
                             return { ...prev, angryMob: null, villagerMood: 1 };
@@ -4152,8 +4201,8 @@ if (travel.length > 0) {
             
             newState.players[player].hp -= 3;
             
-            // Keep the mob alive during retreat
-            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
+            // Keep the mob alive during retreat - animation will handle position
+            newState.angryMob = { ...newState.angryMob, retreating: true, vanishing: false };
             newState.villagerMood = 1;
             
             // Check for game over
@@ -4187,6 +4236,7 @@ if (travel.length > 0) {
                 } catch(e) {}
                 window.setTimeout(() => {
                     try {
+                        window._mobAnimating = false; // Clear flag before removing mob
                         setGameState(prev => {
                             if (!prev) return prev;
                             return { ...prev, angryMob: null, villagerMood: 1 };
@@ -4233,14 +4283,6 @@ if (travel.length > 0) {
                 }
                 
                 setWheelSpunThisTurn(false);
-                
-                // CRITICAL: If mob is animating, preserve its current animated position
-                // Don't let newState reset it back to the start
-                if (window._mobAnimating && gameState.angryMob && newState.angryMob) {
-                    console.log('⚠️ Preserving animated mob position during state update');
-                    newState.angryMob = {...newState.angryMob, position: gameState.angryMob.position};
-                }
-                
                 setGameState(newState);
                 setShowOccurrence(false);
                 setPendingBloom(0);
@@ -6473,8 +6515,13 @@ if (data.type === 'move') {
           console.log('👹 Updating angry mob:', data.data.angryMob);
           updated.angryMob = data.data.angryMob;
         } else if (data.data.angryMob === null) {
-          console.log('👹 Removing angry mob');
-          updated.angryMob = null;
+          // CRITICAL: Don't remove mob while it's animating
+          if (window._mobAnimating) {
+            console.log('👹 Keeping mob alive during animation (ignoring removal sync)');
+          } else {
+            console.log('👹 Removing angry mob');
+            updated.angryMob = null;
+          }
         }
         
         return updated;
@@ -6523,6 +6570,21 @@ if (data.type === 'move') {
       } catch(e) {
         console.error('Mob retreat error:', e);
       }
+    }
+  }
+  
+  if (data.type === 'spell_effect') {
+    console.log('✨ Spell effect sync received:', data.data);
+    try {
+      if (data.data.effect === 'cloud' && window.triggerCloud) {
+        window.triggerCloud(data.data.from, data.data.to);
+      } else if (data.data.effect === 'fierySphere' && window.triggerFierySphere) {
+        window.triggerFierySphere(data.data.from);
+      } else if (data.data.effect === 'freeze' && window.triggerFreezeCastFx) {
+        window.triggerFreezeCastFx(data.data.target);
+      }
+    } catch(e) {
+      console.error('Spell effect sync error:', e);
     }
   }
   
