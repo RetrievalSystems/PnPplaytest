@@ -1156,6 +1156,7 @@ useEffect(() => {
                     });
                     timers.push(setTimeout(() => {
                         console.log('Mob animation complete');
+                        window._mobAnimating = false; // Clear animation flag
                         try { setMobAnimPath([]); } catch (e) {}
                     }, mobAnimPath.length * stepMs + 10));
 
@@ -4037,12 +4038,15 @@ if (travel.length > 0) {
     });
     // Animate the mob token stepping space-by-space (purely visual; game logic uses the final position).
     try { playAngryMobBurst(2000, 0, 0.35); } catch(e) {}
+    
+    // CRITICAL: Set a flag that mob is animating so we don't reset its position
+    window._mobAnimating = true;
+    
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
     
-    // DON'T update mob position immediately - let animation play first
-    // The position will be updated by the animation useEffect
-    // newState.angryMob.position = mobEnd;
+    // Update the mob's final position in newState (after animation completes, mob should be here)
+    newState.angryMob.position = mobEnd;
     
     // Sync mob movement immediately so guest sees animation
     if (window.syncAction && !window._syncingState) {
@@ -4100,13 +4104,13 @@ if (travel.length > 0) {
             }, approachMs);
 
             // Keep the mob alive during retreat; mark as retreating/vanishing.
-            // DON'T set position here - animation will handle it
-            newState.angryMob = { ...newState.angryMob, retreating: true, vanishing: false };
+            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
             newState.villagerMood = 1;
 
             // After approach + attack animation, animate the retreat space-by-space back to 6F.
             window.setTimeout(() => {
                 try {
+                    window._mobAnimating = true; // Set flag for retreat animation
                     setMobAnimPath([mobEnd, ...retreatPath]);
                     // Sync retreat animation to guest
                     if (window.syncAction && !window._syncingState) {
@@ -4148,8 +4152,8 @@ if (travel.length > 0) {
             
             newState.players[player].hp -= 3;
             
-            // Keep the mob alive during retreat - DON'T set position, let animation handle it
-            newState.angryMob = { ...newState.angryMob, retreating: true, vanishing: false };
+            // Keep the mob alive during retreat
+            newState.angryMob = { ...newState.angryMob, position: mobEnd, retreating: true, vanishing: false };
             newState.villagerMood = 1;
             
             // Check for game over
@@ -4160,6 +4164,7 @@ if (travel.length > 0) {
             // After approach + attack animation, animate the retreat space-by-space back to 6F.
             window.setTimeout(() => {
                 try {
+                    window._mobAnimating = true; // Set flag for retreat animation
                     setMobAnimPath([mobEnd, ...retreatPath]);
                     // Sync retreat animation to guest
                     if (window.syncAction && !window._syncingState) {
@@ -4228,6 +4233,14 @@ if (travel.length > 0) {
                 }
                 
                 setWheelSpunThisTurn(false);
+                
+                // CRITICAL: If mob is animating, preserve its current animated position
+                // Don't let newState reset it back to the start
+                if (window._mobAnimating && gameState.angryMob && newState.angryMob) {
+                    console.log('⚠️ Preserving animated mob position during state update');
+                    newState.angryMob = {...newState.angryMob, position: gameState.angryMob.position};
+                }
+                
                 setGameState(newState);
                 setShowOccurrence(false);
                 setPendingBloom(0);
