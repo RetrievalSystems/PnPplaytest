@@ -4312,6 +4312,7 @@ if (travel.length > 0) {
                 setWheelSpunThisTurn(false);
                 setGameState(newState);
                 setShowOccurrence(false);
+                setShowSpellChart(false); // Close spell chart on turn change
                 setPendingBloom(0);
                 setMaxMoveDistance(3);
                 // wheel spin is handled via wheel-click flow
@@ -4904,8 +4905,6 @@ return (
                                                         style={{ 
                                                             width: '67px', 
                                                             height: '67px',
-                                                            transform: (gameState.angryMob?.vanishing ? 'translate(-70px, -70px) scale(0)' : 'none'),
-                                                            transition: (gameState.angryMob?.vanishing ? 'transform 900ms ease-in' : 'none'),
                                                             objectFit: 'contain', 
                                                             filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))'
                                                         }}
@@ -4960,6 +4959,8 @@ return (
                                                         height: '56px', 
                                                         objectFit: 'contain', 
                                                         filter: 'drop-shadow(0 6px 8px rgba(0,0,0,0.55))',
+                                                        transform: (gameState.angryMob?.vanishing ? 'translate(-70px, -70px) scale(0)' : 'none'),
+                                                        transition: (gameState.angryMob?.vanishing ? 'transform 900ms ease-in' : 'none'),
                                                         animation: gameState.angryMob?.target === 'yellow' 
                                                             ? 'mobPulseYellow 1.2s ease-in-out infinite'
                                                             : gameState.angryMob?.target === 'blue'
