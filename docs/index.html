@@ -1588,6 +1588,8 @@ const playAngryMobBurst = (ms = 3000, startAtSec = 0, volume = 0.35) => {
     }, Math.max(0, ms));
   } catch(e) {}
 };
+window.playAngryMobBurst = playAngryMobBurst;
+window.playSfxFile = playSfxFile;
 };
 
 const stopSfx = (key) => {
@@ -2601,10 +2603,19 @@ switch(spellKey) {
                                 });
                             }
                             
+                            window._mobAnimating = false; // Clear flag so mob can be removed
                             newState.angryMob = null;
+                            console.log('☁️ Death\'s Breath abated the mob');
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
+                            
+                            // Sync mob abatement to opponent (force removal)
+                            if (window.syncAction && !window._syncingState) {
+                                window.syncAction('mob_abate', {
+                                    reason: 'deathsBreath'
+                                });
+                            }
                         }
                         break;
                     }
@@ -2619,6 +2630,15 @@ switch(spellKey) {
 
                         const mobPos = newState.angryMob?.position;
                         const mobOk = !!(mobPos && getDistance(from, mobPos) <= 3);
+                        
+                        console.log('🔥 Fiery Blast checks:', {
+                            from,
+                            mobPos,
+                            distance: mobPos ? getDistance(from, mobPos) : 'N/A',
+                            mobOk,
+                            mobExists: !!newState.angryMob,
+                            mobRetreating: newState.angryMob?.retreating
+                        });
 
                         if (!oppOk && !mobOk) {
                             setTempMessage("Fiery Blast cannot be cast — no valid targets.", 1800);
@@ -2645,10 +2665,20 @@ switch(spellKey) {
                         }
                         if (mobOk) {
                             triggerFx(mobPos, 'mob');
+                            window._mobAnimating = false; // Clear flag so mob can be removed
                             newState.angryMob = null;
+                            console.log('🔥 Fiery Blast abated the mob');
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
+                            
+                            // Sync mob abatement to opponent (force removal)
+                            if (window.syncAction && !window._syncingState) {
+                                window.syncAction('mob_abate', {
+                                    reason: 'fieryBlast'
+                                });
+                            }
+                            
                             if (oppOk) {
                                 setTempMessage('Fiery Blast — hits both opponent and mob!', 2000);
                             } else {
@@ -3651,8 +3681,18 @@ if (selectingTeleport) {
                         try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
                         try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                         // Mob abates
+                        window._mobAnimating = false; // Clear flag so mob can be removed
                         newState.angryMob = null;
+                        console.log('🧟 Zombie attack abated the mob');
                         newState.villagerMood = 1;
+                        
+                        // Sync mob abatement to opponent (force removal)
+                        if (window.syncAction && !window._syncingState) {
+                            window.syncAction('mob_abate', {
+                                reason: 'zombieAttack'
+                            });
+                        }
+                        
                         // remove zombie after attack (same as vs opponent)
                         newState.zombies.splice(zombieIdx, 1);
                         setZombieAttackReady(null);
@@ -6612,6 +6652,33 @@ if (data.type === 'move') {
       } catch(e) {
         console.error('Mob retreat error:', e);
       }
+    }
+  }
+  
+  if (data.type === 'mob_abate') {
+    console.log('💥 Mob abate sync received:', data.data);
+    // Force remove the mob regardless of animation state
+    window._mobAnimating = false;
+    if (window.setGameState) {
+      window.setGameState(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          angryMob: null,
+          villagerMood: 1
+        };
+      });
+    }
+    // Play sound effects
+    try {
+      if (window.playSfxFile) {
+        window.playSfxFile('crowdscream', { volume: 0.35 });
+      }
+      if (window.playAngryMobBurst) {
+        window.playAngryMobBurst(1500, 0, 0.35);
+      }
+    } catch(e) {
+      console.error('Mob abate sound error:', e);
     }
   }
   
