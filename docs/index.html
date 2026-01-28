@@ -1113,6 +1113,9 @@ const ABODE_BYPASS = {
 	}
 
 	function HerbalistWizards() {
+	            // Determine local player from URL
+	            const localPlayerKey = new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue';
+	            
 	            const [gameState, setGameState] = useState(() => buildInitialState());
             window.setGameState = setGameState;
             window.OCCURRENCES = OCCURRENCES;
@@ -1208,12 +1211,20 @@ useEffect(() => {
             // When a new turn starts (hasMovedThisTurn = false), show valid moves.
             useEffect(() => {
                 if (!gameState) return;
+                
+                // Only show highlights for the local player (not the opponent)
+                const isMyTurn = gameState.currentPlayer === localPlayerKey;
+                
                 if (gameState.hasMovedThisTurn) {
                     setSelectedSpace(null);
                     setValidMoves([]);
-                } else {
-                    // New turn started - show valid moves for current player
+                } else if (isMyTurn) {
+                    // New turn started AND it's my turn - show valid moves
                     autoShowCurrentMoves(gameState, maxMoveDistanceRef.current || 3);
+                } else {
+                    // Not my turn - clear highlights
+                    setSelectedSpace(null);
+                    setValidMoves([]);
                 }
             }, [gameState?.hasMovedThisTurn, gameState?.currentPlayer]);
 
@@ -1322,6 +1333,7 @@ useEffect(() => {
             const [showSpellChart, setShowSpellChart] = useState(false);
             const [craftingFromChart, setCraftingFromChart] = useState(false);
             const [showCropPickOption, setShowCropPickOption] = useState(null);
+            window.setShowCropPickOption = setShowCropPickOption;
             const [hudMessage, setHudMessage] = useState('');
             const tempMsgUntilRef = useRef(0);
 
@@ -4420,6 +4432,9 @@ if (travel.length > 0) {
                 newState.firstMove[player] = false;
                 newState.hasMovedThisTurn = false;
                 
+                // Clear crop pick decision flag from previous turn
+                newState.awaitingCropPickDecision = false;
+                
                 // Clear the spellsCraftedThisTurn list for the new current player (they're starting a fresh turn)
                 if (!newState.players[opponent].spellsCraftedThisTurn) {
                     newState.players[opponent].spellsCraftedThisTurn = [];
@@ -5759,7 +5774,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             })())
                                 ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click your portrait to end turn')
                                 : hudMessage}
-                        {showCropPickOption && (
+                        {showCropPickOption && gameState.currentPlayer === localPlayerKey && (
                           <span style={{ marginLeft: '12px', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleCropPickDecision(true); }}
@@ -6619,8 +6634,14 @@ if (data.type === 'move') {
         currentPlayer: data.data.currentPlayer,
         hasMovedThisTurn: data.data.hasMovedThisTurn || false,
         cropWheel: data.data.cropWheel || prev.cropWheel,
-        crops: data.data.crops || prev.crops
+        crops: data.data.crops || prev.crops,
+        awaitingCropPickDecision: false  // Clear crop decision flag on turn change
       }));
+      
+      // Clear local showCropPickOption state
+      if (window.setShowCropPickOption) {
+        window.setShowCropPickOption(null);
+      }
       
       // Show valid moves for the new current player after state update
       setTimeout(() => {
@@ -6628,7 +6649,11 @@ if (data.type === 'move') {
           // Get updated state and show moves
           const newState = window.latestStateRef?.current;
           if (newState) {
-            window.autoShowCurrentMoves(newState, 3);
+            // Only show moves if it's the local player's turn
+            const localPlayerKey = (new URLSearchParams(window.location.search).get('role') === 'host') ? 'yellow' : 'blue';
+            if (newState.currentPlayer === localPlayerKey) {
+              window.autoShowCurrentMoves(newState, 3);
+            }
           }
         }
       }, 50);
