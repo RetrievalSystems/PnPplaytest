@@ -601,6 +601,7 @@ const buildCropIconCandidates = (name) => {
 // Crop icon (PNG per herb). Tries multiple filename variants so it works even if
 // your files omit spaces/apostrophes or use kebab/underscore/lowercase names.
 const CropIcon = ({ type, style, className }) => {
+    if (!type) return null;
     const name = (CROPS[type]?.name || type);
     const candidates = buildCropIconCandidates(name);
     return (
@@ -611,6 +612,7 @@ const CropIcon = ({ type, style, className }) => {
             data-ci="0"
             style={{ ...style, objectFit: 'contain' }}
             draggable="false"
+            loading="eager"
             onError={(e) => {
                 try {
                     const img = e.currentTarget;
@@ -1122,6 +1124,19 @@ const ABODE_BYPASS = {
             const latestStateRef = useRef(gameState);
             window.latestStateRef = latestStateRef; // Expose for resync
             useEffect(() => { latestStateRef.current = gameState; }, [gameState]);
+            
+            // Preload all crop images on mount
+            useEffect(() => {
+                const cropNames = ['Aloe', 'Balm', 'Chamomile', 'Eucalyptus', 'Foxglove', 'Ginseng', 'Lily', 'Marigold', 'Nasturtium', 'Oleander', 'Peppermint', 'St Johns Wort', 'Valerian'];
+                cropNames.forEach(name => {
+                    const candidates = buildCropIconCandidates(name);
+                    candidates.forEach(src => {
+                        const img = new Image();
+                        img.src = src;
+                    });
+                });
+            }, []);
+            
             // HP overlay: represent current damage directly so healing correctly lifts the bar.
             useEffect(() => {
                 if (!gameState) return;
@@ -6430,14 +6445,16 @@ const renderGrid = (playerKey, spells, styleBase) => {
             ws.send(JSON.stringify({type:'join_room',room:room,role:role}));
             updateBadge(true);
             
-            // Send or request initial state after short delay
+            // Send or request initial state after delay to ensure state is ready
             setTimeout(() => {
               if (isHost) {
-                // Host sends full initial state
+                // Host sends full initial state - use increased delay to ensure crops are loaded
                 console.log('📤 Host sending initial state...');
-                if (window.syncFullState) {
-                  window.syncFullState();
-                }
+                setTimeout(() => {
+                  if (window.syncFullState) {
+                    window.syncFullState();
+                  }
+                }, 200);
               } else {
                 // Guest requests initial state
                 console.log('📥 Guest requesting initial state...');
@@ -6676,27 +6693,30 @@ if (data.type === 'move') {
   if (data.type === 'request_state') {
     console.log('📥 Received state request from guest');
     if (window.syncFullState) {
-      // Host sends full state in response
+      // Host sends full state in response - delay to ensure state is ready
       setTimeout(() => {
         window.syncFullState();
-      }, 100);
+      }, 200);
     }
   }
   
   // Handle full state sync (from host)
   if (data.type === 'full_state') {
     console.log('📦 Received FULL state:', data.data);
+    console.log('📦 Crops in full state:', data.data.crops);
     window._syncingState = true;
     
     if (window.setGameState && data.data) {
       try {
-        // Apply the complete state
+        // Apply the complete state with deep cloning of crops to force React update
+        const newCrops = data.data.crops ? JSON.parse(JSON.stringify(data.data.crops)) : {};
+        
         window.setGameState(prev => ({
           ...prev,
           turn: data.data.turn,
           currentPlayer: data.data.currentPlayer,
           cropWheel: data.data.cropWheel,
-          crops: data.data.crops,
+          crops: newCrops,
           hasMovedThisTurn: data.data.hasMovedThisTurn,
           villagerMood: data.data.villagerMood,
           zombies: data.data.zombies || [],
@@ -6704,7 +6724,15 @@ if (data.type === 'move') {
           players: data.data.players
         }));
         
-        console.log('✅ Full state applied successfully');
+        // Force a re-render after state update to ensure crops display
+        setTimeout(() => {
+          if (window.setGameState) {
+            window.setGameState(prev => ({ ...prev, _forceRender: Date.now() }));
+            console.log('🔄 Forced re-render for crop images');
+          }
+        }, 250);
+        
+        console.log('✅ Full state applied successfully', { cropsCount: Object.keys(newCrops).length });
         
         // Clear retry interval if it exists
         if (window._stateRetryInterval) {
