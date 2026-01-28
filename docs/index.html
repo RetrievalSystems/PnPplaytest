@@ -1202,13 +1202,18 @@ useEffect(() => {
                 setSelectedSpace(pos);
                 setValidMoves(getValidMoves(pos, dist, { actorKey: pkey, allowEnterOwnAbode: true }));
             };
+            window.autoShowCurrentMoves = autoShowCurrentMoves;
 
             // Once a player has completed their move phase, remove any remaining path highlights.
+            // When a new turn starts (hasMovedThisTurn = false), show valid moves.
             useEffect(() => {
                 if (!gameState) return;
                 if (gameState.hasMovedThisTurn) {
                     setSelectedSpace(null);
                     setValidMoves([]);
+                } else {
+                    // New turn started - show valid moves for current player
+                    autoShowCurrentMoves(gameState, maxMoveDistanceRef.current || 3);
                 }
             }, [gameState?.hasMovedThisTurn, gameState?.currentPlayer]);
 
@@ -2197,6 +2202,53 @@ useEffect(() => {
                     window.syncAction('game_state', syncData);
                 }
             };
+            
+            // Sync full game state (for initial connection)
+            const syncFullState = () => {
+                if (window.syncAction && !window._syncingState) {
+                    const state = latestStateRef.current || gameState;
+                    if (!state) return;
+                    
+                    const fullState = {
+                        turn: state.turn,
+                        currentPlayer: state.currentPlayer,
+                        cropWheel: state.cropWheel,
+                        crops: state.crops,
+                        hasMovedThisTurn: state.hasMovedThisTurn,
+                        villagerMood: state.villagerMood,
+                        zombies: state.zombies || [],
+                        angryMob: state.angryMob,
+                        players: {
+                            yellow: {
+                                position: state.players.yellow.position,
+                                hp: state.players.yellow.hp,
+                                inventory: state.players.yellow.inventory || {},
+                                spells: state.players.yellow.spells || [],
+                                spellsCraftedThisTurn: state.players.yellow.spellsCraftedThisTurn || [],
+                                inAbode: state.players.yellow.inAbode || false,
+                                frozen: state.players.yellow.frozen || false,
+                                protected: state.players.yellow.protected || false,
+                                freezeSfxPending: state.players.yellow.freezeSfxPending || false
+                            },
+                            blue: {
+                                position: state.players.blue.position,
+                                hp: state.players.blue.hp,
+                                inventory: state.players.blue.inventory || {},
+                                spells: state.players.blue.spells || [],
+                                spellsCraftedThisTurn: state.players.blue.spellsCraftedThisTurn || [],
+                                inAbode: state.players.blue.inAbode || false,
+                                frozen: state.players.blue.frozen || false,
+                                protected: state.players.blue.protected || false,
+                                freezeSfxPending: state.players.blue.freezeSfxPending || false
+                            }
+                        }
+                    };
+                    
+                    console.log('📤 Syncing FULL state:', fullState);
+                    window.syncAction('full_state', fullState);
+                }
+            };
+            window.syncFullState = syncFullState;
 
             // Manual resync function - requests full game state from opponent
             const manualResync = () => {
@@ -6362,6 +6414,46 @@ const renderGrid = (playerKey, spells, styleBase) => {
             reconnecting = false;
             ws.send(JSON.stringify({type:'join_room',room:room,role:role}));
             updateBadge(true);
+            
+            // Send or request initial state after short delay
+            setTimeout(() => {
+              if (isHost) {
+                // Host sends full initial state
+                console.log('📤 Host sending initial state...');
+                if (window.syncFullState) {
+                  window.syncFullState();
+                }
+              } else {
+                // Guest requests initial state
+                console.log('📥 Guest requesting initial state...');
+                
+                // Show waiting message
+                if (window.setTempMessage) {
+                  window.setTempMessage('⏳ Syncing with host...', 10000);
+                }
+                
+                window.syncAction('request_state', {});
+                
+                // Retry request if no response after 2 seconds
+                let retryCount = 0;
+                const retryInterval = setInterval(() => {
+                  if (retryCount < 3) {
+                    console.log(`📥 Guest retry ${retryCount + 1}: requesting initial state...`);
+                    window.syncAction('request_state', {});
+                    retryCount++;
+                  } else {
+                    clearInterval(retryInterval);
+                    // If still not synced after retries, show error
+                    if (window.setTempMessage) {
+                      window.setTempMessage('❌ Sync failed - try refreshing', 5000);
+                    }
+                  }
+                }, 2000);
+                
+                // Clear retry interval when state is received
+                window._stateRetryInterval = retryInterval;
+              }
+            }, 500);
           };
           
           ws.onmessage = (e) => {
@@ -6529,6 +6621,18 @@ if (data.type === 'move') {
         cropWheel: data.data.cropWheel || prev.cropWheel,
         crops: data.data.crops || prev.crops
       }));
+      
+      // Show valid moves for the new current player after state update
+      setTimeout(() => {
+        if (window.autoShowCurrentMoves && data.data.hasMovedThisTurn === false) {
+          // Get updated state and show moves
+          const newState = window.latestStateRef?.current;
+          if (newState) {
+            window.autoShowCurrentMoves(newState, 3);
+          }
+        }
+      }, 50);
+      
       setTimeout(() => { window._syncingTurn = false; }, 100);
     }
   }
@@ -6541,6 +6645,58 @@ if (data.type === 'move') {
     if (window.setGameOver) {
       window.setGameOver(data.data.winner);
     }
+  }
+  
+  // Handle request for initial state (from guest)
+  if (data.type === 'request_state') {
+    console.log('📥 Received state request from guest');
+    if (window.syncFullState) {
+      // Host sends full state in response
+      setTimeout(() => {
+        window.syncFullState();
+      }, 100);
+    }
+  }
+  
+  // Handle full state sync (from host)
+  if (data.type === 'full_state') {
+    console.log('📦 Received FULL state:', data.data);
+    window._syncingState = true;
+    
+    if (window.setGameState && data.data) {
+      try {
+        // Apply the complete state
+        window.setGameState(prev => ({
+          ...prev,
+          turn: data.data.turn,
+          currentPlayer: data.data.currentPlayer,
+          cropWheel: data.data.cropWheel,
+          crops: data.data.crops,
+          hasMovedThisTurn: data.data.hasMovedThisTurn,
+          villagerMood: data.data.villagerMood,
+          zombies: data.data.zombies || [],
+          angryMob: data.data.angryMob,
+          players: data.data.players
+        }));
+        
+        console.log('✅ Full state applied successfully');
+        
+        // Clear retry interval if it exists
+        if (window._stateRetryInterval) {
+          clearInterval(window._stateRetryInterval);
+          window._stateRetryInterval = null;
+        }
+        
+        // Show success message
+        if (window.setTempMessage) {
+          window.setTempMessage('✅ Synced with host', 2000);
+        }
+      } catch(e) {
+        console.error('Error applying full state:', e);
+      }
+    }
+    
+    setTimeout(() => { window._syncingState = false; }, 200);
   }
   
   if (data.type === 'game_state') {
