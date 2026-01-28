@@ -1455,6 +1455,7 @@ const SFX_FILES = {
   wheel: './sounds/wheel.mp3',
   zombie: './sounds/zombie.mp3',
   zombieattack: './sounds/zombieattack.mp3',
+  zombiedeath: './sounds/zombiedeath.mp3',
   teleport: './sounds/teleport.mp3',
   newseason: './sounds/newseason.mp3',
   rooster: './sounds/rooster.mp3',
@@ -1663,6 +1664,7 @@ const triggerFx = (space, kind = 'hit') => {
         setFxEvents(prev => prev.filter(e => e.id !== id));
     }, 3600);
 };
+window.triggerFx = triggerFx;
 
 // Board coordinate helper (within the 690x690 overlay grid)
 const BOARD_COLS = ['A','B','C','D','E','F','G','H','I','J','K'];
@@ -2725,6 +2727,31 @@ switch(spellKey) {
                         newState.players[caster].protected = true;
                         newState.players[caster].protectionTurns = 2; // Lasts for 2 turn endings (full round)
                         console.log(`🛡️ ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell (lasts 2 turns)`);
+                        
+                        // Destroy the caster's zombie (if they have one)
+                        const zombieIdx = (newState.zombies || []).findIndex(z => z.owner === caster);
+                        if (zombieIdx !== -1) {
+                            const zombie = newState.zombies[zombieIdx];
+                            const zombiePos = zombie.position;
+                            
+                            // Trigger smoke poof at zombie's location
+                            triggerFx(zombiePos, 'smoke');
+                            
+                            // Play zombie death sound
+                            try { playSfxFile('zombiedeath', { volume: 0.6 }); } catch(e) {}
+                            
+                            // Remove the zombie
+                            newState.zombies.splice(zombieIdx, 1);
+                            console.log(`💨 ${caster === 'yellow' ? 'Yellow' : 'Blue'}'s zombie destroyed by Protection spell`);
+                            
+                            // Sync zombie removal to opponent
+                            if (window.syncAction && !window._syncingState) {
+                                window.syncAction('zombie_destroyed', {
+                                    position: zombiePos,
+                                    owner: caster
+                                });
+                            }
+                        }
                         break;
                 }
 
@@ -2751,7 +2778,8 @@ switch(spellKey) {
                             hp: {
                                 yellow: newState.players.yellow.hp,
                                 blue: newState.players.blue.hp
-                            }
+                            },
+                            zombies: newState.zombies // Include updated zombie list
                         });
                         console.log('🛡️ Protection status synced to guest');
                     }
@@ -6453,6 +6481,29 @@ if (data.type === 'move') {
     }
   }
   
+  if (data.type === 'zombie_destroyed') {
+    console.log('💨 Zombie destroyed by Protection spell:', data.data);
+    // Trigger smoke effect at zombie's last position
+    if (window.triggerFx && data.data.position) {
+      window.triggerFx(data.data.position, 'smoke');
+    }
+    // Play zombie death sound
+    if (window.playSfxFile) {
+      try {
+        window.playSfxFile('zombiedeath', { volume: 0.6 });
+      } catch(e) {
+        console.error('Zombie destroyed sound error:', e);
+      }
+    }
+    // Remove zombie from state
+    if (window.setGameState && data.data.owner) {
+      window.setGameState(prev => ({
+        ...prev,
+        zombies: (prev.zombies || []).filter(z => z.owner !== data.data.owner)
+      }));
+    }
+  }
+  
   if (data.type === 'turn_end') {
     console.log('Turn ended, switching to:', data.data.currentPlayer);
     // Switch to the next player WITHOUT triggering another sync
@@ -6609,6 +6660,12 @@ if (data.type === 'move') {
             console.log('👹 Removing angry mob');
             updated.angryMob = null;
           }
+        }
+        
+        // Update zombies
+        if (data.data.zombies !== undefined) {
+          console.log('🧟 Updating zombies:', data.data.zombies);
+          updated.zombies = data.data.zombies;
         }
         
         return updated;
