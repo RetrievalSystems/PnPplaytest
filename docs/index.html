@@ -2563,7 +2563,7 @@ switch(spellKey) {
                                       !newState.players[opponent].inAbode;
 
                         const mobPos = newState.angryMob?.position;
-                        const mobOk = !!(mobPos && getDistance(from, mobPos) <= 1);
+                        const mobOk = !!(mobPos && getDistance(from, mobPos) <= 1 && !newState.angryMob?.retreating);
 
                         if (!oppOk && !mobOk) {
                             setTempMessage("Death’s Breath cannot be cast — no valid targets.", 1800);
@@ -2629,7 +2629,7 @@ switch(spellKey) {
                                       !newState.players[opponent].inAbode;
 
                         const mobPos = newState.angryMob?.position;
-                        const mobOk = !!(mobPos && getDistance(from, mobPos) <= 3);
+                        const mobOk = !!(mobPos && getDistance(from, mobPos) <= 3 && !newState.angryMob?.retreating);
                         
                         console.log('🔥 Fiery Blast checks:', {
                             from,
@@ -3676,7 +3676,7 @@ if (selectingTeleport) {
                     const mobPos = newState.angryMob?.position || null;
 
                     // Attack angry mob (abates it)
-                    if (mobPos && zombie.position === mobPos) {
+                    if (mobPos && zombie.position === mobPos && !newState.angryMob?.retreating) {
                         triggerFx(mobPos, 'mob');
                         try { playSfxFile('zombieattack', { volume: 0.55 }); } catch(e) {}
                         try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
@@ -4227,11 +4227,13 @@ if (travel.length > 0) {
                 try {
                     window._mobAnimating = true; // Set flag for retreat animation
                     setMobAnimPath([mobEnd, ...retreatPath]);
-                    // Sync retreat animation to guest
+                    // Sync retreat animation to guest with timing
                     if (window.syncAction && !window._syncingState) {
                         window.syncAction('mob_retreat', {
                             path: [mobEnd, ...retreatPath],
-                            retreatGoal: retreatGoal
+                            retreatGoal: retreatGoal,
+                            retreatMs: retreatMs,
+                            vanishingDelay: 120  // Time before vanishing starts after retreat completes
                         });
                     }
                 } catch(e) {}
@@ -4251,6 +4253,7 @@ if (travel.length > 0) {
                         window._mobAnimating = false; // Clear flag before removing mob
                         setGameState(prev => {
                             if (!prev) return prev;
+                            console.log('🛡️ Mob abated after hitting protected player');
                             return { ...prev, angryMob: null, villagerMood: 1 };
                         });
                         setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
@@ -4282,11 +4285,13 @@ if (travel.length > 0) {
                 try {
                     window._mobAnimating = true; // Set flag for retreat animation
                     setMobAnimPath([mobEnd, ...retreatPath]);
-                    // Sync retreat animation to guest
+                    // Sync retreat animation to guest with timing
                     if (window.syncAction && !window._syncingState) {
                         window.syncAction('mob_retreat', {
                             path: [mobEnd, ...retreatPath],
-                            retreatGoal: retreatGoal
+                            retreatGoal: retreatGoal,
+                            retreatMs: retreatMs,
+                            vanishingDelay: 120
                         });
                     }
                 } catch(e) {}
@@ -5211,7 +5216,7 @@ return (
             {showSpellChart && (
                 <SpellChartModal
                     open={showSpellChart}
-                    onClose={() => { }}
+                    onClose={() => { setShowSpellChart(false); }}
                     gameState={gameState}
                     canCraftNow={(() => { const p = gameState?.players?.[gameState?.currentPlayer]; return !!(p && p.inAbode && gameState.hasMovedThisTurn && !p.craftedThisTurn); })()}
                     mode={spellChartMode}
@@ -6646,9 +6651,34 @@ if (data.type === 'move') {
     console.log('👹 Mob retreat sync received:', data.data);
     if (window.setMobAnimPath && data.data.path) {
       try {
+        // Start retreat animation immediately (the timing is already handled by the host)
+        window._mobAnimating = true; // Set flag for retreat animation
+        window.setMobAnimPath(data.data.path);
+        
+        // Schedule vanishing and removal based on timing from host
+        const retreatMs = data.data.retreatMs || 1440; // Default if not provided
+        const vanishingDelay = data.data.vanishingDelay || 120;
+        
+        // Set vanishing state after retreat completes
         setTimeout(() => {
-          window.setMobAnimPath(data.data.path);
-        }, 3200);
+          if (window.setGameState) {
+            window.setGameState(prev => {
+              if (!prev || !prev.angryMob) return prev;
+              return { ...prev, angryMob: { ...prev.angryMob, position: data.data.retreatGoal, retreating: true, vanishing: true } };
+            });
+          }
+          
+          // Remove mob after vanishing animation
+          setTimeout(() => {
+            window._mobAnimating = false;
+            if (window.setGameState) {
+              window.setGameState(prev => {
+                if (!prev) return prev;
+                return { ...prev, angryMob: null, villagerMood: 1 };
+              });
+            }
+          }, 900);
+        }, retreatMs + vanishingDelay);
       } catch(e) {
         console.error('Mob retreat error:', e);
       }
