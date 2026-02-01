@@ -1118,6 +1118,7 @@ const ABODE_BYPASS = {
 	            // Determine local player from URL
 	            const localPlayerKey = new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue';
 	            
+const [charSelected, setCharSelected] = useState(false);
 	            const [gameState, setGameState] = useState(() => buildInitialState());
             window.setGameState = setGameState;
             window.OCCURRENCES = OCCURRENCES;
@@ -4638,6 +4639,170 @@ if (travel.length > 0) {
                         backgroundPosition: 'center'
                     };
                 };
+// --- Character Selection Screen ---
+        if (!charSelected) {
+            const _role = (new URLSearchParams(window.location.search).get('role') || 'host');
+            const _isHost = _role === 'host';
+            const _wizImg = _isHost ? IMAGES.yellowWizard : IMAGES.blueWizard;
+            const _glowColor = _isHost ? 'rgba(250, 204, 21, 0.85)' : 'rgba(96, 165, 250, 0.85)';
+            const _glowDim  = _isHost ? 'rgba(250, 204, 21, 0.25)' : 'rgba(96, 165, 250, 0.25)';
+            const _glowFaint= _isHost ? 'rgba(250, 204, 21, 0.10)' : 'rgba(96, 165, 250, 0.10)';
+            const _label    = _isHost ? 'Yellow' : 'Blue';
+
+            return (
+                <div
+                    onClick={() => setCharSelected(true)}
+                    style={{
+                        position: 'fixed',
+                        inset: 0,
+                        background: 'radial-gradient(ellipse at 50% 45%, rgba(25,18,45,1) 0%, rgba(8,5,18,1) 65%)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        zIndex: 999998,
+                        cursor: 'pointer',
+                        overflow: 'hidden'
+                    }}
+                >
+                    {/* Subtle ambient particles (reuse existing hw-star animation) */}
+                    {[...Array(6)].map((_, i) => (
+                        <div
+                            key={i}
+                            className="hw-star"
+                            style={{
+                                position: 'absolute',
+                                left: `${12 + i * 16}%`,
+                                top: `${10 + (i % 3) * 28}%`,
+                                animationDelay: `${i * 0.4}s`,
+                                animationDuration: `${2.2 + i * 0.3}s`,
+                                color: _glowColor,
+                                fontSize: `${14 + (i % 3) * 8}px`,
+                                pointerEvents: 'none'
+                            }}
+                        >
+                            ✦
+                        </div>
+                    ))}
+
+                    {/* Title */}
+                    <div style={{
+                        color: 'rgba(255, 238, 210, 0.92)',
+                        fontSize: 'clamp(20px, 3vw, 30px)',
+                        fontFamily: 'Georgia, "Times New Roman", serif',
+                        letterSpacing: '4px',
+                        textTransform: 'uppercase',
+                        marginBottom: '32px',
+                        textShadow: `0 0 24px ${_glowDim}, 0 2px 4px rgba(0,0,0,0.6)`,
+                        pointerEvents: 'none',
+                        userSelect: 'none'
+                    }}>
+                        Choose Your Wizard
+                    </div>
+
+                    {/* Portrait frame + image */}
+                    <div style={{
+                        position: 'relative',
+                        width: 'clamp(240px, 30vw, 340px)',
+                        height: 'clamp(310px, 39vw, 440px)',
+                        marginBottom: '36px'
+                    }}>
+                        {/* Outer glow ring */}
+                        <div style={{
+                            position: 'absolute',
+                            inset: '-14px',
+                            borderRadius: '26px',
+                            border: `2px solid ${_glowColor}`,
+                            boxShadow: `0 0 28px ${_glowDim}, 0 0 56px ${_glowFaint}, inset 0 0 20px ${_glowFaint}`,
+                            animation: 'pulse 2.2s ease-in-out infinite',
+                            pointerEvents: 'none'
+                        }} />
+
+                        {/* Corner accents */}
+                        {['top-left','top-right','bottom-left','bottom-right'].map(corner => (
+                            <div key={corner} style={{
+                                position: 'absolute',
+                                [corner.includes('top') ? 'top' : 'bottom']: '-6px',
+                                [corner.includes('left') ? 'left' : 'right']: '-6px',
+                                width: '22px',
+                                height: '22px',
+                                borderTop: corner.includes('top') ? `3px solid ${_glowColor}` : 'none',
+                                borderBottom: corner.includes('bottom') ? `3px solid ${_glowColor}` : 'none',
+                                borderLeft: corner.includes('left') ? `3px solid ${_glowColor}` : 'none',
+                                borderRight: corner.includes('right') ? `3px solid ${_glowColor}` : 'none',
+                                borderRadius: '4px',
+                                pointerEvents: 'none'
+                            }} />
+                        ))}
+
+                        {/* Wizard image */}
+                        <img
+                            src={_wizImg}
+                            alt={`${_label} Wizard`}
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                borderRadius: '18px',
+                                boxShadow: '0 10px 40px rgba(0,0,0,0.7)',
+                                display: 'block'
+                            }}
+                            draggable="false"
+                        />
+                    </div>
+
+                    {/* Player label badge */}
+                    <div style={{
+                        padding: '6px 22px',
+                        borderRadius: '20px',
+                        background: _glowDim,
+                        border: `1px solid ${_glowColor}`,
+                        color: 'rgba(255,255,255,0.9)',
+                        fontSize: '13px',
+                        letterSpacing: '2px',
+                        textTransform: 'uppercase',
+                        marginBottom: '28px',
+                        pointerEvents: 'none',
+                        userSelect: 'none'
+                    }}>
+                        {_label} Player
+                    </div>
+
+                    {/* Select button */}
+                    <div style={{
+                        padding: '13px 52px',
+                        borderRadius: '34px',
+                        border: `2px solid ${_glowColor}`,
+                        background: _glowDim,
+                        color: 'white',
+                        fontSize: '17px',
+                        fontFamily: 'Georgia, "Times New Roman", serif',
+                        letterSpacing: '3px',
+                        textTransform: 'uppercase',
+                        boxShadow: `0 0 22px ${_glowDim}, 0 4px 12px rgba(0,0,0,0.4)`,
+                        animation: 'pulse 1.9s ease-in-out infinite',
+                        pointerEvents: 'none',
+                        userSelect: 'none'
+                    }}>
+                        Select
+                    </div>
+
+                    {/* Hint text */}
+                    <div style={{
+                        marginTop: '20px',
+                        color: 'rgba(255,255,255,0.28)',
+                        fontSize: '12px',
+                        letterSpacing: '1.5px',
+                        pointerEvents: 'none',
+                        userSelect: 'none'
+                    }}>
+                        click anywhere to continue
+                    </div>
+                </div>
+            );
+        }
+        // --- End Character Selection Screen ---
+
 return (
     <div id="app">
         <div id="hud-stage" ref={hudStageRef}>
