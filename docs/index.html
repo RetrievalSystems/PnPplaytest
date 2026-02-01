@@ -5587,11 +5587,11 @@ return (
 
                     // left/right
                     const pct = (v) => {
-                        const m = String(v||'').match(/^\\s*([0-9.]+)\\s*%\\s*$/);
+                        const m = String(v||'').match(/^\s*([0-9.]+)\s*%\s*$/);
                         return m ? parseFloat(m[1]) / 100 : null;
                     };
                     const px = (v) => {
-                        const m = String(v||'').match(/^\\s*([0-9.]+)\\s*px\\s*$/);
+                        const m = String(v||'').match(/^\s*([0-9.]+)\s*px\s*$/);
                         return m ? parseFloat(m[1]) : null;
                     };
 
@@ -5607,7 +5607,7 @@ return (
                     // top: supports calc(XX% + YYpx)
                     if (out.top != null) {
                         const s = String(out.top);
-                        const mc = s.match(/calc\\(\\s*([0-9.]+)%\\s*\\+\\s*([0-9.]+)px\\s*\\)/);
+                        const mc = s.match(/calc\(\s*([0-9.]+)%\s*\+\s*([0-9.]+)px\s*\)/);
                         const p = pct(s);
                         const ppx = px(s);
                         if (mc) {
@@ -5855,8 +5855,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(23% - 20px)',
-                                        top: 'calc(56.5% + 10px)',
+                                        left: '23%',
+                                        top: '56.5%',
                                         width: '25.4%',
                                         height: '18.8%',
                                         zIndex: 5200,
@@ -5963,7 +5963,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         {showCropPickOption && gameState.currentPlayer === localPlayerKey && (
                           <span style={{ marginLeft: '12px', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleCropPickDecision(true); }}
+                              onClick={(e) => { e.stopPropagation(); handleCropPickDecision(true); try { playSfxFile('lateblight', { volume: 0.7 }); } catch(e2){} window._blightBookFlash = Date.now(); if (window.setGameState) window.setGameState(prev => ({...prev, _forceRender: Date.now()})); }}
                               style={{ padding: '6px 12px', borderRadius: '10px', background: 'rgba(34,197,94,0.9)', color: '#fff', fontWeight: 700 }}
                             >
                               Pick it
@@ -6304,6 +6304,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         {!showSpellChart && !gameOver && (
                             <>
                                 {/* Yellow player's spell book */}
+                                <div style={{ position: 'absolute', left: 'calc(3.4% - 50px)', top: 'calc(22% + 32px)', width: '8.8%', maxWidth: '132px', zIndex: 9000 }}>
+                                {/* Late Blight cloud poof on yellow book (fires when blue casts blight) */}
+                                {(() => { const flash = window._blightBookFlash && localPlayer === 'blue' && (Date.now() - window._blightBookFlash < 700); return flash ? (
+                                    <div className="hw-cloud" style={{ position: 'absolute', left: '15%', top: '5%', '--dx': '0px', '--dy': '-100px', '--s0': '0.7', '--s1': '1.1', zIndex: 9001, pointerEvents: 'none' }} />
+                                ) : null; })()}
                                 <img
                                     src="./images/spell-book.png"
                                     alt="Open Spell Chart"
@@ -6321,15 +6326,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
                                     style={{
-                                        position: 'absolute',
-                                        left: 'calc(3.4% - 50px)',
-                                        top: 'calc(22% + 32px)',
-                                        width: '8.8%',
-                                        maxWidth: '132px',
+                                        position: 'relative',
+                                        width: '100%',
                                         cursor: 'pointer',
-                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
-                                        transition: 'all 0.2s',
-                                        zIndex: 9000,
+                                        filter: (() => { const flash = window._blightBookFlash && localPlayer === 'blue' && (Date.now() - window._blightBookFlash < 700); return flash ? 'drop-shadow(0 6px 16px rgba(250, 204, 21, 0.9)) drop-shadow(0 0 24px rgba(250, 204, 21, 0.7))' : 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))'; })(),
+                                        transition: 'filter 0.15s ease, transform 0.2s ease',
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
@@ -6348,6 +6349,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     draggable="false"
                                 />
+                                </div>
                                 
                                 {/* Yellow player's music toggle - to the right of message system */}
                                 {localPlayer === 'yellow' && (
@@ -6460,6 +6462,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 )}
                                 
                                 {/* Blue player's spell book */}
+                                <div style={{ position: 'absolute', right: 'calc(3.4% - 45px)', top: 'calc(22% + 32px)', width: '8.8%', maxWidth: '132px', zIndex: 9000 }}>
+                                {/* Late Blight cloud poof on blue book (fires when yellow casts blight) */}
+                                {(() => { const flash = window._blightBookFlash && localPlayer === 'yellow' && (Date.now() - window._blightBookFlash < 700); return flash ? (
+                                    <div className="hw-cloud" style={{ position: 'absolute', left: '15%', top: '5%', '--dx': '0px', '--dy': '-100px', '--s0': '0.7', '--s1': '1.1', zIndex: 9001, pointerEvents: 'none' }} />
+                                ) : null; })()}
                                 <img
                                     src="./images/spell-book.png"
                                     alt="Open Spell Chart"
@@ -6477,15 +6484,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         if (canCraft) playSfxFile('crafting', { volume: 0.55, loop: true });
                                     }}
                                     style={{
-                                        position: 'absolute',
-                                        right: 'calc(3.4% - 45px)',
-                                        top: 'calc(22% + 32px)',
-                                        width: '8.8%',
-                                        maxWidth: '132px',
+                                        position: 'relative',
+                                        width: '100%',
                                         cursor: 'pointer',
-                                        filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))',
-                                        transition: 'all 0.2s',
-                                        zIndex: 9000,
+                                        filter: (() => { const flash = window._blightBookFlash && localPlayer === 'yellow' && (Date.now() - window._blightBookFlash < 700); return flash ? 'drop-shadow(0 6px 16px rgba(96, 165, 250, 0.9)) drop-shadow(0 0 24px rgba(96, 165, 250, 0.7))' : 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))'; })(),
+                                        transition: 'filter 0.15s ease, transform 0.2s ease',
                                         pointerEvents: 'auto'
                                     }}
                                     onMouseEnter={(e) => {
@@ -6504,6 +6507,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     draggable="false"
                                 />
+                                </div>
                                 
                                 {/* Blue player's music toggle - to the left of message system */}
                                 {localPlayer === 'blue' && (
