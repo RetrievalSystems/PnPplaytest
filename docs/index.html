@@ -432,7 +432,8 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
         100% { opacity: 0.80; filter: brightness(1.2); }
       }
         50% { transform: scale(1.02); opacity: 1; }
-        100% { transform: scale(1); opacity: 0.88; }
+        100% { transform: scale(
+1); opacity: 0.88; }
       }
 </style>
 
@@ -527,7 +528,15 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
             spellCardBack: './images/spellcardback.png',
             hpBars: './images/hp-bars.jpg',
             yellowWizard: './images/yellow-wizard.png',
-            blueWizard: './images/blue-wizard.png',
+           blueWizard: './images/blue-wizard.png',
+            yellowWizard1: './images/yellowwizard1.png',
+            yellowWizard2: './images/yellowwizard2.png',
+            yellowWizard3: './images/yellowwizard3.png',
+            yellowWizard4: './images/yellowwizard4.png',
+            blueWizard1: './images/bluewizard1.png',
+            blueWizard2: './images/bluewizard2.png',
+            blueWizard3: './images/bluewizard3.png',
+            blueWizard4: './images/bluewizard4.png',
             yellowHP: './images/yellow-hp.jpg',
             blueHP: './images/blue-hp.jpg',
             yellowZombie: './images/yellow-zombie.png',
@@ -1118,7 +1127,8 @@ const ABODE_BYPASS = {
 	            // Determine local player from URL
 	            const localPlayerKey = new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue';
 	            
-const [charSelected, setCharSelected] = useState(false);
+const [charSelected, setCharSelected] = useState(null);
+const [charHoverIdx, setCharHoverIdx] = useState(null);
 	            const [gameState, setGameState] = useState(() => buildInitialState());
             window.setGameState = setGameState;
             window.OCCURRENCES = OCCURRENCES;
@@ -4643,41 +4653,38 @@ if (travel.length > 0) {
         if (!charSelected) {
             const _role = (new URLSearchParams(window.location.search).get('role') || 'host');
             const _isHost = _role === 'host';
-            const _wizImg = _isHost ? IMAGES.yellowWizard : IMAGES.blueWizard;
             const _glowColor = _isHost ? 'rgba(250, 204, 21, 0.85)' : 'rgba(96, 165, 250, 0.85)';
             const _glowDim  = _isHost ? 'rgba(250, 204, 21, 0.25)' : 'rgba(96, 165, 250, 0.25)';
             const _glowFaint= _isHost ? 'rgba(250, 204, 21, 0.10)' : 'rgba(96, 165, 250, 0.10)';
             const _label    = _isHost ? 'Yellow' : 'Blue';
+            const _prefix   = _isHost ? 'yellowWizard' : 'blueWizard';
+            const _options  = [1, 2, 3, 4].map(n => IMAGES[_prefix + n]);
 
             return (
-                <div
-                    onClick={() => setCharSelected(true)}
-                    style={{
-                        position: 'fixed',
-                        inset: 0,
-                        background: 'radial-gradient(ellipse at 50% 45%, rgba(25,18,45,1) 0%, rgba(8,5,18,1) 65%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 999998,
-                        cursor: 'pointer',
-                        overflow: 'hidden'
-                    }}
-                >
-                    {/* Subtle ambient particles (reuse existing hw-star animation) */}
-                    {[...Array(6)].map((_, i) => (
+                <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    background: 'radial-gradient(ellipse at 50% 45%, rgba(25,18,45,1) 0%, rgba(8,5,18,1) 65%)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 999998,
+                    overflow: 'hidden'
+                }}>
+                    {/* Ambient particles */}
+                    {[...Array(8)].map((_, i) => (
                         <div
                             key={i}
                             className="hw-star"
                             style={{
                                 position: 'absolute',
-                                left: `${12 + i * 16}%`,
-                                top: `${10 + (i % 3) * 28}%`,
-                                animationDelay: `${i * 0.4}s`,
-                                animationDuration: `${2.2 + i * 0.3}s`,
+                                left: `${8 + i * 12}%`,
+                                top: `${8 + (i % 4) * 24}%`,
+                                animationDelay: `${i * 0.35}s`,
+                                animationDuration: `${2.0 + i * 0.25}s`,
                                 color: _glowColor,
-                                fontSize: `${14 + (i % 3) * 8}px`,
+                                fontSize: `${12 + (i % 3) * 7}px`,
                                 pointerEvents: 'none'
                             }}
                         >
@@ -4688,11 +4695,11 @@ if (travel.length > 0) {
                     {/* Title */}
                     <div style={{
                         color: 'rgba(255, 238, 210, 0.92)',
-                        fontSize: 'clamp(20px, 3vw, 30px)',
+                        fontSize: 'clamp(22px, 3.2vw, 34px)',
                         fontFamily: 'Georgia, "Times New Roman", serif',
                         letterSpacing: '4px',
                         textTransform: 'uppercase',
-                        marginBottom: '32px',
+                        marginBottom: '10px',
                         textShadow: `0 0 24px ${_glowDim}, 0 2px 4px rgba(0,0,0,0.6)`,
                         pointerEvents: 'none',
                         userSelect: 'none'
@@ -4700,103 +4707,110 @@ if (travel.length > 0) {
                         Choose Your Wizard
                     </div>
 
-                    {/* Portrait frame + image */}
+                    {/* Role badge */}
                     <div style={{
-                        position: 'relative',
-                        width: 'clamp(240px, 30vw, 340px)',
-                        height: 'clamp(310px, 39vw, 440px)',
-                        marginBottom: '36px'
-                    }}>
-                        {/* Outer glow ring */}
-                        <div style={{
-                            position: 'absolute',
-                            inset: '-14px',
-                            borderRadius: '26px',
-                            border: `2px solid ${_glowColor}`,
-                            boxShadow: `0 0 28px ${_glowDim}, 0 0 56px ${_glowFaint}, inset 0 0 20px ${_glowFaint}`,
-                            animation: 'pulse 2.2s ease-in-out infinite',
-                            pointerEvents: 'none'
-                        }} />
-
-                        {/* Corner accents */}
-                        {['top-left','top-right','bottom-left','bottom-right'].map(corner => (
-                            <div key={corner} style={{
-                                position: 'absolute',
-                                [corner.includes('top') ? 'top' : 'bottom']: '-6px',
-                                [corner.includes('left') ? 'left' : 'right']: '-6px',
-                                width: '22px',
-                                height: '22px',
-                                borderTop: corner.includes('top') ? `3px solid ${_glowColor}` : 'none',
-                                borderBottom: corner.includes('bottom') ? `3px solid ${_glowColor}` : 'none',
-                                borderLeft: corner.includes('left') ? `3px solid ${_glowColor}` : 'none',
-                                borderRight: corner.includes('right') ? `3px solid ${_glowColor}` : 'none',
-                                borderRadius: '4px',
-                                pointerEvents: 'none'
-                            }} />
-                        ))}
-
-                        {/* Wizard image */}
-                        <img
-                            src={_wizImg}
-                            alt={`${_label} Wizard`}
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                borderRadius: '18px',
-                                boxShadow: '0 10px 40px rgba(0,0,0,0.7)',
-                                display: 'block'
-                            }}
-                            draggable="false"
-                        />
-                    </div>
-
-                    {/* Player label badge */}
-                    <div style={{
-                        padding: '6px 22px',
+                        padding: '5px 20px',
                         borderRadius: '20px',
                         background: _glowDim,
                         border: `1px solid ${_glowColor}`,
                         color: 'rgba(255,255,255,0.9)',
-                        fontSize: '13px',
+                        fontSize: '12px',
                         letterSpacing: '2px',
                         textTransform: 'uppercase',
-                        marginBottom: '28px',
+                        marginBottom: '30px',
                         pointerEvents: 'none',
                         userSelect: 'none'
                     }}>
                         {_label} Player
                     </div>
 
-                    {/* Select button */}
+                    {/* 2×2 wizard grid */}
                     <div style={{
-                        padding: '13px 52px',
-                        borderRadius: '34px',
-                        border: `2px solid ${_glowColor}`,
-                        background: _glowDim,
-                        color: 'white',
-                        fontSize: '17px',
-                        fontFamily: 'Georgia, "Times New Roman", serif',
-                        letterSpacing: '3px',
-                        textTransform: 'uppercase',
-                        boxShadow: `0 0 22px ${_glowDim}, 0 4px 12px rgba(0,0,0,0.4)`,
-                        animation: 'pulse 1.9s ease-in-out infinite',
-                        pointerEvents: 'none',
-                        userSelect: 'none'
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gap: 'clamp(14px, 2.2vw, 28px)',
+                        marginBottom: '32px'
                     }}>
-                        Select
+                        {_options.map((src, i) => {
+                            const isHov = charHoverIdx === i;
+                            return (
+                                <div
+                                    key={i}
+                                    onClick={() => setCharSelected(src)}
+                                    onMouseEnter={() => setCharHoverIdx(i)}
+                                    onMouseLeave={() => setCharHoverIdx(null)}
+                                    style={{
+                                        position: 'relative',
+                                        width: 'clamp(120px, 16vw, 185px)',
+                                        height: 'clamp(155px, 20.5vw, 240px)',
+                                        cursor: 'pointer',
+                                        transform: isHov ? 'scale(1.07)' : 'scale(1)',
+                                        transition: 'transform 0.22s ease',
+                                        userSelect: 'none'
+                                    }}
+                                >
+                                    {/* Glow ring */}
+                                    <div style={{
+                                        position: 'absolute',
+                                        inset: '-7px',
+                                        borderRadius: '18px',
+                                        border: `2px solid ${isHov ? _glowColor : 'rgba(255,255,255,0.12)'}`,
+                                        boxShadow: isHov
+                                            ? `0 0 22px ${_glowDim}, 0 0 44px ${_glowFaint}, inset 0 0 14px ${_glowFaint}`
+                                            : '0 0 5px rgba(0,0,0,0.5)',
+                                        transition: 'all 0.25s ease',
+                                        pointerEvents: 'none'
+                                    }} />
+
+                                    {/* Corner accents */}
+                                    {['top-left','top-right','bottom-left','bottom-right'].map(corner => (
+                                        <div key={corner} style={{
+                                            position: 'absolute',
+                                            [corner.includes('top') ? 'top' : 'bottom']: '-4px',
+                                            [corner.includes('left') ? 'left' : 'right']: '-4px',
+                                            width: '14px',
+                                            height: '14px',
+                                            borderTop: corner.includes('top') ? `2px solid ${isHov ? _glowColor : 'rgba(255,255,255,0.22)'}` : 'none',
+                                            borderBottom: corner.includes('bottom') ? `2px solid ${isHov ? _glowColor : 'rgba(255,255,255,0.22)'}` : 'none',
+                                            borderLeft: corner.includes('left') ? `2px solid ${isHov ? _glowColor : 'rgba(255,255,255,0.22)'}` : 'none',
+                                            borderRight: corner.includes('right') ? `2px solid ${isHov ? _glowColor : 'rgba(255,255,255,0.22)'}` : 'none',
+                                            borderRadius: '3px',
+                                            transition: 'border-color 0.25s ease',
+                                            pointerEvents: 'none'
+                                        }} />
+                                    ))}
+
+                                    {/* Wizard portrait */}
+                                    <img
+                                        src={src}
+                                        alt={`${_label} Wizard ${i + 1}`}
+                                        style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            objectFit: 'cover',
+                                            borderRadius: '12px',
+                                            boxShadow: isHov
+                                                ? '0 8px 32px rgba(0,0,0,0.7)'
+                                                : '0 4px 16px rgba(0,0,0,0.55)',
+                                            transition: 'box-shadow 0.25s ease',
+                                            display: 'block'
+                                        }}
+                                        draggable="false"
+                                    />
+                                </div>
+                            );
+                        })}
                     </div>
 
-                    {/* Hint text */}
+                    {/* Hint */}
                     <div style={{
-                        marginTop: '20px',
-                        color: 'rgba(255,255,255,0.28)',
+                        color: 'rgba(255,255,255,0.3)',
                         fontSize: '12px',
                         letterSpacing: '1.5px',
                         pointerEvents: 'none',
                         userSelect: 'none'
                     }}>
-                        click anywhere to continue
+                        tap a wizard to choose
                     </div>
                 </div>
             );
@@ -4891,7 +4905,8 @@ return (
 
                                 return (
                                     <svg key={i} width="180" height="180" style={{ position: 'absolute', top: 0, left: 0 }}>
-                                        <path
+                          
+              <path
                                             d={`M ${x1} ${y1} A ${radius} ${radius} 0 0 1 ${x2} ${y2} L ${x3} ${y3} A ${innerRadius} ${innerRadius} 0 0 0 ${x4} ${y4} Z`}
                                             fill={isActive ? 'rgba(255, 215, 0, 0.55)' : 'rgba(0, 0, 0, 0)'}
                                         />
@@ -5219,7 +5234,7 @@ return (
                                                         </>
                                                     )}
                                                     <img
-                                                        src={IMAGES.yellowWizard}
+                                                        src={localPlayerKey === 'yellow' ? charSelected : IMAGES.yellowWizard}
                                                         alt="Yellow wizard"
                                                         className="absolute"
                                                         style={{ 
@@ -5256,7 +5271,7 @@ return (
                                                         </>
                                                     )}
                                                     <img
-                                                        src={IMAGES.blueWizard}
+                                                        src={localPlayerKey === 'blue' ? charSelected : IMAGES.blueWizard}
                                                         alt="Blue wizard"
                                                         className="absolute"
                                                         style={{ 
