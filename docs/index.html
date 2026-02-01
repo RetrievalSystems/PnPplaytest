@@ -4724,7 +4724,7 @@ if (travel.length > 0) {
                         {_label} Player
                     </div>
 
-                    {/* 2×2 wizard grid */}
+                    {/* 2\'d72 wizard grid */}
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr',
@@ -5228,9 +5228,9 @@ return (
                                                     )}
                                                     {(gameState.players.yellow.frozen || gameState.players.yellow.freezeSfxPending) && (
                                                         <>
-                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>❄️</div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>❄️</div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>❄️</div>
+                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>❄</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>❄</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>❄</div>
                                                         </>
                                                     )}
                                                     <img
@@ -5265,9 +5265,9 @@ return (
                                                     )}
                                                     {(gameState.players.blue.frozen || gameState.players.blue.freezeSfxPending) && (
                                                         <>
-                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>❄️</div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>❄️</div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>❄️</div>
+                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>❄</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>❄</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>❄</div>
                                                         </>
                                                     )}
                                                     <img
@@ -5438,11 +5438,11 @@ return (
                                     >
                                         {e.kind === 'smoke' && (
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <div style={{ fontSize: '33px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1' }}>☁️</div>
-                                                <div className="absolute" style={{ left: '22%', top: '20%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.2s' }}>☁️</div>
-                                                <div className="absolute" style={{ right: '22%', bottom: '22%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.32s' }}>☁️</div>
-                                                <div className="" style={{ fontSize: '20px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.48s' }}>☁️</div>
-                                                <div className="" style={{ fontSize: '18px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.62s' }}>☁️</div>
+                                                <div style={{ fontSize: '33px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1' }}>☁</div>
+                                                <div className="absolute" style={{ left: '22%', top: '20%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.2s' }}>☁</div>
+                                                <div className="absolute" style={{ right: '22%', bottom: '22%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.32s' }}>☁</div>
+                                                <div className="" style={{ fontSize: '20px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.48s' }}>☁</div>
+                                                <div className="" style={{ fontSize: '18px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.62s' }}>☁</div>
                                             </div>
                                         )}
 
@@ -5596,11 +5596,11 @@ return (
 
                     // left/right
                     const pct = (v) => {
-                        const m = String(v||'').match(/^\s*([0-9.]+)\s*%\s*$/);
+                        const m = String(v||'').match(/^\\s*([0-9.]+)\\s*%\\s*$/);
                         return m ? parseFloat(m[1]) / 100 : null;
                     };
                     const px = (v) => {
-                        const m = String(v||'').match(/^\s*([0-9.]+)\s*px\s*$/);
+                        const m = String(v||'').match(/^\\s*([0-9.]+)\\s*px\\s*$/);
                         return m ? parseFloat(m[1]) : null;
                     };
 
@@ -5616,7 +5616,7 @@ return (
                     // top: supports calc(XX% + YYpx)
                     if (out.top != null) {
                         const s = String(out.top);
-                        const mc = s.match(/calc\(\s*([0-9.]+)%\s*\+\s*([0-9.]+)px\s*\)/);
+                        const mc = s.match(/calc\\(\\s*([0-9.]+)%\\s*\\+\\s*([0-9.]+)px\\s*\\)/);
                         const p = pct(s);
                         const ppx = px(s);
                         if (mc) {
@@ -5790,7 +5790,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         lineHeight: '20px',
                                         textAlign: 'center'
                                     }}>
-                                        {(gameOver === 'yellow') ? 'Yellow wins!' : 'Blue wins!'} — click to play again
+                                        {(gameOver === 'yellow') ? 'Yellow wins!' : 'Blue wins!'} \'97 click to play again
                                     </div>
                                 </div>
                             </div>
@@ -5846,7 +5846,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         letterSpacing: '0.5px',
                                         textShadow: '0 2px 10px rgba(0,0,0,0.6)'
                                     }}>
-                                        {gameOver === 'yellow' ? 'Yellow' : 'Blue'} wins — click anywhere to play again
+                                        {gameOver === 'yellow' ? 'Yellow' : 'Blue'} wins \'97 click anywhere to play again
                                     </div>
                                 </div>
                             </div>
@@ -5967,7 +5967,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 return (!blocked)&&acted&&okZombie; 
                               } catch(e){ return false; } 
                             })())
-                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click your portrait to end turn')
+                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' \'97 click your portrait to end turn')
                                 : hudMessage}
                         {showCropPickOption && gameState.currentPlayer === localPlayerKey && (
                           <span style={{ marginLeft: '12px', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
@@ -6028,6 +6028,45 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 background: 'transparent'
                             }}
                             title={(gameState.hasMovedThisTurn && !spinning && !showSpellChart && !gameOver && !gameState.awaitingCropPickDecision) ? 'End turn' : ''}
+                        />
+
+
+                        {/* Floating character portraits over HUD */}
+                        <img
+                            src={localPlayerKey === 'yellow' ? charSelected : IMAGES.yellowWizard}
+                            alt="Yellow wizard portrait"
+                            style={{
+                                position: 'absolute',
+                                left: 'calc(3.4% - 50px)',
+                                top: 'calc(4.2% + 30px)',
+                                width: '9.6%',
+                                maxWidth: '144px',
+                                height: '17.8%',
+                                objectFit: 'contain',
+                                objectPosition: 'center top',
+                                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+                                pointerEvents: 'none',
+                                zIndex: 5999
+                            }}
+                            draggable="false"
+                        />
+                        <img
+                            src={localPlayerKey === 'blue' ? charSelected : IMAGES.blueWizard}
+                            alt="Blue wizard portrait"
+                            style={{
+                                position: 'absolute',
+                                left: 'calc(83.1% + 100px)',
+                                top: 'calc(4.2% + 30px)',
+                                width: '9.6%',
+                                maxWidth: '144px',
+                                height: '17.8%',
+                                objectFit: 'contain',
+                                objectPosition: 'center top',
+                                filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
+                                pointerEvents: 'none',
+                                zIndex: 5999
+                            }}
+                            draggable="false"
                         />
 
                         {/* Chat UI - Yellow Player */}
@@ -6620,7 +6659,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
           ws = new WebSocket('wss://pnp-relay.onrender.com');
           
           ws.onopen = () => {
-            console.log('🟢 Connected');
+            console.log('🟢Connected');
             reconnecting = false;
             ws.send(JSON.stringify({type:'join_room',room:room,role:role}));
             updateBadge(true);
@@ -6629,7 +6668,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
             setTimeout(() => {
               if (isHost) {
                 // Host sends full initial state - use increased delay to ensure crops are loaded
-                console.log('📤 Host sending initial state...');
+                console.log('📤Host sending initial state...');
                 setTimeout(() => {
                   if (window.syncFullState) {
                     window.syncFullState();
@@ -6637,11 +6676,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                 }, 200);
               } else {
                 // Guest requests initial state
-                console.log('📥 Guest requesting initial state...');
+                console.log('📥Guest requesting initial state...');
                 
                 // Show waiting message
                 if (window.setTempMessage) {
-                  window.setTempMessage('⏳ Syncing with host...', 10000);
+                  window.setTempMessage('⏳Syncing with host...', 10000);
                 }
                 
                 window.syncAction('request_state', {});
@@ -6650,14 +6689,14 @@ const renderGrid = (playerKey, spells, styleBase) => {
                 let retryCount = 0;
                 const retryInterval = setInterval(() => {
                   if (retryCount < 3) {
-                    console.log(`📥 Guest retry ${retryCount + 1}: requesting initial state...`);
+                    console.log(`📥Guest retry ${retryCount + 1}: requesting initial state...`);
                     window.syncAction('request_state', {});
                     retryCount++;
                   } else {
                     clearInterval(retryInterval);
                     // If still not synced after retries, show error
                     if (window.setTempMessage) {
-                      window.setTempMessage('❌ Sync failed - try refreshing', 5000);
+                      window.setTempMessage('❌Sync failed - try refreshing', 5000);
                     }
                   }
                 }, 2000);
@@ -6669,7 +6708,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
           };
           
           ws.onmessage = (e) => {
-            console.log('📨 Received:', e.data);
+            console.log('📨Received:', e.data);
             try {
               const d = JSON.parse(e.data);
               if(d.sender !== role && window.onSync) window.onSync(d);
@@ -6679,12 +6718,12 @@ const renderGrid = (playerKey, spells, styleBase) => {
           };
           
           ws.onerror = (e) => {
-            console.error('❌ Error:', e);
+            console.error('❌Error:', e);
             updateBadge(false);
           };
           
           ws.onclose = () => {
-            console.log('🔴 Disconnected');
+            console.log('🔴Disconnected');
             updateBadge(false);
             reconnecting = false;
             setTimeout(connect, 2000);
@@ -6703,22 +6742,22 @@ const renderGrid = (playerKey, spells, styleBase) => {
           b.style.cssText = 'position:fixed;bottom:10px;left:calc(77% + 26px);padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;z-index:7001;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:'+(isHost?'rgba(250,204,21,0.9)':'rgba(96,165,250,0.9)')+';color:white;height:22px;display:flex;align-items:center;';
           document.body.appendChild(b);
         }
-        b.textContent = (ok?'🟢 ':'🔴 ')+(isHost?'HOST':'GUEST');
+        b.textContent = (ok?'🟢':'🔴')+(isHost?'HOST':'GUEST');
       }
       
       window.syncAction = function(type, data) {
         if(ws && ws.readyState === WebSocket.OPEN) {
           const msg = JSON.stringify({type:type, data:data, room:room, sender:role});
-          console.log('📤 Sending:', msg);
+          console.log('📤Sending:', msg);
           ws.send(msg);
         } else {
-          console.warn('⚠️ WebSocket not ready');
+          console.warn('⚠WebSocket not ready');
         }
       };
 
 // Handle incoming synced actions
 window.onSync = function(data) {
-  console.log('🎮 Synced action:', data.type, data.data);
+  console.log('🎮Synced action:', data.type, data.data);
   
   // Handle different action types
 if (data.type === 'move') {
@@ -6745,7 +6784,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'teleport') {
-    console.log('🔮 Player teleported:', data.data);
+    console.log('🔮Player teleported:', data.data);
     // Update player position and show teleport beam effect
     if (data.data.player && data.data.to && window.setGameState) {
       window.setGameState(prev => ({
@@ -6786,7 +6825,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'zombie_destroyed') {
-    console.log('💨 Zombie destroyed by Protection spell:', data.data);
+    console.log('💨Zombie destroyed by Protection spell:', data.data);
     // Trigger smoke effect at zombie's last position
     if (window.triggerFx && data.data.position) {
       window.triggerFx(data.data.position, 'smoke');
@@ -6820,7 +6859,7 @@ if (data.type === 'move') {
         if (data.data.firstMove) {
           // Blue's first move - allow moving without spinning
           window.setWheelSpunThisTurn(true);
-          console.log('✅ Blue first move - wheel pre-spun');
+          console.log('✅Blue first move - wheel pre-spun');
         } else {
           window.setWheelSpunThisTurn(false);
         }
@@ -6860,7 +6899,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'game_over') {
-    console.log('🏆 Game over received:', data.data.winner);
+    console.log('🏆Game over received:', data.data.winner);
     // Set flag to prevent re-broadcasting
     window._receivedWin = true;
     // Show win screen for both players
@@ -6871,7 +6910,7 @@ if (data.type === 'move') {
   
   // Handle request for initial state (from guest)
   if (data.type === 'request_state') {
-    console.log('📥 Received state request from guest');
+    console.log('📥Received state request from guest');
     if (window.syncFullState) {
       // Host sends full state in response - delay to ensure state is ready
       setTimeout(() => {
@@ -6882,8 +6921,8 @@ if (data.type === 'move') {
   
   // Handle full state sync (from host)
   if (data.type === 'full_state') {
-    console.log('📦 Received FULL state:', data.data);
-    console.log('📦 Crops in full state:', data.data.crops);
+    console.log('📦Received FULL state:', data.data);
+    console.log('📦Crops in full state:', data.data.crops);
     window._syncingState = true;
     
     if (window.setGameState && data.data) {
@@ -6908,11 +6947,11 @@ if (data.type === 'move') {
         setTimeout(() => {
           if (window.setGameState) {
             window.setGameState(prev => ({ ...prev, _forceRender: Date.now() }));
-            console.log('🔄 Forced re-render for crop images');
+            console.log('🔄Forced re-render for crop images');
           }
         }, 250);
         
-        console.log('✅ Full state applied successfully', { cropsCount: Object.keys(newCrops).length });
+        console.log('✅Full state applied successfully', { cropsCount: Object.keys(newCrops).length });
         
         // Clear retry interval if it exists
         if (window._stateRetryInterval) {
@@ -6922,7 +6961,7 @@ if (data.type === 'move') {
         
         // Show success message
         if (window.setTempMessage) {
-          window.setTempMessage('✅ Synced with host', 2000);
+          window.setTempMessage('✅Synced with host', 2000);
         }
       } catch(e) {
         console.error('Error applying full state:', e);
@@ -6933,7 +6972,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'game_state') {
-    console.log('📊 Game state sync received:', {
+    console.log('📊Game state sync received:', {
       hp: data.data.hp,
       protected: data.data.protected,
       frozen: data.data.frozen,
@@ -6975,7 +7014,7 @@ if (data.type === 'move') {
             yellow: { ...updated.players.yellow, protected: data.data.protected.yellow },
             blue: { ...updated.players.blue, protected: data.data.protected.blue }
           };
-          console.log('🛡️ Protection status updated:', data.data.protected);
+          console.log('🛡Protection status updated:', data.data.protected);
         }
         
         // Update protectionTurns
@@ -7039,21 +7078,21 @@ if (data.type === 'move') {
         
         // Update angry mob (preserving target!)
         if (data.data.angryMob) {
-          console.log('👹 Updating angry mob:', data.data.angryMob);
+          console.log('👹Updating angry mob:', data.data.angryMob);
           updated.angryMob = data.data.angryMob;
         } else if (data.data.angryMob === null) {
           // CRITICAL: Don't remove mob while it's animating
           if (window._mobAnimating) {
-            console.log('👹 Keeping mob alive during animation (ignoring removal sync)');
+            console.log('👹Keeping mob alive during animation (ignoring removal sync)');
           } else {
-            console.log('👹 Removing angry mob');
+            console.log('👹Removing angry mob');
             updated.angryMob = null;
           }
         }
         
         // Update zombies
         if (data.data.zombies !== undefined) {
-          console.log('🧟 Updating zombies:', data.data.zombies);
+          console.log('🧟Updating zombies:', data.data.zombies);
           updated.zombies = data.data.zombies;
         }
         
@@ -7066,7 +7105,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'mob_move') {
-    console.log('👹 Mob movement sync received:', data.data);
+    console.log('👹Mob movement sync received:', data.data);
     if (window.setMobAnimPath && data.data.path) {
       try {
         // Play mob sound on guest
@@ -7094,7 +7133,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'mob_retreat') {
-    console.log('👹 Mob retreat sync received:', data.data);
+    console.log('👹Mob retreat sync received:', data.data);
     if (window.setMobAnimPath && data.data.path) {
       try {
         // Start retreat animation immediately (the timing is already handled by the host)
@@ -7132,7 +7171,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'mob_abate') {
-    console.log('💥 Mob abate sync received:', data.data);
+    console.log('💥Mob abate sync received:', data.data);
     // Force remove the mob regardless of animation state
     window._mobAnimating = false;
     if (window.setGameState) {
@@ -7159,7 +7198,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'spell_effect') {
-    console.log('✨ Spell effect sync received:', data.data);
+    console.log('✨Spell effect sync received:', data.data);
     try {
       if (data.data.effect === 'deathsBreath' && window.triggerDeathsBreathHaze && window.triggerCloud) {
         window.triggerDeathsBreathHaze(data.data.from);
@@ -7177,7 +7216,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'restart_game') {
-    console.log('🔄 Restart game received');
+    console.log('🔄Restart game received');
     // Set flag to prevent re-broadcasting
     window._receivedRestart = true;
     // Restart the game for both players
@@ -7202,14 +7241,14 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'chat_message') {
-    console.log('💬 Chat message received:', data.data);
+    console.log('💬Chat message received:', data.data);
     if (window.onChatMessage) {
       window.onChatMessage(data.data);
     }
   }
   
   if (data.type === 'occurrence_result') {
-    console.log('🎲 Occurrence result received:', data.data);
+    console.log('🎲Occurrence result received:', data.data);
     // Display the occurrence message for the opponent
     if (window.setTempMessage && data.data.message) {
       window.setTempMessage(data.data.message, 2200);
@@ -7218,7 +7257,7 @@ if (data.type === 'move') {
   
   // Handle manual resync request
   if (data.type === 'request_full_state') {
-    console.log('🔄 Full state requested by opponent');
+    console.log('🔄Full state requested by opponent');
     // Send our complete game state
     if (window.syncAction && window.latestStateRef && window.latestStateRef.current) {
       const state = window.latestStateRef.current;
@@ -7264,7 +7303,7 @@ if (data.type === 'move') {
   
   // Handle full state response
   if (data.type === 'full_state_response') {
-    console.log('🔄 Full state received from opponent:', data.data);
+    console.log('🔄Full state received from opponent:', data.data);
     if (window.setGameState && data.data.gameState) {
       window._syncingState = true;
       window.setGameState(prev => {
@@ -7294,7 +7333,7 @@ if (data.type === 'move') {
       
       // Show success message
       if (window.setTempMessage) {
-        window.setTempMessage('✅ Resynced', 1500);
+        window.setTempMessage('✅Resynced', 1500);
       }
     }
   }
