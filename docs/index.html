@@ -4736,7 +4736,7 @@ if (travel.length > 0) {
                             return (
                                 <div
                                     key={i}
-                                    onClick={() => setCharSelected(src)}
+                                    onClick={() => { setCharSelected(src); window._myCharSelected = src; if (window.syncAction) window.syncAction('char_select', { player: _isHost ? 'yellow' : 'blue', src: src }); }}
                                     onMouseEnter={() => setCharHoverIdx(i)}
                                     onMouseLeave={() => setCharHoverIdx(null)}
                                     style={{
@@ -5234,7 +5234,7 @@ return (
                                                         </>
                                                     )}
                                                     <img
-                                                        src={localPlayerKey === 'yellow' ? charSelected : IMAGES.yellowWizard}
+                                                        src={localPlayerKey === 'yellow' ? charSelected : (window._opponentCharSelected || IMAGES.yellowWizard)}
                                                         alt="Yellow wizard"
                                                         className="absolute"
                                                         style={{ 
@@ -5271,7 +5271,7 @@ return (
                                                         </>
                                                     )}
                                                     <img
-                                                        src={localPlayerKey === 'blue' ? charSelected : IMAGES.blueWizard}
+                                                        src={localPlayerKey === 'blue' ? charSelected : (window._opponentCharSelected || IMAGES.blueWizard)}
                                                         alt="Blue wizard"
                                                         className="absolute"
                                                         style={{ 
@@ -6033,15 +6033,15 @@ const renderGrid = (playerKey, spells, styleBase) => {
 
                         {/* Floating character portraits over HUD */}
                         <img
-                            src={localPlayerKey === 'yellow' ? charSelected : IMAGES.yellowWizard}
+                            src={localPlayerKey === 'yellow' ? charSelected : (window._opponentCharSelected || IMAGES.yellowWizard)}
                             alt="Yellow wizard portrait"
                             style={{
                                 position: 'absolute',
                                 left: 'calc(3.4% - 50px)',
                                 top: 'calc(4.2% + 30px)',
-                                width: '9.6%',
-                                maxWidth: '144px',
-                                height: '17.8%',
+                                width: '10.56%',
+                                maxWidth: '158px',
+                                height: '19.58%',
                                 objectFit: 'contain',
                                 objectPosition: 'center top',
                                 filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
@@ -6051,15 +6051,15 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             draggable="false"
                         />
                         <img
-                            src={localPlayerKey === 'blue' ? charSelected : IMAGES.blueWizard}
+                            src={localPlayerKey === 'blue' ? charSelected : (window._opponentCharSelected || IMAGES.blueWizard)}
                             alt="Blue wizard portrait"
                             style={{
                                 position: 'absolute',
-                                left: 'calc(83.1% + 100px)',
+                                left: 'calc(83.1% + 107px)',
                                 top: 'calc(4.2% + 30px)',
-                                width: '9.6%',
-                                maxWidth: '144px',
-                                height: '17.8%',
+                                width: '10.56%',
+                                maxWidth: '158px',
+                                height: '19.58%',
                                 objectFit: 'contain',
                                 objectPosition: 'center top',
                                 filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.6))',
@@ -6758,6 +6758,13 @@ const renderGrid = (playerKey, spells, styleBase) => {
 // Handle incoming synced actions
 window.onSync = function(data) {
   console.log('🎮Synced action:', data.type, data.data);
+
+  // Handle opponent's character selection
+  if (data.type === 'char_select') {
+    console.log('🎭Opponent picked character:', data.data.src);
+    window._opponentCharSelected = data.data.src;
+    if (window.setGameState) window.setGameState(prev => ({...prev, _forceRender: Date.now()}));
+  }
   
   // Handle different action types
 if (data.type === 'move') {
@@ -6916,6 +6923,11 @@ if (data.type === 'move') {
       setTimeout(() => {
         window.syncFullState();
       }, 200);
+    }
+    // Also send our character choice so guest can see our portrait
+    if (window._myCharSelected && window.syncAction) {
+      const myPlayer = (new URLSearchParams(window.location.search).get('role') === 'host') ? 'yellow' : 'blue';
+      window.syncAction('char_select', { player: myPlayer, src: window._myCharSelected });
     }
   }
   
