@@ -4845,15 +4845,15 @@ return (
                                     position: 'absolute',
                                     left: '50%',
                                     top: '50%',
-                    width: '900px',
-                    height: '900px',
+                    width: '810px',
+                    height: '810px',
                     transform: `translate(-50%, -50%) scale(${boardScale})`,
                     transformOrigin: 'center center'
                 }}>
                     {/* BOARD */}
                     <div style={{
-                        width: '900px',
-                        height: '900px',
+                        width: '810px',
+                        height: '810px',
                         backgroundImage: `url(${IMAGES.board})`,
                         backgroundSize: 'cover',
                         backgroundRepeat: 'no-repeat',
@@ -5577,7 +5577,7 @@ return (
                 };
 
                 
-                const CARD_BASE_SCALE = 1.15; // +15% (requested)
+                const CARD_BASE_SCALE = 1.30; // +30% total (user requested another 15%)
                 const resolveHudStyle = (sb) => {
                     if (!hudRect || !hudRect.w || !hudRect.h) return sb;
                     const out = { ...sb };
@@ -5852,8 +5852,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(23% - 20px)',
-                                        top: '56.5%',
+                                        left: 'calc(23% - 23px)',
+                                        top: 'calc(56.5% + 10px)',
                                         width: '25.4%',
                                         height: '18.8%',
                                         zIndex: 5200,
