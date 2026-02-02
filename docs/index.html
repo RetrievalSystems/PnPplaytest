@@ -4867,10 +4867,10 @@ return (
 
             <div id="board-slot" ref={boardSlotRef} style={{
                 position: 'absolute',
-                left: '27.0%',
-                top: '8.5%',
-                width: '54.6%',
-                height: '91.35%',
+                left: 'calc(27.0% + 7px)',
+                top: 'calc(8.5% + 5px)',
+                width: '49.14%',
+                height: '82.215%',
                 display: 'block',
                 pointerEvents: 'auto'
             }}>
@@ -5645,7 +5645,7 @@ return (
                 };
 
                 
-                const CARD_BASE_SCALE = 1.2; // 20% bigger as requested
+                const CARD_BASE_SCALE = 1.44; // 44% bigger total (20% more on top of previous 20%)
                 const resolveHudStyle = (sb) => {
                     if (!hudRect || !hudRect.w || !hudRect.h) return sb;
                     const out = { ...sb };
