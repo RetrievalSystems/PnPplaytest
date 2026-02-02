@@ -4173,9 +4173,33 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                         }
                     }
                 }
+// Also check if any zombies are on regrown crops
+                for (let i = 0; i < (state.zombies || []).length; i++) {
+                    const zombie = state.zombies[i];
+                    const zombiePos = zombie.position;
+                    if (state.crops[zombiePos] && !state.crops[zombiePos].collected) {
+                        const crop = state.crops[zombiePos].type;
+                        const owner = zombie.owner;
+                        const count = state.players[owner].inventory[crop] || 0;
+                        const maxSlots = CROPS[crop].slots;
+                        
+                        if (count < maxSlots) {
+    // Zombie auto-collects for owner
+    state.players[owner].inventory[crop] = count + 1;
+    state.crops[zombiePos].collected = true;
+    setCollectedMessage(CROPS[crop]?.name || crop);
+    setTempMessage(`${owner === 'yellow' ? 'Yellow' : 'Blue'}'s zombie collects ${CROPS[crop]?.name || crop}.`, 2000);
+} else {
+    // Owner's inventory is full - show pick/leave option
+    state.awaitingCropPickDecision = true;
+    setGameState(state);
+    setShowCropPickOption({ space: zombiePos, crop, from: 'zombie-turn-start' });
+    return false; // Wait for player decision before continuing
+}
+                
                 return true; // No decision needed, continue with turn start
+                
             };
-
             const endTurnFromSnapshot = (stateSnapshot) => {
                 const newState = {...stateSnapshot};
                 const player = newState.currentPlayer;
