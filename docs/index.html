@@ -3191,7 +3191,7 @@ switch(spellKey) {
                 if (window.syncAction && !window._syncingState) {
                     window.syncAction('occurrence_result', {
                         player: newState.currentPlayer,
-                        occurrence: occ.id,
+                        occurrence: occ,
                         message: occurrenceMessage
                     });
                 }
@@ -5580,7 +5580,7 @@ return (
                 };
 
                 
-                const CARD_BASE_SCALE = 1.15; // +15% (requested)
+                const CARD_BASE_SCALE = 1.10; // +10% (requested)
                 const resolveHudStyle = (sb) => {
                     if (!hudRect || !hudRect.w || !hudRect.h) return sb;
                     const out = { ...sb };
@@ -5855,7 +5855,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(23% - 20px)',
+                                        left: '23%',
                                         top: '56.5%',
                                         width: '25.4%',
                                         height: '18.8%',
