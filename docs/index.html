@@ -4810,32 +4810,32 @@ if (travel.length > 0) {
 
 return (
     <div id="app" style={{
-        width: '100vw',
-        height: '100vh',
+        position: 'fixed',
+        inset: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#1a1410',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        background: '#1a1410'
     }}>
         <div id="hud-stage" ref={hudStageRef} style={{
             position: 'relative',
             width: '100%',
-            maxWidth: '1920px',
-            aspectRatio: '16 / 9',
-            margin: '0 auto'
+            height: '100%',
+            maxWidth: 'calc(100vh * 2048 / 1197)',
+            maxHeight: 'calc(100vw * 1197 / 2048)'
         }}>
-            {/* Backboard HUD - this is our fixed reference */}
+            {/* Backboard HUD */}
             <img 
                 className="hud" 
                 src={IMAGES.hud} 
                 alt="HUD" 
                 style={{
-                    position: 'absolute',
-                    inset: 0,
                     width: '100%',
                     height: '100%',
-                    objectFit: 'contain'
+                    display: 'block',
+                    userSelect: 'none',
+                    WebkitUserDrag: 'none'
                 }}
             />
             
@@ -4865,27 +4865,29 @@ return (
                 }} />
             </div>
 
-            {/* Playing board - pinned to grey area of backboard HUD */}
-            <div style={{
+            <div id="board-slot" ref={boardSlotRef} style={{
                 position: 'absolute',
-                left: '23.5%',
-                top: '32.5%',
-                width: '53%',
-                height: '59.5%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                zIndex: 100
+                left: '22.0%',
+                top: '3.5%',
+                width: '54.6%',
+                height: '91.35%',
+                display: 'block',
+                pointerEvents: 'auto'
             }}>
+                {/* Board + overlays scaled to fit */}
                 <div key={`occ-${spinAnim}-${currentOccurrence?.id || 'none'}`} style={{
-                    position: 'relative',
-                    width: '100%',
-                    height: '100%'
+                    position: 'absolute',
+                    left: '50%',
+                    top: '50%',
+                    width: '900px',
+                    height: '900px',
+                    transform: `translate(-50%, -50%) scale(${boardScale})`,
+                    transformOrigin: 'center center'
                 }}>
                     {/* BOARD */}
                     <div style={{
-                        width: '100%',
-                        height: '100%',
+                        width: '900px',
+                        height: '900px',
                         backgroundImage: `url(${IMAGES.board})`,
                         backgroundSize: 'cover',
                         backgroundRepeat: 'no-repeat',
@@ -4896,10 +4898,10 @@ return (
                         {/* Crop Wheel Display - zodiac dial on bottom right */}
                         <div style={{
                             position: 'absolute',
-                            right: '26%',
-                            bottom: '25.5%',
-                            width: '22.2%',
-                            height: '22.2%',
+                            right: '210px',
+                            bottom: '207px',
+                            width: '180px',
+                            height: '180px',
                             cursor: 'default',
                             pointerEvents: 'none',
                         filter: showSpellChart ? 'brightness(0.55) saturate(0.9)' : 'none',
