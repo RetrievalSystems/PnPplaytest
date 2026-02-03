@@ -7009,7 +7009,7 @@ if (data.type === 'move') {
           angryMob: data.data.angryMob,
           players: data.data.players
         }));
-        
+
         // Force a re-render after state update to ensure crops display
         setTimeout(() => {
           if (window.setGameState) {
@@ -7020,14 +7020,21 @@ if (data.type === 'move') {
         
         console.log('✅Full state applied successfully', { cropsCount: Object.keys(newCrops).length });
         
-        // Safety net: if crops came through empty, re-request after a delay
+        // Safety net: if crops came through empty, re-request after a delay (with cooldown to prevent loops)
         if (Object.keys(newCrops).length === 0) {
           console.log('⚠️Crops empty in full_state, will retry...');
-          setTimeout(() => {
-            if (window.syncAction) {
-              window.syncAction('request_state', {});
-            }
-          }, 1000);
+          const lastRequest = window._lastCropSyncRequest || 0;
+          const now = Date.now();
+          if (now - lastRequest > 5000) { // Only retry once every 5 seconds
+            window._lastCropSyncRequest = now;
+            setTimeout(() => {
+              if (window.syncAction) {
+                window.syncAction('request_state', {});
+              }
+            }, 1000);
+          } else {
+            console.log('⚠️Skipping retry - too soon since last request');
+          }
         }
         
         // Clear retry interval if it exists
@@ -7172,6 +7179,7 @@ if (data.type === 'move') {
           console.log('🧟Updating zombies:', data.data.zombies);
           updated.zombies = data.data.zombies;
         }
+
         
         return updated;
       });
