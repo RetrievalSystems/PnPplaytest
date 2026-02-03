@@ -4184,18 +4184,20 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                         const maxSlots = CROPS[crop].slots;
                         
                         if (count < maxSlots) {
-    // Zombie auto-collects for owner
-    state.players[owner].inventory[crop] = count + 1;
-    state.crops[zombiePos].collected = true;
-    setCollectedMessage(CROPS[crop]?.name || crop);
-    setTempMessage(`${owner === 'yellow' ? 'Yellow' : 'Blue'}'s zombie collects ${CROPS[crop]?.name || crop}.`, 2000);
-} else {
-    // Owner's inventory is full - show pick/leave option
-    state.awaitingCropPickDecision = true;
-    setGameState(state);
-    setShowCropPickOption({ space: zombiePos, crop, from: 'zombie-turn-start' });
-    return false; // Wait for player decision before continuing
-}
+                            // Zombie auto-collects for owner
+                            state.players[owner].inventory[crop] = count + 1;
+                            state.crops[zombiePos].collected = true;
+                            setCollectedMessage(CROPS[crop]?.name || crop);
+                            setTempMessage(`${owner === 'yellow' ? 'Yellow' : 'Blue'}'s zombie collects ${CROPS[crop]?.name || crop}.`, 2000);
+                        } else {
+                            // Owner's inventory is full - show pick/leave option
+                            state.awaitingCropPickDecision = true;
+                            setGameState(state);
+                            setShowCropPickOption({ space: zombiePos, crop, from: 'zombie-turn-start' });
+                            return false; // Wait for player decision before continuing
+                        }
+                    }
+                }
                 
                 return true; // No decision needed, continue with turn start
                 
