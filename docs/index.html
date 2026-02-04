@@ -5546,10 +5546,10 @@ return (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(9% - 95px)',
-                                        top: 'calc(80% - 180px)',
-                                        width: '47%',
-                                        height: '23%',
+                                        left: 'calc(9% - 85px)',
+                                        top: 'calc(80% - 150px)',
+                                        width: '60%',
+                                        height: '30%',
                                         zIndex: 5200,
                                         pointerEvents: 'none'
                                     }}>
@@ -7442,44 +7442,7 @@ if (data.type === 'move') {
       });
       setTimeout(() => { window._syncingState = false; }, 100);
 
-// Handle full state response
-  if (data.type === 'full_state_response') {
-    console.log('🔄Full state received from opponent:', data.data);
-    if (window.setGameState && data.data.gameState) {
-      window._syncingState = true;
-      window.setGameState(prev => {
-        const gs = data.data.gameState;
-        return {
-          ...prev,
-          currentPlayer: gs.currentPlayer,
-          hasMovedThisTurn: gs.hasMovedThisTurn,
-          cropWheel: gs.cropWheel || prev.cropWheel,
-          crops: gs.crops || prev.crops,
-          villagerMood: gs.villagerMood,
-          angryMob: gs.angryMob,
-          zombies: gs.zombies || [],
-          players: {
-            yellow: {
-              ...prev.players.yellow,
-              ...gs.players.yellow
-            },
-            blue: {
-              ...prev.players.blue,
-              ...gs.players.blue
-            }
-          }
-        };
-      });
-      setTimeout(() => { window._syncingState = false; }, 100);
-      
-      // Clear UI blocking flags after resync
-      if (window.setSpinning) window.setSpinning(false);
-      if (window.setShowSpellChart) window.setShowSpellChart(false);
-      if (window.setShowOccurrence) window.setShowOccurrence(false);
-      if (window.setShowCropPickOption) window.setShowCropPickOption(null);
-      if (window.setSelectingTeleport) window.setSelectingTeleport(false);
-      
-      
+
       
       // Show success message
       if (window.setTempMessage) {
