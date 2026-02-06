@@ -2418,11 +2418,12 @@ useEffect(() => {
             const canCraftSpell = (spellKey, inv) => 
                 SPELLS[spellKey].ingredients.every(i => (inv[i] || 0) > 0);
 
-            const craftSpell = (spellKey) => {
-                const newState = {...gameState};
-                const player = newState.currentPlayer;
-                const spell = SPELLS[spellKey];
-                
+           const craftSpell = (spellKey) => {
+    const newState = {...gameState};
+    newState.players = JSON.parse(JSON.stringify(gameState.players)); // Deep clone players
+    const player = newState.currentPlayer;
+    const spell = SPELLS[spellKey];
+
                 // Check if player already has this spell
                 if (newState.players[player].spells.includes(spellKey)) {
                     alert('You already have this spell! You can only hold one of each spell at a time.');
@@ -5546,8 +5547,8 @@ return (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(9% - 85px)',
-                                        top: 'calc(80% - 150px)',
+                                        left: 'calc(9% - 93px)',
+                                        top: 'calc(80% - 200px)',
                                         width: '60%',
                                         height: '30%',
                                         zIndex: 5200,
