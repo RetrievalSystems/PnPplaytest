@@ -1914,7 +1914,7 @@ window.playSfxFileTail = playSfxFileTail;
                                     bloomTapPendingRef.current = false; // it's a hold, not a tap
                                     setBloomHoldBoard(true);
                                     setShowSpellChart(false);
-                                    try  fadeOutSfx('crafting', 650); setCraftingFromChart(false);  catch(ef)  // SOUND FIX
+                                    try { fadeOutSfx('crafting', 650); setCraftingFromChart(false); } catch(ef) {} // SOUND FIX
                                 } catch(e3) {}
                             }, 220);
 
@@ -2298,7 +2298,7 @@ useEffect(() => {
                 // Clear all blocking states
                 setSpinning(false);
                 setShowSpellChart(false);
-                try  fadeOutSfx('crafting', 650); setCraftingFromChart(false);  catch(e)  // SOUND FIX
+                try { fadeOutSfx('crafting', 650); setCraftingFromChart(false); } catch(e) {} // SOUND FIX
                 setShowOccurrence(false);
                 setShowCropPickOption(null);
                 setSelectingTeleport(false);
@@ -3451,7 +3451,7 @@ setPickRemaining(count);
                 snap.cropWheel++;
                 if (snap.cropWheel > 12) {
                     snap.cropWheel = 1;
-                    Object.keys(snap.crops).forEach(p => snap.crops[p].collected = false);
+                    Object.keys(snap.crops).forEach(p => { snap.crops[p].collected = false; delete snap.crops[p].wither; }); // REGROW FIX
                     setTempMessage('A new season — the crops re-emerge.', 2400);
                     playSfxFile('newseason', { volume: 0.7 });
                 
@@ -3574,7 +3574,7 @@ const handleWheelClick = (e) => {
                 snap.cropWheel++;
                 if (snap.cropWheel > 12) {
                     snap.cropWheel = 1;
-                    Object.keys(snap.crops).forEach(p => snap.crops[p].collected = false);
+                    Object.keys(snap.crops).forEach(p => { snap.crops[p].collected = false; delete snap.crops[p].wither; }); // REGROW FIX
                     setTempMessage('A new season — the crops re-emerge.', 2400);
                     playSfxFile('newseason', { volume: 0.7 });
                 }
@@ -4156,6 +4156,10 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
             const handleTurnStartCropCollection = (state) => {
                 const currentPlayer = state.currentPlayer;
                 const opponent = currentPlayer === 'yellow' ? 'blue' : 'yellow';
+                // LOCKUP FIX: only show pick/leave UI for LOCAL player's turn.
+                // When the opponent's turn just started, don't block this client -
+                // the opponent handles their own turn-start crop collection.
+                if (currentPlayer !== localPlayerKey) return true;
                 const currentPos = state.players[currentPlayer].position;
                 const opponentPos = state.players[opponent].position;
                 
@@ -4542,7 +4546,7 @@ if (travel.length > 0) {
                 setWheelSpunThisTurn(false);
                 setGameState(newState);
                 setShowOccurrence(false);
-                try  fadeOutSfx('crafting', 650); setCraftingFromChart(false);  catch(e)  // SOUND FIX: fade crafting on turn change
+                try { fadeOutSfx('crafting', 650); setCraftingFromChart(false); } catch(e) {} // SOUND FIX: fade crafting on turn change
                 setShowSpellChart(false); // Close spell chart on turn change
                 setPendingBloom(0);
                 setMaxMoveDistance(3);
