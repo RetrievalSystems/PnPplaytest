@@ -2,6 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Potions and Pitchforks</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -5239,6 +5242,28 @@ return (
                                                         animationDelay: `${validMoves.indexOf(space) * 0.08}s`
                                                     }}
                                                 />
+                                            )}
+
+                                            {/* Herb initial — permanent identifier under crop card */}
+                                            {crop && (
+                                                <div
+                                                    className="absolute pointer-events-none"
+                                                    style={{
+                                                        fontFamily: "'Cinzel', 'Palatino Linotype', serif",
+                                                        fontSize: '82%',
+                                                        fontWeight: '700',
+                                                        color: 'rgba(160,140,110,0.50)',
+                                                        zIndex: 0,
+                                                        userSelect: 'none',
+                                                        width: '100%',
+                                                        textAlign: 'center',
+                                                        bottom: '10%',
+                                                        lineHeight: 1,
+                                                        letterSpacing: '0.08em',
+                                                    }}
+                                                >
+                                                    {crop.type}
+                                                </div>
                                             )}
 
                                             {crop && (
