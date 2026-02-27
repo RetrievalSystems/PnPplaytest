@@ -2823,8 +2823,8 @@ switch(spellKey) {
                         newState.players[caster].protectionTurns = 2; // Lasts for 2 turn endings (full round)
                         console.log(`🛡️ ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell (lasts 2 turns)`);
                         
-                        // Destroy the caster's zombie (if they have one)
-                        const zombieIdx = (newState.zombies || []).findIndex(z => z.owner === caster);
+                        // Destroy the OPPONENT's zombie (if they have one)
+                        const zombieIdx = (newState.zombies || []).findIndex(z => z.owner === opponent);
                         if (zombieIdx !== -1) {
                             const zombie = newState.zombies[zombieIdx];
                             const zombiePos = zombie.position;
@@ -2837,13 +2837,13 @@ switch(spellKey) {
                             
                             // Remove the zombie
                             newState.zombies.splice(zombieIdx, 1);
-                            console.log(`💨 ${caster === 'yellow' ? 'Yellow' : 'Blue'}'s zombie destroyed by Protection spell`);
+                            console.log(`💨 ${opponent === 'yellow' ? 'Yellow' : 'Blue'}'s zombie destroyed by Protection spell`);
                             
                             // Sync zombie removal to opponent
                             if (window.syncAction && !window._syncingState) {
                                 window.syncAction('zombie_destroyed', {
                                     position: zombiePos,
-                                    owner: caster
+                                    owner: opponent
                                 });
                             }
                         }
@@ -4159,10 +4159,9 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
             const handleTurnStartCropCollection = (state) => {
                 const currentPlayer = state.currentPlayer;
                 const opponent = currentPlayer === 'yellow' ? 'blue' : 'yellow';
-                // LOCKUP FIX: only show pick/leave UI for LOCAL player's turn.
-                // When the opponent's turn just started, don't block this client -
-                // the opponent handles their own turn-start crop collection.
-                if (currentPlayer !== localPlayerKey) return true;
+                // LOCKUP FIX: only run player crop pick/leave UI on the local player's turn.
+                // But zombie crop collection still runs for locally-owned zombies on any turn.
+                if (currentPlayer === localPlayerKey) {
                 const currentPos = state.players[currentPlayer].position;
                 const opponentPos = state.players[opponent].position;
                 
@@ -4218,9 +4217,12 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                         }
                     }
                 }
-// Also check if any zombies are on regrown crops
+} // end if (currentPlayer === localPlayerKey)
+
+                // Zombie crop collection - runs for locally-owned zombies on any turn
                 for (let i = 0; i < (state.zombies || []).length; i++) {
                     const zombie = state.zombies[i];
+                    if (zombie.owner !== localPlayerKey) continue; // ZOMBIE CROP FIX
                     const zombiePos = zombie.position;
                     if (state.crops[zombiePos] && !state.crops[zombiePos].collected) {
                         const crop = state.crops[zombiePos].type;
@@ -5446,6 +5448,17 @@ return (
                                                         if (z.owner !== myPlayer) return;
                                                         
                                                         if (z.owner !== gameState.currentPlayer) return;
+
+                                                        // MOB COLOC FIX: if zombie already at mob position (e.g. both spawn at 6F)
+                                                        // first click makes it attack-ready so player can immediately command attack.
+                                                        const zombieMobPos = gameState.angryMob?.position || null;
+                                                        if (!zombieHasMoved && zombieMobPos && z.position === zombieMobPos && !gameState.angryMob?.retreating) {
+                                                            setZombieAttackReady(i);
+                                                            setZombieHasMoved(true);
+                                                            setSelectedZombie(null);
+                                                            setZombieValidMoves([]);
+                                                            return;
+                                                        }
 
                                                         // If your zombie has already moved and is on the opponent, you may click it again to command an attack.
                                                         if (zombieHasMoved) {
