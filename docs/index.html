@@ -5250,16 +5250,18 @@ return (
                                                     className="absolute pointer-events-none"
                                                     style={{
                                                         fontFamily: "'Cinzel', 'Palatino Linotype', serif",
-                                                        fontSize: '82%',
+                                                        fontSize: '175%',
                                                         fontWeight: '700',
-                                                        color: 'rgba(160,140,110,0.50)',
+                                                        color: 'rgba(70,55,35,0.82)',
                                                         zIndex: 0,
                                                         userSelect: 'none',
                                                         width: '100%',
                                                         textAlign: 'center',
-                                                        bottom: '10%',
+                                                        top: '50%',
+                                                        transform: 'translateY(-50%)',
                                                         lineHeight: 1,
-                                                        letterSpacing: '0.08em',
+                                                        letterSpacing: '0.05em',
+                                                        textShadow: '0 1px 3px rgba(255,255,255,0.4)',
                                                     }}
                                                 >
                                                     {crop.type}
@@ -5274,6 +5276,7 @@ return (
                                                         width: '120%',
                                                         height: '120%',
                                                         left: '-10%',
+                                                        zIndex: 1,
                                                         top: crop.collected ? '120%' : '-10%',                                                        opacity: crop.collected ? 0 : 1,
                                                         transform: crop.collected ? 'scale(0.3)' : 'scale(1)',
                                                         transition: (crop.wither && String(crop.wither).startsWith('blight')) ? 'all 1.8s ease-out' : 'all 0.6s ease-out',
