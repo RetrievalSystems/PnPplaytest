@@ -5043,7 +5043,8 @@ return (
                             position: 'absolute',
                             top: '50%',
                             left: '50%',
-                            transform: 'translate(-50%, -50%)',
+                            transform: `translate(-50%, -50%) scale(${hudRect.w / 648.4375})`,
+                            transformOrigin: '50% 50%',
                             width: '690px',
                             height: '690px',
                             display: 'grid',
@@ -5458,10 +5459,6 @@ return (
                                     );
                                 })
                             )}
-                        </div>
-
-                        
-
                         {/* Target selection overlay (hover reticle) */}
                         {pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.map((t, i) => {
                             const c = spaceCenterPx(t.space);
@@ -5591,6 +5588,7 @@ return (
                                 </div>
                             );
                         })}
+                        </div>
 
                         {/* Villager Mood (VM) highlight bar - pinned to board */}
                         {(() => {
