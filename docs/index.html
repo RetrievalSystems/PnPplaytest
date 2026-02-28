@@ -2,9 +2,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&display=swap" rel="stylesheet">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Potions and Pitchforks</title>
     <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
@@ -5246,29 +5243,6 @@ return (
                                                 />
                                             )}
 
-                                            {/* Herb initial — permanent identifier under crop card */}
-                                            {crop && (
-                                                <div
-                                                    className="absolute pointer-events-none"
-                                                    style={{
-                                                        fontFamily: "'Cinzel', 'Palatino Linotype', serif",
-                                                        fontSize: '175%',
-                                                        fontWeight: '700',
-                                                        color: 'rgba(70,55,35,0.82)',
-                                                        zIndex: 0,
-                                                        userSelect: 'none',
-                                                        width: '100%',
-                                                        textAlign: 'center',
-                                                        top: '50%',
-                                                        transform: 'translateY(-50%)',
-                                                        lineHeight: 1,
-                                                        letterSpacing: '0.05em',
-                                                        textShadow: '0 1px 3px rgba(255,255,255,0.4)',
-                                                    }}
-                                                >
-                                                    {crop.type}
-                                                </div>
-                                            )}
 
                                             {crop && (
                                                 <CropIcon
@@ -5278,7 +5252,6 @@ return (
                                                         width: '120%',
                                                         height: '120%',
                                                         left: '-10%',
-                                                        zIndex: 1,
                                                         top: crop.collected ? '120%' : '-10%',                                                        opacity: crop.collected ? 0 : 1,
                                                         transform: crop.collected ? 'scale(0.3)' : 'scale(1)',
                                                         transition: (crop.wither && String(crop.wither).startsWith('blight')) ? 'all 1.8s ease-out' : 'all 0.6s ease-out',
