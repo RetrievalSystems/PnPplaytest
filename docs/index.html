@@ -2298,6 +2298,8 @@ useEffect(() => {
                 // Clear all blocking states
                 setSpinning(false);
                 setShowSpellChart(false);
+                // Reset wheel so player can spin/move again after resync
+                setWheelSpunThisTurn(false);
                 try { fadeOutSfx('crafting', 650); setCraftingFromChart(false); } catch(e) {} // SOUND FIX
                 setShowOccurrence(false);
                 setShowCropPickOption(null);
@@ -4537,17 +4539,17 @@ if (travel.length > 0) {
                 }
                 newState.players[opponent].spellsCraftedThisTurn = [];
                 
-                // Check if the new current player is standing on a crop that just regrew
-                // This happens when crops reset (wheel goes from 12 to 1)
-                const canContinue = handleTurnStartCropCollection(newState);
-                if (!canContinue) {
-                    // Player is being shown pick/leave option, don't continue with turn start yet
-                    return;
-                }
-                
+                // Always advance the turn state first, THEN handle crop pick/leave on top.
+                // This prevents the turn from getting stuck if crop collection returns false.
                 setWheelSpunThisTurn(false);
                 setGameState(newState);
                 setShowOccurrence(false);
+                
+                const canContinue = handleTurnStartCropCollection(newState);
+                if (!canContinue) {
+                    // Player is being shown pick/leave option - turn already advanced above
+                    return;
+                }
                 try { fadeOutSfx('crafting', 650); setCraftingFromChart(false); } catch(e) {} // SOUND FIX: fade crafting on turn change
                 setShowSpellChart(false); // Close spell chart on turn change
                 setPendingBloom(0);
