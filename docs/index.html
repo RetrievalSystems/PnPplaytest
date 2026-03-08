@@ -1353,6 +1353,11 @@ useEffect(() => {
             const [zombieValidMoves, setZombieValidMoves] = useState([]);
             const [zombieHasMoved, setZombieHasMoved] = useState(false);
             const [zombieAttackReady, setZombieAttackReady] = useState(null);
+            // Expose zombie setters so turn_end receiver can reset stale state
+            window.setZombieHasMoved = setZombieHasMoved;
+            window.setZombieAttackReady = setZombieAttackReady;
+            window.setSelectedZombie = setSelectedZombie;
+            window.setZombieValidMoves = setZombieValidMoves;
             const [pendingSpellTarget, setPendingSpellTarget] = useState(null);             const [hoverSpellTargetSpace, setHoverSpellTargetSpace] = useState(null);
 // { spellKey, targets:[{kind:'player'|'mob', key?, space}] }
             const [showSpellChart, setShowSpellChart] = useState(false);
@@ -3796,6 +3801,11 @@ if (selectingTeleport) {
 
                 // Command attack (only after zombie has already moved this turn)
                 if (opts.commandAttack) {
+                    // SAFETY: zombie owner must be the current player - block stale attacks
+                    if (zombie.owner !== player) {
+                        console.warn('🚫 Blocked zombie attack: zombie owner mismatch', zombie.owner, 'vs current', player);
+                        return;
+                    }
                     const oppPos = newState.players[opponent].position;
                     const mobPos = newState.angryMob?.position || null;
 
@@ -4545,6 +4555,12 @@ if (travel.length > 0) {
                 setGameState(newState);
                 setShowOccurrence(false);
                 
+                // ZOMBIE RESET FIX: always reset before canContinue so they fire even if crop dialog appears
+                setSelectedZombie(null);
+                setZombieValidMoves([]);
+                setZombieHasMoved(false);
+                setZombieAttackReady(null);
+
                 const canContinue = handleTurnStartCropCollection(newState);
                 if (!canContinue) {
                     // Player is being shown pick/leave option - turn already advanced above
@@ -4555,11 +4571,6 @@ if (travel.length > 0) {
                 setPendingBloom(0);
                 setMaxMoveDistance(3);
                 // wheel spin is handled via wheel-click flow
-
-                setSelectedZombie(null);
-                setZombieValidMoves([]);
-                setZombieHasMoved(false);
-                setZombieAttackReady(null);
                 
                 // Sync critical state after turn changes (HP, mob, mood)
                 setTimeout(() => {
@@ -7029,6 +7040,11 @@ if (data.type === 'move') {
         }
       }, 50);
       
+      // ZOMBIE RESET FIX: reset zombie UI states so stale attackReady can't survive a lag/disconnect
+      if (window.setZombieHasMoved) window.setZombieHasMoved(false);
+      if (window.setZombieAttackReady) window.setZombieAttackReady(null);
+      if (window.setSelectedZombie) window.setSelectedZombie(null);
+      if (window.setZombieValidMoves) window.setZombieValidMoves([]);
       setTimeout(() => { window._syncingTurn = false; }, 100);
     }
   }
