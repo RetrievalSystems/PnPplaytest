@@ -1715,7 +1715,7 @@ window.triggerFx = triggerFx;
 
 // Board coordinate helper (within the 690x690 overlay grid)
 const BOARD_COLS = ['A','B','C','D','E','F','G','H','I','J','K'];
-const BOARD_SIZE_PX = 690;
+const BOARD_SIZE_PX = boardScale > 0 ? 690 * boardScale : 690;
 const CELL_PX = BOARD_SIZE_PX / 11;
 
 const spaceCenterPx = (space) => {
@@ -5056,7 +5056,8 @@ return (
                             position: 'absolute',
                             top: '50%',
                             left: '50%',
-                            transform: 'translate(-50%, -50%)',
+                            transform: `translate(-50%, -50%) scale(${boardScale > 0 ? boardScale : 1})`,
+                            transformOrigin: '50% 50%',
                             width: '690px',
                             height: '690px',
                             display: 'grid',
@@ -5613,8 +5614,8 @@ return (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(9% - 113px)',
-                                        top: 'calc(80% - 180px)',
+                                        left: '5%',
+                                        top: '61%',
                                         width: '60%',
                                         height: '30%',
                                         zIndex: 5200,
