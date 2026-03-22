@@ -1715,7 +1715,6 @@ window.triggerFx = triggerFx;
 
 // Board coordinate helper (within the 690x690 overlay grid)
 const BOARD_COLS = ['A','B','C','D','E','F','G','H','I','J','K'];
-// SCALE FIX: board size derived from live hud-stage width so FX overlays align correctly
 const BOARD_SIZE_PX = hudRect.w > 0 ? hudRect.w * 0.473 : 690;
 const CELL_PX = BOARD_SIZE_PX / 11;
 
@@ -5054,8 +5053,6 @@ return (
 
                         {/* Game grid overlay - same as your working version */}
                         <div style={{
-                            // SCALE FIX: grid pinned as % of board-slot so it
-                            // always covers the board's playable area at any zoom/screen
                             position: 'absolute',
                             left: '11.8%',
                             top: '9.1%',
@@ -5438,8 +5435,7 @@ return (
                                                         
                                                         if (z.owner !== gameState.currentPlayer) return;
 
-                                                        // MOB COLOC FIX: first click selects zombie and shows moves.
-                                                        // If already selected and on mob space, second click attacks.
+                                                        // MOB COLOC FIX: first click selects, second click attacks.
                                                         const mobColoc = (gameState.angryMob?.position || null) === z.position && !gameState.angryMob?.retreating;
                                                         if (!zombieHasMoved && selectedZombie === i && mobColoc) {
                                                             setZombieAttackReady(i);
@@ -5448,7 +5444,7 @@ return (
                                                             return;
                                                         }
 
-                                                        // If zombie already moved and is attack-ready, second click attacks.
+                                                        // If zombie already moved and attack-ready, second click attacks.
                                                         if (zombieHasMoved) {
                                                             if (zombieAttackReady === i) {
                                                                 moveZombie(i, z.position, { commandAttack: true });
@@ -5615,8 +5611,8 @@ return (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: '5%',
-                                        top: '61%',
+                                        left: 'calc(9% - 93px)',
+                                        top: 'calc(80% - 200px)',
                                         width: '60%',
                                         height: '30%',
                                         zIndex: 5200,
@@ -5626,7 +5622,7 @@ return (
                                             position: 'absolute',
                                             left: '46%',
                                             right: '35%',
-                                            top: `${((topPx + 41) / 249.6 * 100).toFixed(1)}%`,
+                                            top: `${topPx + 41}px`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
                                             background: 'rgba(255, 50, 30, 0.75)',
