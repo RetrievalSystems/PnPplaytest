@@ -1715,7 +1715,8 @@ window.triggerFx = triggerFx;
 
 // Board coordinate helper (within the 690x690 overlay grid)
 const BOARD_COLS = ['A','B','C','D','E','F','G','H','I','J','K'];
-const BOARD_SIZE_PX = boardScale > 0 ? 690 * boardScale : 690;
+// SCALE FIX: board size derived from live hud-stage width so FX overlays align correctly
+const BOARD_SIZE_PX = hudRect.w > 0 ? hudRect.w * 0.473 : 690;
 const CELL_PX = BOARD_SIZE_PX / 11;
 
 const spaceCenterPx = (space) => {
@@ -5053,13 +5054,13 @@ return (
 
                         {/* Game grid overlay - same as your working version */}
                         <div style={{
+                            // SCALE FIX: grid pinned as % of board-slot so it
+                            // always covers the board's playable area at any zoom/screen
                             position: 'absolute',
-                            top: '50%',
-                            left: '50%',
-                            transform: `translate(-50%, -50%) scale(${boardScale > 0 ? boardScale : 1})`,
-                            transformOrigin: '50% 50%',
-                            width: '690px',
-                            height: '690px',
+                            left: '11.8%',
+                            top: '9.1%',
+                            width: '76.5%',
+                            height: '81.8%',
                             display: 'grid',
                             gridTemplateColumns: 'repeat(11, 1fr)',
                             gap: '2px'
@@ -5625,7 +5626,7 @@ return (
                                             position: 'absolute',
                                             left: '46%',
                                             right: '35%',
-                                            top: `${topPx + 41}px`,
+                                            top: `${((topPx + 41) / 249.6 * 100).toFixed(1)}%`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
                                             background: 'rgba(255, 50, 30, 0.75)',
