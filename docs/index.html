@@ -5063,33 +5063,7 @@ return (
                             gap: '2px'
                         }}>
                         
-                        {(() => {
-                            const cp = gameState.currentPlayer;
-                            const player = gameState.players[cp];
-                            const abode = ABODES[cp];
-                            const adj = ABODE_ADJ[abode] || [];
-                            const canEnter = (!player.inAbode) && selectedSpace && !gameState.hasMovedThisTurn && validMoves.some(s => adj.includes(s));
-                            // Show the abode square when it's an *enter option* OR (once inside) as a big 'End Turn' target.
-                            const canUseAbode = canEnter || player.inAbode; // also show while starting in Abode so you can begin moving
-                            if (!canUseAbode) return null;
-                            const c = spaceCenterPx(abode);
-                            const size = CELL_PX * 1.55;
-                            // Slightly bias outward (toward the board edge) so it creeps into the outer area a touch
-                            const biasX = (cp === 'yellow') ? -28 : 8;
-                            const biasY = (cp === 'yellow') ? 8 : -28;
-                            return (
-                                <div
-                                    className="hw-abode-square"
-                                    onClick={() => handleSpaceClick(abode)}
-                                    style={{
-                                        left: (c.x + biasX - 35) + 'px',
-                                        top: (c.y + biasY - 35) + 'px',
-                                        width: size + 'px',
-                                        height: size + 'px'
-                                    }}
-                                />
-                            );
-                        })()}
+{/* abode square removed */}
 {cloudFx && (() => {
                             const a = spaceCenterPx(cloudFx.from);
                             const b = spaceCenterPx(cloudFx.to);
@@ -5611,8 +5585,8 @@ return (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(9% - 93px)',
-                                        top: 'calc(80% - 200px)',
+                                        left: '5%',
+                                        top: '61%',
                                         width: '60%',
                                         height: '30%',
                                         zIndex: 5200,
@@ -5622,7 +5596,7 @@ return (
                                             position: 'absolute',
                                             left: '46%',
                                             right: '35%',
-                                            top: `${topPx + 41}px`,
+                                            top: `${((topPx + 41) / (hudRect.h * 0.30)) * 100}%`,
                                             height: `${barH * 100}%`,
                                             borderRadius: '8px',
                                             background: 'rgba(255, 50, 30, 0.75)',
