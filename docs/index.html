@@ -587,9 +587,9 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 const buildCropIconCandidates = (name) => {
     const base = String(name || '').trim();
     const noApos = base.replace(/['']/g, '');
-    const noSpace = noApos.replace(/\\s+/g, '');
-    const dash = noApos.replace(/\\s+/g, '-');
-    const underscore = noApos.replace(/\\s+/g, '_');
+    const noSpace = noApos.replace(/\s+/g, '');
+    const dash = noApos.replace(/\s+/g, '-');
+    const underscore = noApos.replace(/\s+/g, '_');
     const lowerNoSpace = noSpace.toLowerCase();
     const lowerDash = dash.toLowerCase();
     const lowerUnderscore = underscore.toLowerCase();
@@ -1720,7 +1720,7 @@ const CELL_PX = BOARD_SIZE_PX / 11;
 
 const spaceCenterPx = (space) => {
     if (!space) return { x: 0, y: 0 };
-    const m = String(space).match(/^(\\d+)([A-K])$/);
+    const m = String(space).match(/^(\d+)([A-K])$/);
     if (!m) return { x: 0, y: 0 };
     const row = parseInt(m[1], 10);
     const col = m[2];
@@ -2343,15 +2343,15 @@ useEffect(() => {
             };
 
             const getDistance = (from, to) => {
-                const [fRow, fCol] = [parseInt(from.match(/\\d+/)[0]), from.match(/[A-K]/)[0]];
-                const [tRow, tCol] = [parseInt(to.match(/\\d+/)[0]), to.match(/[A-K]/)[0]];
+                const [fRow, fCol] = [parseInt(from.match(/\d+/)[0]), from.match(/[A-K]/)[0]];
+                const [tRow, tCol] = [parseInt(to.match(/\d+/)[0]), to.match(/[A-K]/)[0]];
                 return Math.abs(fRow - tRow) + Math.abs(fCol.charCodeAt(0) - tCol.charCodeAt(0));
             };
 
                         const isAbodeSpace = (s) => Object.values(ABODES).includes(s) || (UNUSED_ABODES && UNUSED_ABODES.includes(s));
 
             const stepInDir = (space, dr, dc) => {
-                const row = parseInt(space.match(/\\d+/)[0]);
+                const row = parseInt(space.match(/\d+/)[0]);
                 const col = space.match(/[A-K]/)[0];
                 const colIdx = cols.indexOf(col);
                 const nRow = row + dr;
@@ -2706,7 +2706,7 @@ switch(spellKey) {
                             
                             window._mobAnimating = false; // Clear flag so mob can be removed
                             newState.angryMob = null;
-                            console.log('\uc0\u9729 \u65039  Death\\'s Breath abated the mob');
+                            console.log('\uc0\u9729 \u65039  Death\'s Breath abated the mob');
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
@@ -2950,7 +2950,7 @@ switch(spellKey) {
                     const mobDist = gameState.angryMob ? getDistance(p.position, gameState.angryMob.position) : 999;
                     const mobOk = gameState.angryMob && (mobDist <= 1);
                     const result = oppOk || mobOk;
-                    console.log('\uc0\u55357 \u56448  Death\\'s Breath viability:', {
+                    console.log('\uc0\u55357 \u56448  Death\'s Breath viability:', {
                         playerKey, 
                         playerPos: p.position,
                         oppPos: gameState.players[opp].position,
@@ -5749,11 +5749,11 @@ return (
 
                     // left/right
                     const pct = (v) => {
-                        const m = String(v||'').match(/^\\s*([0-9.]+)\\s*%\\s*$/);
+                        const m = String(v||'').match(/^\s*([0-9.]+)\s*%\s*$/);
                         return m ? parseFloat(m[1]) / 100 : null;
                     };
                     const px = (v) => {
-                        const m = String(v||'').match(/^\\s*([0-9.]+)\\s*px\\s*$/);
+                        const m = String(v||'').match(/^\s*([0-9.]+)\s*px\s*$/);
                         return m ? parseFloat(m[1]) : null;
                     };
 
@@ -5769,7 +5769,7 @@ return (
                     // top: supports calc(XX% + YYpx)
                     if (out.top != null) {
                         const s = String(out.top);
-                        const mc = s.match(/calc\\(\\s*([0-9.]+)%\\s*\\+\\s*([0-9.]+)px\\s*\\)/);
+                        const mc = s.match(/calc\(\s*([0-9.]+)%\s*\+\s*([0-9.]+)px\s*\)/);
                         const p = pct(s);
                         const ppx = px(s);
                         if (mc) {
