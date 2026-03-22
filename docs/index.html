@@ -2706,7 +2706,7 @@ switch(spellKey) {
                             
                             window._mobAnimating = false; // Clear flag so mob can be removed
                             newState.angryMob = null;
-                            console.log('☁️ Death's Breath abated the mob');
+                            console.log('☁️ Death\'s Breath abated the mob');
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
@@ -2950,7 +2950,7 @@ switch(spellKey) {
                     const mobDist = gameState.angryMob ? getDistance(p.position, gameState.angryMob.position) : 999;
                     const mobOk = gameState.angryMob && (mobDist <= 1);
                     const result = oppOk || mobOk;
-                    console.log('💀 Death's Breath viability:', {
+                    console.log('💀 Death\'s Breath viability:', {
                         playerKey, 
                         playerPos: p.position,
                         oppPos: gameState.players[opp].position,
@@ -4043,13 +4043,11 @@ if (selectingTeleport) {
                         newState.players[player].craftedThisTurn = false;
                     }
                     newState.hasMovedThisTurn = true;
-                    setSelectedZombie(null); // Clear zombie selection when player moves
-                    setZombieValidMoves([]);
 
                     // Once the player has moved, shrink + fade the occurrence glyph so it doesn't confuse the rest of the turn.
                     try { setShowOccurrence(false); setCurrentOccurrence(null); setSpinScale(1.0); } catch(e) {}
 
-                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
+setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                     if (firstFull) {
                         // Freeze auto-advance until the player chooses Pick/Leave.
@@ -4090,8 +4088,6 @@ if (selectingTeleport) {
                         newState.players[player].craftedThisTurn = false;
                     }
                     newState.hasMovedThisTurn = true;
-                    setSelectedZombie(null); // Clear zombie selection when player moves
-                    setZombieValidMoves([]);
                     setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                 if (!isVitality && newState.crops[dest] && !newState.crops[dest].collected) {
@@ -4812,7 +4808,7 @@ if (travel.length > 0) {
                         {_label} Player
                     </div>
 
-                    {/* 2×2 wizard grid */}
+                    {/* 2\'d72 wizard grid */}
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr',
@@ -5440,8 +5436,8 @@ return (
                                                         
                                                         if (z.owner !== gameState.currentPlayer) return;
 
-                                                        // MOB COLOC FIX: zombie starts on mob space — show moves on first click,
-                                                        // second click on zombie (already selected) commands the attack.
+                                                        // MOB COLOC FIX: first click selects zombie and shows moves.
+                                                        // If already selected and on mob space, second click attacks.
                                                         const mobColoc = (gameState.angryMob?.position || null) === z.position && !gameState.angryMob?.retreating;
                                                         if (!zombieHasMoved && selectedZombie === i && mobColoc) {
                                                             setZombieAttackReady(i);
