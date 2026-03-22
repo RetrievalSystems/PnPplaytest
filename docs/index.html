@@ -586,7 +586,7 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 // We now link directly to: ./images/<CropName>.png (no multi-path fallback to avoid flashing).
 const buildCropIconCandidates = (name) => {
     const base = String(name || '').trim();
-    const noApos = base.replace(/[\'92']/g, '');
+    const noApos = base.replace(/['']/g, '');
     const noSpace = noApos.replace(/\\s+/g, '');
     const dash = noApos.replace(/\\s+/g, '-');
     const underscore = noApos.replace(/\\s+/g, '_');
@@ -745,7 +745,7 @@ const ABODE_BYPASS = {
         const normKey = (s) => String(s||'')
             .toLowerCase()
             .replace(/&/g,'and')
-            .replace(/['\'92]/g,'')
+            .replace(/['']/g,'')
             .replace(/[^a-z0-9]+/g,' ')
             .trim();
 
@@ -1270,7 +1270,7 @@ useEffect(() => {
                         const pname = (pkey === 'yellow') ? 'Yellow' : 'Blue';
                         const ownsZombie = (gs.zombies || []).some(z => z.owner === pkey);
                         if (gs.hasMovedThisTurn && (!ownsZombie || zombieHasMoved)) {
-                            setHudMessage(`${pname}'s turn \'97 click your portrait to end turn`);
+                            setHudMessage(`${pname}'s turn — click your portrait to end turn`);
                         }
                     }, 0);
                 }, ms);
@@ -2028,7 +2028,7 @@ window.addEventListener('keydown', handleKeyDown);
                 // Forced modal states
                 if (showCropPickOption) {
                     const cropName = CROPS[showCropPickOption.crop]?.name || showCropPickOption.crop;
-                    setBaseMessage(`Inventory full \'97 pick or leave ${cropName}.`);
+                    setBaseMessage(`Inventory full — pick or leave ${cropName}.`);
                     return;
                 }
                 if (showSpellChart && (spellChartMode === 'pickCrop' || spellChartMode === 'bloomPickCrop')) {
@@ -2036,28 +2036,28 @@ window.addEventListener('keydown', handleKeyDown);
                     return;
                 }
                 if (showSpellChart && spellChartMode === 'removeOpponentCrop') {
-                    setBaseMessage(`Late Blight \'97 remove 1 of ${oppName}'s crops (red highlights).`);
+                    setBaseMessage(`Late Blight — remove 1 of ${oppName}'s crops (red highlights).`);
                     return;
                 }
                 if (selectingTeleport) {
-                    setBaseMessage(`${pname}'s turn \'97 Teleport: click any space to teleport.`);
+                    setBaseMessage(`${pname}'s turn — Teleport: click any space to teleport.`);
                     return;
                 }
                 if (pendingBloom > 0) {
-                    setBaseMessage(`${pname}'s turn \'97 Bloom: click the board to pick any crop.`);
+                    setBaseMessage(`${pname}'s turn — Bloom: click the board to pick any crop.`);
                     return;
                 }
 
                 if (!gameState.hasMovedThisTurn) {
                     const dist = maxMoveDistanceRef.current || 3;
                     if (dist === 6) {
-                        setBaseMessage(`${pname}'s turn \'97 Vitality - move up to 6 spaces and collect all crops you pass.`);
+                        setBaseMessage(`${pname}'s turn — Vitality - move up to 6 spaces and collect all crops you pass.`);
                     } else if (dist === 1) {
-                        setBaseMessage(`${pname}'s turn \'97 Lethargy: move 1 space. Stop on a crop to pick it.`);
+                        setBaseMessage(`${pname}'s turn — Lethargy: move 1 space. Stop on a crop to pick it.`);
                     } else if (dist === 3) {
-                        setBaseMessage(`${pname}'s turn \'97 move up to three spaces - stopping to pick a crop will end the turn`);
+                        setBaseMessage(`${pname}'s turn — move up to three spaces - stopping to pick a crop will end the turn`);
                     } else {
-                        setBaseMessage(`${pname}'s turn \'97 move up to ${dist} spaces. Stop on a crop to pick it.`);
+                        setBaseMessage(`${pname}'s turn — move up to ${dist} spaces. Stop on a crop to pick it.`);
                     }
                     return;
                 }
@@ -2069,16 +2069,16 @@ window.addEventListener('keydown', handleKeyDown);
                         const hasProtection = gameState.players[opponent]?.protected;
                         if (hasProtection) {
                             const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
-                            setBaseMessage(`${pname} \'97 ${oppName} has protection. Zombie attack will be negated.`);
+                            setBaseMessage(`${pname} — ${oppName} has protection. Zombie attack will be negated.`);
                         } else {
-                            setBaseMessage(`${pname} \'97 click on your zombie to command it to attack.`);
+                            setBaseMessage(`${pname} — click on your zombie to command it to attack.`);
                         }
                     } else {
                         setBaseMessage(`${pname}, move your zombie up to 3 spaces.`);
                     }
                     return;
                 }
-setBaseMessage(`${pname}'s turn \'97 click your portrait to end turn`);
+setBaseMessage(`${pname}'s turn — click your portrait to end turn`);
             }, [gameState, gameOver, showCropPickOption, showSpellChart, spellChartMode, pickRemaining, selectingTeleport, pendingBloom, wheelSpunThisTurn]);
 
 
@@ -2565,11 +2565,11 @@ const castSpellAction = (spellKey) => {
                         const oppTotal = Object.values(oppInv).reduce((a, b) => a + (b || 0), 0);
 
                         if (opp && opp.protected) {
-                            setTempMessage('Late Blight fizzles \'97 target is protected', 2600);
+                            setTempMessage('Late Blight fizzles — target is protected', 2600);
                             return;
                         }
                         if (oppTotal <= 0) {
-                            setTempMessage('Late Blight negated \'97 opponent has no crops', 2600);
+                            setTempMessage('Late Blight negated — opponent has no crops', 2600);
                             return;
                         }
                     } catch (e) {
@@ -2632,7 +2632,7 @@ switch(spellKey) {
 
                         // Not viable: do not cast, do not consume the spell.
                         if (options.length <= 0) {
-                            setTempMessage('Freeze cannot be cast \'97 no valid targets.', 1800);
+                            setTempMessage('Freeze cannot be cast — no valid targets.', 1800);
                             return;
                         }
 
@@ -2667,7 +2667,7 @@ switch(spellKey) {
                         const mobOk = !!(mobPos && getDistance(from, mobPos) <= 1 && !newState.angryMob?.retreating);
 
                         if (!oppOk && !mobOk) {
-                            setTempMessage("Death\'92s Breath cannot be cast \'97 no valid targets.", 1800);
+                            setTempMessage("Death's Breath cannot be cast — no valid targets.", 1800);
                             return;
                         }
 
@@ -2742,7 +2742,7 @@ switch(spellKey) {
                         });
 
                         if (!oppOk && !mobOk) {
-                            setTempMessage("Fiery Blast cannot be cast \'97 no valid targets.", 1800);
+                            setTempMessage("Fiery Blast cannot be cast — no valid targets.", 1800);
                             return;
                         }
 
@@ -2781,9 +2781,9 @@ switch(spellKey) {
                             }
                             
                             if (oppOk) {
-                                setTempMessage('Fiery Blast \'97 hits both opponent and mob!', 2000);
+                                setTempMessage('Fiery Blast — hits both opponent and mob!', 2000);
                             } else {
-                                setTempMessage('Fiery Blast \'97 the mob abates.', 2000);
+                                setTempMessage('Fiery Blast — the mob abates.', 2000);
                             }
                         }
                         break;
@@ -2791,7 +2791,7 @@ switch(spellKey) {
                     case 'zombification': {
                         const alreadyHasZombie = (newState.zombies || []).some(z => z.owner === caster);
                         if (alreadyHasZombie) {
-                            setTempMessage('Zombification cannot be cast \'97 you already control a zombie.', 2000);
+                            setTempMessage('Zombification cannot be cast — you already control a zombie.', 2000);
                             return; // do NOT consume the spell
                         }
                         newState.zombies = (newState.zombies || []);
@@ -3040,7 +3040,7 @@ switch(spellKey) {
                 setCraftingFromChart(false);
                 fadeOutSfx('crafting', 650); // SOUND FIX: fade crafting on late blight
                 setShowSpellChart(false);
-                setTempMessage('Late Blight cast \'97 crop removed.', 1800);
+                setTempMessage('Late Blight cast — crop removed.', 1800);
             };
 
 
@@ -3092,7 +3092,7 @@ switch(spellKey) {
                         setMaxMoveDistance(1);
                         break;
                     case 'vitality':
-                        setTempMessage('Vitality \'97 move up to 6 spaces and collect all crops you pass.', 2200);
+                        setTempMessage('Vitality — move up to 6 spaces and collect all crops you pass.', 2200);
                         vitalityThisTurnRef.current = true;
                         playSfxFile('vitality', { volume: 0.85, rate: 1.25 });
                         distOverride = 6;
@@ -3101,7 +3101,7 @@ switch(spellKey) {
                     case 'bloom': {
                         // Bloom: after a short beat, open the spell chart for picking a crop (no board click needed).
                         setPendingBloom(1);
-                        setTempMessage(`${(newState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue'} \'97 Bloom.`, 1400);
+                        setTempMessage(`${(newState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue'} — Bloom.`, 1400);
                         window.setTimeout(() => {
                             try {
                                 if ((pendingBloomRef.current || 0) > 0 && !spinning) {
@@ -3145,7 +3145,7 @@ switch(spellKey) {
                         });
                         break;
                                     case 'nothing': {
-                        setTempMessage('The sun shines, a gentle breeze\'85 nothing happens.', 2400);
+                        setTempMessage('The sun shines, a gentle breeze... nothing happens.', 2400);
                         // Play a random ~3s clip of birds ambience
                         const a = playSfxFile('birds', { volume: 0.45, loop: false });
                         if (a) {
@@ -3178,7 +3178,7 @@ switch(spellKey) {
                     case 'upset':
                         occurrenceMessage = `${playerName} upset a villager`;
                         if (newState.angryMob) {
-                            occurrenceMessage += ' \'97 angry mob spawned!';
+                            occurrenceMessage += ' — angry mob spawned!';
                         }
                         break;
                     case 'lethargy':
@@ -3194,7 +3194,7 @@ switch(spellKey) {
                         occurrenceMessage = `${playerName} got Blight`;
                         break;
                     case 'nothing':
-                        occurrenceMessage = `${playerName} \'97 nothing happens`;
+                        occurrenceMessage = `${playerName} — nothing happens`;
                         break;
                 }
                 
@@ -3236,7 +3236,7 @@ switch(spellKey) {
                     const inv = (gameState.players[pKey] && gameState.players[pKey].inventory) ? gameState.players[pKey].inventory : {};
                     const hasSpace = Object.keys(CROPS).some(ct => (inv[ct] || 0) < CROPS[ct].slots);
                     if (!hasSpace) {
-                        setTempMessage('Bloom \'97 your slots are full', 2600);
+                        setTempMessage('Bloom — your slots are full', 2600);
                         return;
                     }
                 } catch (e) {
@@ -3459,7 +3459,7 @@ setPickRemaining(count);
                 if (snap.cropWheel > 12) {
                     snap.cropWheel = 1;
                     Object.keys(snap.crops).forEach(p => { snap.crops[p].collected = false; delete snap.crops[p].wither; }); // REGROW FIX
-                    setTempMessage('A new season \'97 the crops re-emerge.', 2400);
+                    setTempMessage('A new season — the crops re-emerge.', 2400);
                     playSfxFile('newseason', { volume: 0.7 });
                 
                         // Layer: rooster + birds (3s starting 2s in) on top of the season change
@@ -3507,7 +3507,7 @@ useEffect(() => {
         playSfxFile('polarwind', { volume: 0.55, loop: true });
     }
     // Don't allow any interaction; automatically end the turn shortly.
-    setTempMessage(`${pkey === 'yellow' ? 'Yellow' : 'Blue'} is frozen \'97 turn skipped.`, 1600);
+    setTempMessage(`${pkey === 'yellow' ? 'Yellow' : 'Blue'} is frozen — turn skipped.`, 1600);
     const t = window.setTimeout(() => {
         try { endTurnByPortrait(); } catch(e) {}
     }, 900);
@@ -3582,7 +3582,7 @@ const handleWheelClick = (e) => {
                 if (snap.cropWheel > 12) {
                     snap.cropWheel = 1;
                     Object.keys(snap.crops).forEach(p => { snap.crops[p].collected = false; delete snap.crops[p].wither; }); // REGROW FIX
-                    setTempMessage('A new season \'97 the crops re-emerge.', 2400);
+                    setTempMessage('A new season — the crops re-emerge.', 2400);
                     playSfxFile('newseason', { volume: 0.7 });
                 }
 
@@ -3850,7 +3850,7 @@ if (selectingTeleport) {
                         // Check if opponent has protection
                         if (newState.players[opponent].protected) {
                             const oppName = opponent === 'yellow' ? 'Yellow' : 'Blue';
-                            setTempMessage(`Zombie attack negated \'97 ${oppName} has protection.`, 2500);
+                            setTempMessage(`Zombie attack negated — ${oppName} has protection.`, 2500);
                             triggerFx(oppPos, 'zombie');
                             // Zombie survives when attack is negated by protection
                             setZombieAttackReady(null);
@@ -4049,7 +4049,7 @@ if (selectingTeleport) {
                     // Once the player has moved, shrink + fade the occurrence glyph so it doesn't confuse the rest of the turn.
                     try { setShowOccurrence(false); setCurrentOccurrence(null); setSpinScale(1.0); } catch(e) {}
 
-setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} \'97 click your portrait to end turn`, 1600);
+setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                     if (firstFull) {
                         // Freeze auto-advance until the player chooses Pick/Leave.
@@ -4092,7 +4092,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} \'97 click your por
                     newState.hasMovedThisTurn = true;
                     setSelectedZombie(null); // Clear zombie selection when player moves
                     setZombieValidMoves([]);
-                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} \'97 click your portrait to end turn`, 1600);
+                    setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                 if (!isVitality && newState.crops[dest] && !newState.crops[dest].collected) {
                     const crop = newState.crops[dest].type;
@@ -4130,7 +4130,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} \'97 click your por
                         setValidMoves([]);
                         
                         // Show message that it's now Blue's turn
-                        setTempMessage("Blue's turn \'97 move up to 3 spaces", 2500);
+                        setTempMessage("Blue's turn — move up to 3 spaces", 2500);
 
                         // Important: Update state first
                         setGameState(newState);
@@ -4812,7 +4812,7 @@ if (travel.length > 0) {
                         {_label} Player
                     </div>
 
-                    {/* 2\\'d72 wizard grid */}
+                    {/* 2×2 wizard grid */}
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr',
@@ -5948,7 +5948,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         lineHeight: '20px',
                                         textAlign: 'center'
                                     }}>
-                                        {(gameOver === 'yellow') ? 'Yellow wins!' : 'Blue wins!'} \'97 click to play again
+                                        {(gameOver === 'yellow') ? 'Yellow wins!' : 'Blue wins!'} — click to play again
                                     </div>
                                 </div>
                             </div>
@@ -6007,7 +6007,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         letterSpacing: '0.5px',
                                         textShadow: '0 2px 10px rgba(0,0,0,0.6)'
                                     }}>
-                                        {gameOver === 'yellow' ? 'Yellow' : 'Blue'} wins \'97 click anywhere to play again
+                                        {gameOver === 'yellow' ? 'Yellow' : 'Blue'} wins — click anywhere to play again
                                     </div>
                                 </div>
                             </div>
@@ -6090,7 +6090,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 return (!blocked)&&acted&&okZombie; 
                               } catch(e){ return false; } 
                             })())
-                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' \'97 click your portrait to end turn')
+                                ? (((gameState.currentPlayer === 'yellow') ? 'Yellow' : 'Blue') + ' — click your portrait to end turn')
                                 : hudMessage}
                         {showCropPickOption && gameState.currentPlayer === localPlayerKey && (
                           <span style={{ marginLeft: '12px', display: 'inline-flex', gap: '10px', alignItems: 'center' }}>
