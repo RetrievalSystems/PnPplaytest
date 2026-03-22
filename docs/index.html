@@ -586,7 +586,7 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 // We now link directly to: ./images/<CropName>.png (no multi-path fallback to avoid flashing).
 const buildCropIconCandidates = (name) => {
     const base = String(name || '').trim();
-    const noApos = base.replace(/['']/g, '');
+    const noApos = base.replace(/[’']/g, '');
     const noSpace = noApos.replace(/\s+/g, '');
     const dash = noApos.replace(/\s+/g, '-');
     const underscore = noApos.replace(/\s+/g, '_');
@@ -745,7 +745,7 @@ const ABODE_BYPASS = {
         const normKey = (s) => String(s||'')
             .toLowerCase()
             .replace(/&/g,'and')
-            .replace(/['']/g,'')
+            .replace(/['’]/g,'')
             .replace(/[^a-z0-9]+/g,' ')
             .trim();
 
@@ -1413,7 +1413,7 @@ const boardSlotRef = useRef(null);
                         x, y,
                         delay: rnd(0, 1.3),
                         dur: rnd(1.1, 2.2),
-                        emoji: (Math.random() < 0.5) ? '\uc0\u10022 ' : '\u10023 '
+                        emoji: (Math.random() < 0.5) ? '✦' : '✧'
                     });
                 }
                 return stars;
@@ -2241,7 +2241,7 @@ useEffect(() => {
                         } : null
                     };
                     
-                    console.log('\uc0\u55357 \u56548  Syncing game state:', syncData);
+                    console.log('📤 Syncing game state:', syncData);
                     window.syncAction('game_state', syncData);
                 }
             };
@@ -2287,7 +2287,7 @@ useEffect(() => {
                         }
                     };
                     
-                    console.log('\uc0\u55357 \u56548  Syncing FULL state:', fullState);
+                    console.log('📤 Syncing FULL state:', fullState);
                     window.syncAction('full_state', fullState);
                 }
             };
@@ -2298,7 +2298,7 @@ useEffect(() => {
                 if (isResyncing) return; // Prevent multiple resyncs
                 
                 setIsResyncing(true);
-                console.log('\uc0\u55357 \u56580  Resync requested');
+                console.log('🔄 Resync requested');
                 
                 // Clear all blocking states
                 setSpinning(false);
@@ -2335,7 +2335,7 @@ useEffect(() => {
                 }
                 
                 // Show resync feedback for 2 seconds
-                setTempMessage('\uc0\u55357 \u56580  Resyncing...', 1500);
+                setTempMessage('🔄 Resyncing...', 1500);
                 
                 setTimeout(() => {
                     setIsResyncing(false);
@@ -2667,7 +2667,7 @@ switch(spellKey) {
                         const mobOk = !!(mobPos && getDistance(from, mobPos) <= 1 && !newState.angryMob?.retreating);
 
                         if (!oppOk && !mobOk) {
-                            setTempMessage("Death's Breath cannot be cast — no valid targets.", 1800);
+                            setTempMessage("Death’s Breath cannot be cast — no valid targets.", 1800);
                             return;
                         }
 
@@ -2706,7 +2706,7 @@ switch(spellKey) {
                             
                             window._mobAnimating = false; // Clear flag so mob can be removed
                             newState.angryMob = null;
-                            console.log('\uc0\u9729 \u65039  Death\'s Breath abated the mob');
+                            console.log('☁️ Death\'s Breath abated the mob');
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
@@ -2732,7 +2732,7 @@ switch(spellKey) {
                         const mobPos = newState.angryMob?.position;
                         const mobOk = !!(mobPos && getDistance(from, mobPos) <= 3 && !newState.angryMob?.retreating);
                         
-                        console.log('\uc0\u55357 \u56613  Fiery Blast checks:', {
+                        console.log('🔥 Fiery Blast checks:', {
                             from,
                             mobPos,
                             distance: mobPos ? getDistance(from, mobPos) : 'N/A',
@@ -2768,7 +2768,7 @@ switch(spellKey) {
                             triggerFx(mobPos, 'mob');
                             window._mobAnimating = false; // Clear flag so mob can be removed
                             newState.angryMob = null;
-                            console.log('\uc0\u55357 \u56613  Fiery Blast abated the mob');
+                            console.log('🔥 Fiery Blast abated the mob');
                             try { playSfxFile('crowdscream', { volume: 0.35 }); } catch(e) {}
                             playAngryMobBurst(1500, 0, 0.35);
                             newState.villagerMood = 1;
@@ -2825,7 +2825,7 @@ switch(spellKey) {
                     case 'protection':
                         newState.players[caster].protected = true;
                         newState.players[caster].protectionTurns = 2; // Lasts for 2 turn endings (full round)
-                        console.log(`\uc0\u55357 \u57057 \u65039  ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell (lasts 2 turns)`);
+                        console.log(`🛡️ ${caster === 'yellow' ? 'Yellow' : 'Blue'} cast Protection spell (lasts 2 turns)`);
                         
                         // Destroy the OPPONENT's zombie (if they have one)
                         const zombieIdx = (newState.zombies || []).findIndex(z => z.owner === opponent);
@@ -2841,7 +2841,7 @@ switch(spellKey) {
                             
                             // Remove the zombie
                             newState.zombies.splice(zombieIdx, 1);
-                            console.log(`\uc0\u55357 \u56488  ${opponent === 'yellow' ? 'Yellow' : 'Blue'}'s zombie destroyed by Protection spell`);
+                            console.log(`💨 ${opponent === 'yellow' ? 'Yellow' : 'Blue'}'s zombie destroyed by Protection spell`);
                             
                             // Sync zombie removal to opponent
                             if (window.syncAction && !window._syncingState) {
@@ -2880,7 +2880,7 @@ switch(spellKey) {
                             },
                             zombies: newState.zombies // Include updated zombie list
                         });
-                        console.log('\uc0\u55357 \u57057 \u65039  Protection status synced to guest');
+                        console.log('🛡️ Protection status synced to guest');
                     }
                 }
                 
@@ -2950,7 +2950,7 @@ switch(spellKey) {
                     const mobDist = gameState.angryMob ? getDistance(p.position, gameState.angryMob.position) : 999;
                     const mobOk = gameState.angryMob && (mobDist <= 1);
                     const result = oppOk || mobOk;
-                    console.log('\uc0\u55357 \u56448  Death\'s Breath viability:', {
+                    console.log('💀 Death\'s Breath viability:', {
                         playerKey, 
                         playerPos: p.position,
                         oppPos: gameState.players[opp].position,
@@ -2976,7 +2976,7 @@ switch(spellKey) {
                     const mobDist = gameState.angryMob ? getDistance(p.position, gameState.angryMob.position) : 999;
                     const mobOk = !!(gameState.angryMob && (mobDist <= 3));
                     const result = oppOk || mobOk;
-                    console.log('\uc0\u55357 \u56613  Fiery Blast viability:', {
+                    console.log('🔥 Fiery Blast viability:', {
                         playerKey,
                         playerPos: p.position,
                         oppPos: gameState.players[opp].position,
@@ -3145,7 +3145,7 @@ switch(spellKey) {
                         });
                         break;
                                     case 'nothing': {
-                        setTempMessage('The sun shines, a gentle breeze... nothing happens.', 2400);
+                        setTempMessage('The sun shines, a gentle breeze… nothing happens.', 2400);
                         // Play a random ~3s clip of birds ambience
                         const a = playSfxFile('birds', { volume: 0.45, loop: false });
                         if (a) {
@@ -3707,7 +3707,7 @@ if (selectingTeleport) {
                             to: space,
                             inAbode: newState.players[player].inAbode
                         });
-                        console.log(`\uc0\u55357 \u56622  ${player === 'yellow' ? 'Yellow' : 'Blue'} teleported from ${fromPos} to ${space}`);
+                        console.log(`🔮 ${player === 'yellow' ? 'Yellow' : 'Blue'} teleported from ${fromPos} to ${space}`);
                     }
                     
                     // Sync full state (for spell removal and inventory)
@@ -3735,7 +3735,7 @@ if (selectingTeleport) {
                 // Check if clicking on own zombie (anytime during turn)
                 const zombieIdx = gameState.zombies.findIndex(z => z.position === space && z.owner === gameState.currentPlayer);
                 if (zombieIdx !== -1) {
-                    console.log('\uc0\u55358 \u56799  Clicked zombie:', {
+                    console.log('🧟 Clicked zombie:', {
                         zombieIdx, 
                         zombieHasMoved, 
                         zombieAttackReady, 
@@ -3746,18 +3746,18 @@ if (selectingTeleport) {
                     });
                     // If zombie has already moved and is sitting on the opponent, allow a commanded attack.
                     if (zombieHasMoved && zombieAttackReady === zombieIdx) {
-                        console.log('\uc0\u9876 \u65039  Commanding zombie attack!');
+                        console.log('⚔️ Commanding zombie attack!');
                         moveZombie(zombieIdx, space, { commandAttack: true });
                         return;
                     }
                     // Otherwise select it for movement (once per turn)
                     if (!zombieHasMoved) {
-                        console.log('\uc0\u55356 \u57263  Selecting zombie for movement');
+                        console.log('🎯 Selecting zombie for movement');
                         setSelectedZombie(zombieIdx);
                         setZombieValidMoves(getValidMoves(space, 3, { mode: 'zombie', actorKey: gameState.currentPlayer }));
                         return;
                     }
-                    console.log('\uc0\u9888 \u65039  Zombie already moved but not attack-ready');
+                    console.log('⚠️ Zombie already moved but not attack-ready');
                 }
 
                 // Player movement - only if hasn't moved yet
@@ -3803,7 +3803,7 @@ if (selectingTeleport) {
                 if (opts.commandAttack) {
                     // SAFETY: zombie owner must be the current player - block stale attacks
                     if (zombie.owner !== player) {
-                        console.warn('\uc0\u55357 \u57003  Blocked zombie attack: zombie owner mismatch', zombie.owner, 'vs current', player);
+                        console.warn('🚫 Blocked zombie attack: zombie owner mismatch', zombie.owner, 'vs current', player);
                         return;
                     }
                     const oppPos = newState.players[opponent].position;
@@ -3817,7 +3817,7 @@ if (selectingTeleport) {
                         // Mob abates
                         window._mobAnimating = false; // Clear flag so mob can be removed
                         newState.angryMob = null;
-                        console.log('\uc0\u55358 \u56799  Zombie attack abated the mob');
+                        console.log('🧟 Zombie attack abated the mob');
                         newState.villagerMood = 1;
                         
                         // Sync mob abatement to opponent (force removal)
@@ -4043,8 +4043,6 @@ if (selectingTeleport) {
                         newState.players[player].craftedThisTurn = false;
                     }
                     newState.hasMovedThisTurn = true;
-                    setSelectedZombie(null); // Clear zombie selection when player moves
-                    setZombieValidMoves([]);
 
                     // Once the player has moved, shrink + fade the occurrence glyph so it doesn't confuse the rest of the turn.
                     try { setShowOccurrence(false); setCurrentOccurrence(null); setSpinScale(1.0); } catch(e) {}
@@ -4090,8 +4088,6 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                         newState.players[player].craftedThisTurn = false;
                     }
                     newState.hasMovedThisTurn = true;
-                    setSelectedZombie(null); // Clear zombie selection when player moves
-                    setZombieValidMoves([]);
                     setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your portrait to end turn`, 1600);
 
                 if (!isVitality && newState.crops[dest] && !newState.crops[dest].collected) {
@@ -4146,9 +4142,9 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                                         crops: newState.crops,
                                         firstMove: true  // Flag for Blue's first move
                                     });
-                                    console.log('\uc0\u9989  Yellow first move complete - synced turn to Blue');
+                                    console.log('✅ Yellow first move complete - synced turn to Blue');
                                 } catch(e) {
-                                    console.error('\uc0\u10060  Sync failed after Yellow first move:', e);
+                                    console.error('❌ Sync failed after Yellow first move:', e);
                                 }
                             }, 50);
                         }
@@ -4278,12 +4274,12 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                 ['yellow', 'blue'].forEach(playerKey => {
                     if (newState.players[playerKey].protectionTurns > 0) {
                         newState.players[playerKey].protectionTurns--;
-                        console.log(`\uc0\u55357 \u57057 \u65039  ${playerKey === 'yellow' ? 'Yellow' : 'Blue'}'s protection: ${newState.players[playerKey].protectionTurns} turns remaining`);
+                        console.log(`🛡️ ${playerKey === 'yellow' ? 'Yellow' : 'Blue'}'s protection: ${newState.players[playerKey].protectionTurns} turns remaining`);
                         
                         if (newState.players[playerKey].protectionTurns <= 0) {
                             newState.players[playerKey].protected = false;
                             newState.players[playerKey].protectionTurns = 0;
-                            console.log(`\uc0\u55357 \u57057 \u65039  ${playerKey === 'yellow' ? 'Yellow' : 'Blue'}'s protection expired`);
+                            console.log(`🛡️ ${playerKey === 'yellow' ? 'Yellow' : 'Blue'}'s protection expired`);
                         }
                     }
                 });
@@ -4348,7 +4344,7 @@ if (newState.angryMob.frozenTurns && newState.angryMob.frozenTurns > 0) {
 }
 if (travel.length > 0) {
     const mobStart = newState.angryMob.position;
-    console.log('\uc0\u55357 \u56613  Mob attack sequence starting:', {
+    console.log('🔥 Mob attack sequence starting:', {
         mobStart,
         travel,
         mobEnd: travel[travel.length - 1],
@@ -4457,7 +4453,7 @@ if (travel.length > 0) {
                         window._mobAnimating = false; // Clear flag before removing mob
                         setGameState(prev => {
                             if (!prev) return prev;
-                            console.log('\uc0\u55357 \u57057 \u65039  Mob abated after hitting protected player');
+                            console.log('🛡️ Mob abated after hitting protected player');
                             return { ...prev, angryMob: null, villagerMood: 1 };
                         });
                         setTimeout(() => { try { syncGameState(); } catch(e) {} }, 50);
@@ -4776,7 +4772,7 @@ if (travel.length > 0) {
                                 pointerEvents: 'none'
                             }}
                         >
-                            \uc0\u10022 
+                            ✦
                         </div>
                     ))}
 
@@ -4812,7 +4808,7 @@ if (travel.length > 0) {
                         {_label} Player
                     </div>
 
-                    {/* 2×2 wizard grid */}
+                    {/* 2\'d72 wizard grid */}
                     <div style={{
                         display: 'grid',
                         gridTemplateColumns: '1fr 1fr',
@@ -5222,7 +5218,7 @@ return (
                                                     ? (gameState.currentPlayer === 'yellow' ? '2px solid #FACC15' : '2px solid #60A5FA')
                                                     : selectedSpace === space
                                                         ? (gameState.currentPlayer === 'yellow' ? '2px solid #FACC15' : '2px solid #60A5FA')
-                                                        : valid ? '1px solid rgba(20,15,10,0.35)' : '1px solid rgba(107,88,68,0.1)',
+                                                        : '1px solid rgba(107,88,68,0.2)',
                                                 borderRadius: '4px',
                                                 boxShadow: canMove
                                                     ? (gameState.currentPlayer === 'yellow' ? '0 0 10px rgba(250,204,21,0.45)' : '0 0 10px rgba(96,165,250,0.50)')
@@ -5296,27 +5292,27 @@ return (
 {freezeCastFx && freezeCastFx.space === space && (
                                                 <>
                                                     <div className="hw-freeze-ring" />
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(-18px, 6px)', animationDelay: '0s' }}>\uc0\u10052 \u65039 </div>
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(16px, 10px)', animationDelay: '0.15s' }}>\uc0\u10052 \u65039 </div>
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(4px, -8px)', animationDelay: '0.28s' }}>\uc0\u10052 \u65039 </div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(-18px, 6px)', animationDelay: '0s' }}>❄️</div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(16px, 10px)', animationDelay: '0.15s' }}>❄️</div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(4px, -8px)', animationDelay: '0.28s' }}>❄️</div>
                                                 </>
                                             )}
 
                                             {freezeCastFx && freezeCastFx.space === space && (
                                                 <>
                                                     <div className="hw-freeze-ring" />
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(-18px, 6px)', animationDelay: '0s' }}>\uc0\u10052 \u65039 </div>
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(16px, 10px)', animationDelay: '0.18s' }}>\uc0\u10052 \u65039 </div>
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(2px, -4px)', animationDelay: '0.33s' }}>\uc0\u10052 \u65039 </div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(-18px, 6px)', animationDelay: '0s' }}>❄️</div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(16px, 10px)', animationDelay: '0.18s' }}>❄️</div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(2px, -4px)', animationDelay: '0.33s' }}>❄️</div>
                                                 </>
                                             )}
 
                                             {thawFx && thawFx.space === space && (
                                                 <>
                                                     <div className="hw-thaw-cue" />
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(-16px, 4px)', animationDelay: '0s' }}>\uc0\u10024 </div>
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(14px, 8px)', animationDelay: '0.12s' }}>\uc0\u10024 </div>
-                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(2px, -6px)', animationDelay: '0.22s' }}>\uc0\u10024 </div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(-16px, 4px)', animationDelay: '0s' }}>✨</div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(14px, 8px)', animationDelay: '0.12s' }}>✨</div>
+                                                    <div className="hw-snow" style={{ transform: 'translate(-50%, -50%) translate(2px, -6px)', animationDelay: '0.22s' }}>✨</div>
                                                 </>
                                             )}
 
@@ -5331,16 +5327,16 @@ return (
                                                     {(gameState.players.yellow.frozen || gameState.players.yellow.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.yellow.protected && (
                                                         <>
-                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.00s' }}>\uc0\u11088 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.22s' }}>\uc0\u10024 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '70%', top: '32%', animationDelay: '0.46s' }}>\uc0\u10024 </div>
+                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.00s' }}>⭐</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.22s' }}>✨</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '70%', top: '32%', animationDelay: '0.46s' }}>✨</div>
                                                         </>
                                                     )}
                                                     {(gameState.players.yellow.frozen || gameState.players.yellow.freezeSfxPending) && (
                                                         <>
-                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>\uc0\u10052 \u65039 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>\uc0\u10052 \u65039 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>\uc0\u10052 \u65039 </div>
+                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>❄️</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>❄️</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>❄️</div>
                                                         </>
                                                     )}
                                                     <img
@@ -5368,16 +5364,16 @@ return (
                                                     {(gameState.players.blue.frozen || gameState.players.blue.freezeSfxPending) && <div className="hw-aura hw-freeze-aura" />}
                                                     {gameState.players.blue.protected && (
                                                         <>
-                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.00s' }}>\uc0\u11088 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.22s' }}>\uc0\u10024 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '70%', top: '32%', animationDelay: '0.46s' }}>\uc0\u10024 </div>
+                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.00s' }}>⭐</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.22s' }}>✨</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '70%', top: '32%', animationDelay: '0.46s' }}>✨</div>
                                                         </>
                                                     )}
                                                     {(gameState.players.blue.frozen || gameState.players.blue.freezeSfxPending) && (
                                                         <>
-                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>\uc0\u10052 \u65039 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>\uc0\u10052 \u65039 </div>
-                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>\uc0\u10052 \u65039 </div>
+                                                            <div className="hw-particle" style={{ fontSize: '16px', animationDelay: '0.10s' }}>❄️</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '30%', top: '35%', animationDelay: '0.34s' }}>❄️</div>
+                                                            <div className="hw-particle" style={{ fontSize: '14px', left: '72%', top: '38%', animationDelay: '0.58s' }}>❄️</div>
                                                         </>
                                                     )}
                                                     <img
@@ -5439,18 +5435,18 @@ return (
                                                         
                                                         if (z.owner !== gameState.currentPlayer) return;
 
-                                                        // MOB COLOC FIX: if zombie starts on mob space and is already selected,
-                                                        // second click on zombie attacks. First click just shows moves as normal.
-                                                        const mobColoc = (gameState.angryMob?.position || null) === z.position && !gameState.angryMob?.retreating;
-                                                        if (!zombieHasMoved && selectedZombie === i && mobColoc) {
-                                                            // Already selected and on mob - treat as command attack
+                                                        // MOB COLOC FIX: if zombie already at mob position (e.g. both spawn at 6F)
+                                                        // first click makes it attack-ready so player can immediately command attack.
+                                                        const zombieMobPos = gameState.angryMob?.position || null;
+                                                        if (!zombieHasMoved && zombieMobPos && z.position === zombieMobPos && !gameState.angryMob?.retreating) {
                                                             setZombieAttackReady(i);
                                                             setZombieHasMoved(true);
-                                                            moveZombie(i, z.position, { commandAttack: true });
+                                                            setSelectedZombie(null);
+                                                            setZombieValidMoves([]);
                                                             return;
                                                         }
 
-                                                        // If zombie already moved and is attack-ready, second click attacks.
+                                                        // If your zombie has already moved and is on the opponent, you may click it again to command an attack.
                                                         if (zombieHasMoved) {
                                                             if (zombieAttackReady === i) {
                                                                 moveZombie(i, z.position, { commandAttack: true });
@@ -5458,7 +5454,7 @@ return (
                                                             return;
                                                         }
 
-                                                        // First click: select zombie and show valid moves.
+                                                        // Otherwise: select it for movement (once per turn).
                                                         setSelectedZombie(i);
                                                         setZombieValidMoves(getValidMoves(space, 3, { mode: 'zombie', actorKey: gameState.currentPlayer }));
                                                     }}
@@ -5555,23 +5551,23 @@ return (
                                     >
                                         {e.kind === 'smoke' && (
                                             <div className="absolute inset-0 flex items-center justify-center">
-                                                <div style={{ fontSize: '33px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1' }}>\uc0\u9729 </div>
-                                                <div className="absolute" style={{ left: '22%', top: '20%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.2s' }}>\uc0\u9729 </div>
-                                                <div className="absolute" style={{ right: '22%', bottom: '22%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.32s' }}>\uc0\u9729 </div>
-                                                <div className="" style={{ fontSize: '20px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.48s' }}>\uc0\u9729 </div>
-                                                <div className="" style={{ fontSize: '18px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.62s' }}>\uc0\u9729 </div>
+                                                <div style={{ fontSize: '33px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1' }}>☁</div>
+                                                <div className="absolute" style={{ left: '22%', top: '20%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.2s' }}>☁</div>
+                                                <div className="absolute" style={{ right: '22%', bottom: '22%', fontSize: '28px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.32s' }}>☁</div>
+                                                <div className="" style={{ fontSize: '20px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.48s' }}>☁</div>
+                                                <div className="" style={{ fontSize: '18px', opacity: 0, animation: 'fxSmoke 2.6s ease-out 1', animationDelay: '0.62s' }}>☁</div>
                                             </div>
                                         )}
 
                                         {e.kind === 'confusion' && (
                                             <div className="absolute inset-0 flex items-center justify-center">
                                                 {/* Confusion marks with bouncy animation */}
-                                                <div className="absolute" style={{ fontSize: '36px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1' }}>\uc0\u10067 </div>
-                                                <div className="absolute" style={{ left: '20%', top: '15%', fontSize: '28px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.15s' }}>\uc0\u10071 </div>
-                                                <div className="absolute" style={{ right: '18%', top: '20%', fontSize: '32px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.3s' }}>\uc0\u10067 </div>
-                                                <div className="absolute" style={{ left: '25%', bottom: '25%', fontSize: '26px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.45s' }}>\uc0\u55358 \u56596 </div>
-                                                <div className="absolute" style={{ right: '20%', bottom: '18%', fontSize: '28px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.6s' }}>\uc0\u10071 </div>
-                                                <div className="absolute" style={{ left: '48%', top: '45%', fontSize: '22px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.75s' }}>\uc0\u10067 </div>
+                                                <div className="absolute" style={{ fontSize: '36px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1' }}>❓</div>
+                                                <div className="absolute" style={{ left: '20%', top: '15%', fontSize: '28px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.15s' }}>❗</div>
+                                                <div className="absolute" style={{ right: '18%', top: '20%', fontSize: '32px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.3s' }}>❓</div>
+                                                <div className="absolute" style={{ left: '25%', bottom: '25%', fontSize: '26px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.45s' }}>🤔</div>
+                                                <div className="absolute" style={{ right: '20%', bottom: '18%', fontSize: '28px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.6s' }}>❗</div>
+                                                <div className="absolute" style={{ left: '48%', top: '45%', fontSize: '22px', opacity: 0, animation: 'fxBounce 2.2s ease-out 1', animationDelay: '0.75s' }}>❓</div>
                                             </div>
                                         )}
 
@@ -5592,11 +5588,11 @@ return (
                                                 </div>
 
                                                 <div className="absolute inset-0 flex items-center justify-center">
-                                                    <div style={{ fontSize: '18px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.12s' }}>\uc0\u10024 </div>
-                                                    <div className="absolute" style={{ left: '15%', top: '18%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.22s' }}>\uc0\u11088 </div>
-                                                    <div className="absolute" style={{ right: '18%', top: '25%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.32s' }}>\uc0\u10024 </div>
-                                                    <div className="absolute" style={{ left: '25%', bottom: '22%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.42s' }}>\uc0\u11088 </div>
-                                                    <div className="absolute" style={{ right: '22%', bottom: '18%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.52s' }}>\uc0\u10024 </div>
+                                                    <div style={{ fontSize: '18px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.12s' }}>✨</div>
+                                                    <div className="absolute" style={{ left: '15%', top: '18%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.22s' }}>⭐</div>
+                                                    <div className="absolute" style={{ right: '18%', top: '25%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.32s' }}>✨</div>
+                                                    <div className="absolute" style={{ left: '25%', bottom: '22%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.42s' }}>⭐</div>
+                                                    <div className="absolute" style={{ right: '22%', bottom: '18%', fontSize: '16px', opacity: 0, animation: 'fxPop 3s ease-out 1', animationDelay: '0.52s' }}>✨</div>
                                                 </div>
                                             </>
                                         )}
@@ -5617,8 +5613,8 @@ return (
                                 return (
                                     <div style={{
                                         position: 'absolute',
-                                        left: 'calc(9% - 113px)',
-                                        top: 'calc(80% - 180px)',
+                                        left: 'calc(9% - 93px)',
+                                        top: 'calc(80% - 200px)',
                                         width: '60%',
                                         height: '30%',
                                         zIndex: 5200,
@@ -6242,7 +6238,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     e.currentTarget.style.transform = 'scale(1)';
                                 }}
                             >
-                                \uc0\u55357 \u56492 
+                                💬
                             </button>
 
                             {/* Chat input */}
@@ -6362,7 +6358,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     e.currentTarget.style.transform = 'scale(1)';
                                 }}
                             >
-                                \uc0\u55357 \u56492 
+                                💬
                             </button>
 
                             {/* Chat input */}
@@ -6597,7 +6593,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         fontWeight: 'bold',
                                         transition: 'color 0.2s'
                                     }}>
-                                        \uc0\u55357 \u56580 
+                                        🔄
                                     </div>
                                 </div>
                                 )}
@@ -6755,7 +6751,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                         fontWeight: 'bold',
                                         transition: 'color 0.2s'
                                     }}>
-                                        \uc0\u55357 \u56580 
+                                        🔄
                                     </div>
                                 </div>
                                 )}
@@ -6795,7 +6791,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
           ws = new WebSocket('wss://pnp-relay.onrender.com');
           
           ws.onopen = () => {
-            console.log('\uc0\u55357 \u57314 Connected');
+            console.log('🟢Connected');
             reconnecting = false;
             ws.send(JSON.stringify({type:'join_room',room:room,role:role}));
             updateBadge(true);
@@ -6804,7 +6800,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
             setTimeout(() => {
               if (isHost) {
                 // Host sends full initial state - use increased delay to ensure crops are loaded
-                console.log('\uc0\u55357 \u56548 Host sending initial state...');
+                console.log('📤Host sending initial state...');
                 setTimeout(() => {
                   if (window.syncFullState) {
                     window.syncFullState();
@@ -6812,11 +6808,11 @@ const renderGrid = (playerKey, spells, styleBase) => {
                 }, 200);
               } else {
                 // Guest requests initial state
-                console.log('\uc0\u55357 \u56549 Guest requesting initial state...');
+                console.log('📥Guest requesting initial state...');
                 
                 // Show waiting message
                 if (window.setTempMessage) {
-                  window.setTempMessage('\uc0\u9203 Syncing with host...', 10000);
+                  window.setTempMessage('⏳Syncing with host...', 10000);
                 }
                 
                 window.syncAction('request_state', {});
@@ -6825,14 +6821,14 @@ const renderGrid = (playerKey, spells, styleBase) => {
                 let retryCount = 0;
                 const retryInterval = setInterval(() => {
                   if (retryCount < 3) {
-                    console.log(`\uc0\u55357 \u56549 Guest retry ${retryCount + 1}: requesting initial state...`);
+                    console.log(`📥Guest retry ${retryCount + 1}: requesting initial state...`);
                     window.syncAction('request_state', {});
                     retryCount++;
                   } else {
                     clearInterval(retryInterval);
                     // If still not synced after retries, show error
                     if (window.setTempMessage) {
-                      window.setTempMessage('\uc0\u10060 Sync failed - try refreshing', 5000);
+                      window.setTempMessage('❌Sync failed - try refreshing', 5000);
                     }
                   }
                 }, 2000);
@@ -6844,7 +6840,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
           };
           
           ws.onmessage = (e) => {
-            console.log('\uc0\u55357 \u56552 Received:', e.data);
+            console.log('📨Received:', e.data);
             try {
               const d = JSON.parse(e.data);
               if(d.sender !== role && window.onSync) window.onSync(d);
@@ -6854,12 +6850,12 @@ const renderGrid = (playerKey, spells, styleBase) => {
           };
           
           ws.onerror = (e) => {
-            console.error('\uc0\u10060 Error:', e);
+            console.error('❌Error:', e);
             updateBadge(false);
           };
           
           ws.onclose = () => {
-            console.log('\uc0\u55357 \u56628 Disconnected');
+            console.log('🔴Disconnected');
             updateBadge(false);
             reconnecting = false;
             setTimeout(connect, 2000);
@@ -6878,26 +6874,26 @@ const renderGrid = (playerKey, spells, styleBase) => {
           b.style.cssText = 'position:fixed;bottom:10px;left:calc(77% + 26px);padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;z-index:7001;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:'+(isHost?'rgba(250,204,21,0.9)':'rgba(96,165,250,0.9)')+';color:white;height:22px;display:flex;align-items:center;';
           document.body.appendChild(b);
         }
-        b.textContent = (ok?'\uc0\u55357 \u57314 ':'\u55357 \u56628 ')+(isHost?'HOST':'GUEST');
+        b.textContent = (ok?'🟢':'🔴')+(isHost?'HOST':'GUEST');
       }
       
       window.syncAction = function(type, data) {
         if(ws && ws.readyState === WebSocket.OPEN) {
           const msg = JSON.stringify({type:type, data:data, room:room, sender:role});
-          console.log('\uc0\u55357 \u56548 Sending:', msg);
+          console.log('📤Sending:', msg);
           ws.send(msg);
         } else {
-          console.warn('\uc0\u9888 WebSocket not ready');
+          console.warn('⚠WebSocket not ready');
         }
       };
 
 // Handle incoming synced actions
 window.onSync = function(data) {
-  console.log('\uc0\u55356 \u57262 Synced action:', data.type, data.data);
+  console.log('🎮Synced action:', data.type, data.data);
 
   // Handle opponent's character selection
   if (data.type === 'char_select') {
-    console.log('\uc0\u55356 \u57261 Opponent picked character:', data.data.src);
+    console.log('🎭Opponent picked character:', data.data.src);
     window._opponentCharSelected = data.data.src;
     if (window.setGameState) window.setGameState(prev => ({...prev, _forceRender: Date.now()}));
   }
@@ -6910,7 +6906,7 @@ if (data.type === 'move') {
       window.setGameState(prev => {
         // If crops are still empty, fire a resync request (guest race condition safety net)
         if (prev.crops && Object.keys(prev.crops).length === 0 && window.syncAction) {
-          console.log('\uc0\u9888 \u65039 Crops still empty on move, requesting full state...');
+          console.log('⚠️Crops still empty on move, requesting full state...');
           setTimeout(() => window.syncAction('request_full_state', {}), 100);
         }
         return {
@@ -6934,7 +6930,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'teleport') {
-    console.log('\uc0\u55357 \u56622 Player teleported:', data.data);
+    console.log('🔮Player teleported:', data.data);
     // Update player position and show teleport beam effect
     if (data.data.player && data.data.to && window.setGameState) {
       window.setGameState(prev => ({
@@ -6975,7 +6971,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'zombie_destroyed') {
-    console.log('\uc0\u55357 \u56488 Zombie destroyed by Protection spell:', data.data);
+    console.log('💨Zombie destroyed by Protection spell:', data.data);
     // Trigger smoke effect at zombie's last position
     if (window.triggerFx && data.data.position) {
       window.triggerFx(data.data.position, 'smoke');
@@ -7009,7 +7005,7 @@ if (data.type === 'move') {
         if (data.data.firstMove) {
           // Blue's first move - allow moving without spinning
           window.setWheelSpunThisTurn(true);
-          console.log('\uc0\u9989 Blue first move - wheel pre-spun');
+          console.log('✅Blue first move - wheel pre-spun');
         } else {
           window.setWheelSpunThisTurn(false);
         }
@@ -7054,7 +7050,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'game_over') {
-    console.log('\uc0\u55356 \u57286 Game over received:', data.data.winner);
+    console.log('🏆Game over received:', data.data.winner);
     // Set flag to prevent re-broadcasting
     window._receivedWin = true;
     // Show win screen for both players
@@ -7065,7 +7061,7 @@ if (data.type === 'move') {
   
   // Handle request for initial state (from guest)
   if (data.type === 'request_state') {
-    console.log('\uc0\u55357 \u56549 Received state request from guest');
+    console.log('📥Received state request from guest');
     if (window.syncFullState) {
       // Host sends full state in response - delay to ensure state is ready
       setTimeout(() => {
@@ -7081,8 +7077,8 @@ if (data.type === 'move') {
   
   // Handle full state sync (from host)
   if (data.type === 'full_state') {
-    console.log('\uc0\u55357 \u56550 Received FULL state:', data.data);
-    console.log('\uc0\u55357 \u56550 Crops in full state:', data.data.crops);
+    console.log('📦Received FULL state:', data.data);
+    console.log('📦Crops in full state:', data.data.crops);
     window._syncingState = true;
     
     if (window.setGameState && data.data) {
@@ -7107,15 +7103,15 @@ if (data.type === 'move') {
         setTimeout(() => {
           if (window.setGameState) {
             window.setGameState(prev => ({ ...prev, _forceRender: Date.now() }));
-            console.log('\uc0\u55357 \u56580 Forced re-render for crop images');
+            console.log('🔄Forced re-render for crop images');
           }
         }, 250);
         
-        console.log('\uc0\u9989 Full state applied successfully', { cropsCount: Object.keys(newCrops).length });
+        console.log('✅Full state applied successfully', { cropsCount: Object.keys(newCrops).length });
 
        // Safety net: if crops came through empty, re-request after a delay (with cooldown to prevent loops)
         if (Object.keys(newCrops).length === 0) {
-          console.log('\uc0\u9888 \u65039 Crops empty in full_state, will retry...');
+          console.log('⚠️Crops empty in full_state, will retry...');
           const lastRequest = window._lastCropSyncRequest || 0;
           const now = Date.now();
           if (now - lastRequest > 5000) { // Only retry once every 5 seconds
@@ -7126,7 +7122,7 @@ if (data.type === 'move') {
               }
             }, 1000);
           } else {
-            console.log('\uc0\u9888 \u65039 Skipping retry - too soon since last request');
+            console.log('⚠️Skipping retry - too soon since last request');
           }
         }
         
@@ -7138,7 +7134,7 @@ if (data.type === 'move') {
         
         // Show success message
         if (window.setTempMessage) {
-          window.setTempMessage('\uc0\u9989 Synced with host', 2000);
+          window.setTempMessage('✅Synced with host', 2000);
         }
       } catch(e) {
         console.error('Error applying full state:', e);
@@ -7149,7 +7145,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'game_state') {
-    console.log('\uc0\u55357 \u56522 Game state sync received:', {
+    console.log('📊Game state sync received:', {
       hp: data.data.hp,
       protected: data.data.protected,
       frozen: data.data.frozen,
@@ -7192,7 +7188,7 @@ if (data.type === 'move') {
             yellow: { ...updated.players.yellow, protected: data.data.protected.yellow },
             blue: { ...updated.players.blue, protected: data.data.protected.blue }
           };
-          console.log('\uc0\u55357 \u57057 Protection status updated:', data.data.protected);
+          console.log('🛡Protection status updated:', data.data.protected);
         }
         
         // Update protectionTurns
@@ -7256,21 +7252,21 @@ if (data.type === 'move') {
         
         // Update angry mob (preserving target!)
         if (data.data.angryMob) {
-          console.log('\uc0\u55357 \u56441 Updating angry mob:', data.data.angryMob);
+          console.log('👹Updating angry mob:', data.data.angryMob);
           updated.angryMob = data.data.angryMob;
         } else if (data.data.angryMob === null) {
           // CRITICAL: Don't remove mob while it's animating
           if (window._mobAnimating) {
-            console.log('\uc0\u55357 \u56441 Keeping mob alive during animation (ignoring removal sync)');
+            console.log('👹Keeping mob alive during animation (ignoring removal sync)');
           } else {
-            console.log('\uc0\u55357 \u56441 Removing angry mob');
+            console.log('👹Removing angry mob');
             updated.angryMob = null;
           }
         }
         
         // Update zombies
         if (data.data.zombies !== undefined) {
-          console.log('\uc0\u55358 \u56799 Updating zombies:', data.data.zombies);
+          console.log('🧟Updating zombies:', data.data.zombies);
           updated.zombies = data.data.zombies;
         }
         
@@ -7283,7 +7279,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'mob_move') {
-    console.log('\uc0\u55357 \u56441 Mob movement sync received:', data.data);
+    console.log('👹Mob movement sync received:', data.data);
     if (window.setMobAnimPath && data.data.path) {
       try {
         // Play mob sound on guest
@@ -7311,7 +7307,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'mob_retreat') {
-    console.log('\uc0\u55357 \u56441 Mob retreat sync received:', data.data);
+    console.log('👹Mob retreat sync received:', data.data);
     if (window.setMobAnimPath && data.data.path) {
       try {
         // Start retreat animation immediately (the timing is already handled by the host)
@@ -7352,7 +7348,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'mob_abate') {
-    console.log('\uc0\u55357 \u56485 Mob abate sync received:', data.data);
+    console.log('💥Mob abate sync received:', data.data);
     // Force remove the mob regardless of animation state
     window._mobAnimating = false;
     if (window.setGameState) {
@@ -7379,7 +7375,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'spell_effect') {
-    console.log('\uc0\u10024 Spell effect sync received:', data.data);
+    console.log('✨Spell effect sync received:', data.data);
     try {
       if (data.data.effect === 'deathsBreath' && window.triggerDeathsBreathHaze && window.triggerCloud) {
         window.triggerDeathsBreathHaze(data.data.from);
@@ -7397,7 +7393,7 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'restart_game') {
-    console.log('\uc0\u55357 \u56580 Restart game received');
+    console.log('🔄Restart game received');
     // Set flag to prevent re-broadcasting
     window._receivedRestart = true;
     // Restart the game for both players
@@ -7422,24 +7418,24 @@ if (data.type === 'move') {
   }
   
   if (data.type === 'chat_message') {
-    console.log('\uc0\u55357 \u56492 Chat message received:', data.data);
+    console.log('💬Chat message received:', data.data);
     if (window.onChatMessage) {
       window.onChatMessage(data.data);
     }
   }
   
   if (data.type === 'occurrence_result') {
-    console.log('\uc0\u55356 \u57266 Occurrence result received:', data.data);
-    console.log('\uc0\u55357 \u56589 Debug - occurrence:', data.data.occurrence);
-    console.log('\uc0\u55357 \u56589 Debug - setCurrentOccurrence exists?', !!window.setCurrentOccurrence);
-    console.log('\uc0\u55357 \u56589 Debug - setShowOccurrence exists?', !!window.setShowOccurrence);
+    console.log('🎲Occurrence result received:', data.data);
+    console.log('🔍Debug - occurrence:', data.data.occurrence);
+    console.log('🔍Debug - setCurrentOccurrence exists?', !!window.setCurrentOccurrence);
+    console.log('🔍Debug - setShowOccurrence exists?', !!window.setShowOccurrence);
     // Display the occurrence message for the opponent
     if (window.setTempMessage && data.data.message) {
       window.setTempMessage(data.data.message, 2200);
     }
     // Also show the occurrence visually if provided
     if (data.data.occurrence && window.setCurrentOccurrence && window.setShowOccurrence) {
-      console.log('\uc0\u9989  Showing occurrence visually!');
+      console.log('✅ Showing occurrence visually!');
       window.setCurrentOccurrence(data.data.occurrence);
       window.setShowOccurrence(true);
       // Auto-hide after 2.5 seconds
@@ -7447,7 +7443,7 @@ if (data.type === 'move') {
         if (window.setShowOccurrence) window.setShowOccurrence(false);
       }, 2500);
     } else {
-      console.log('\uc0\u10060  Cannot show occurrence - missing:', {
+      console.log('❌ Cannot show occurrence - missing:', {
         hasOccurrence: !!data.data.occurrence,
         hasSetCurrent: !!window.setCurrentOccurrence,
         hasSetShow: !!window.setShowOccurrence
@@ -7457,7 +7453,7 @@ if (data.type === 'move') {
   
   // Handle manual resync request
   if (data.type === 'request_full_state') {
-    console.log('\uc0\u55357 \u56580 Full state requested by opponent');
+    console.log('🔄Full state requested by opponent');
     // Send our complete game state
     if (window.syncAction && window.latestStateRef && window.latestStateRef.current) {
       const state = window.latestStateRef.current;
@@ -7503,7 +7499,7 @@ if (data.type === 'move') {
   
   // Handle full state response
   if (data.type === 'full_state_response') {
-    console.log('\uc0\u55357 \u56580 Full state received from opponent:', data.data);
+    console.log('🔄Full state received from opponent:', data.data);
     if (window.setGameState && data.data.gameState) {
       window._syncingState = true;
       window.setGameState(prev => {
@@ -7535,7 +7531,7 @@ if (data.type === 'move') {
       
       // Show success message
       if (window.setTempMessage) {
-        window.setTempMessage('\uc0\u9989 Resynced', 1500);
+        window.setTempMessage('✅Resynced', 1500);
       }
     }
   }
