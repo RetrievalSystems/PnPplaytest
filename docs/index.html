@@ -4929,8 +4929,8 @@ return (
                 <div style={{
                     position: 'absolute',
                     left: 0, right: 0,
-                    top: `${(hpHits.yellow || 0) * 18.5 + 35}px`,
-                    transform: 'translateX(17px)',
+                    top: `${((hpHits.yellow || 0) * 18.5 + 35) / (hudRect.h * 0.21) * 100}%`,
+                    transform: 'translateX(13.5%)',
                     height: '20px',
                     background: 'rgba(250, 204, 21, 0.65)',
                     
@@ -4942,8 +4942,8 @@ return (
                 <div style={{
                     position: 'absolute',
                     left: 0, right: 0,
-                    top: `${(hpHits.blue || 0) * 18.5 + 35}px`,
-                    transform: 'translateX(-10px)',
+                    top: `${((hpHits.blue || 0) * 18.5 + 35) / (hudRect.h * 0.21) * 100}%`,
+                    transform: 'translateX(-7.9%)',
                     height: '20px',
                     background: 'rgba(120,190,255,0.65)',
                                             borderRadius: '6px'
@@ -4952,8 +4952,8 @@ return (
 
             <div id="board-slot" ref={boardSlotRef} style={{
                 position: 'absolute',
-                left: 'calc(22.0% - 38px)',
-                top: 'calc(3.5% - 27px)',
+                left: '19.4%',
+                top: '2.8%',
                 width: '61.88%',
                 height: '99%',
                 display: 'block',
@@ -5078,15 +5078,16 @@ return (
                             const c = spaceCenterPx(abode);
                             const size = CELL_PX * 1.55;
                             // Slightly bias outward (toward the board edge) so it creeps into the outer area a touch
-                            const biasX = (cp === 'yellow') ? -28 : 8;
-                            const biasY = (cp === 'yellow') ? 8 : -28;
+                            const biasX = (cp === 'yellow') ? -CELL_PX * 0.446 : CELL_PX * 0.128;
+                            const biasY = (cp === 'yellow') ? CELL_PX * 0.128 : -CELL_PX * 0.446;
+                            const abodeOff = CELL_PX * 0.558;
                             return (
                                 <div
                                     className="hw-abode-square"
                                     onClick={() => handleSpaceClick(abode)}
                                     style={{
-                                        left: (c.x + biasX - 35) + 'px',
-                                        top: (c.y + biasY - 35) + 'px',
+                                        left: (c.x + biasX - abodeOff) + 'px',
+                                        top: (c.y + biasY - abodeOff) + 'px',
                                         width: size + 'px',
                                         height: size + 'px'
                                     }}
@@ -6146,8 +6147,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             }}
                             style={{
                                 position: 'absolute',
-                                left: gameState.currentPlayer === 'yellow' ? 'calc(3.4% - 50px)' : 'calc(83.1% + 100px)',
-                                top: 'calc(4.2% + 30px)',
+                                left: gameState.currentPlayer === 'yellow' ? '0.1%' : '90.3%',
+                                top: '7.7%',
                                 width: '9.6%',
                                 height: '17.8%',
                                 borderRadius: '18px',
@@ -6167,8 +6168,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             alt="Yellow wizard portrait"
                             style={{
                                 position: 'absolute',
-                                left: 'calc(3.5% - 65px)',
-                                top: 'calc(8% - 5px)',
+                                left: '3.6%',
+                                top: '7.4%',
                                 width: '12.075%',
                                 height: 'auto',
                                 aspectRatio: '1',
@@ -6185,8 +6186,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             alt="Blue wizard portrait"
                             style={{
                                 position: 'absolute',
-                                right: 'calc(3.5% - 65px)',
-                                top: 'calc(8% - 10px)',
+                                right: '3.6%',
+                                top: '7.4%',
                                 width: '12.075%',
                                 height: 'auto',
                                 aspectRatio: '1',
@@ -6202,8 +6203,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         {/* Chat UI - Yellow Player */}
                         <div style={{
                             position: 'absolute',
-                            left: 'calc(3.4% - 30px)',
-                            top: 'calc(2% - 10px)',
+                            left: '1.3%',
+                            top: '0.8%',
                             zIndex: 7000,
                             pointerEvents: 'auto'
                         }}>
@@ -6322,8 +6323,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         {/* Chat UI - Blue Player */}
                         <div style={{
                             position: 'absolute',
-                            left: 'calc(83.1% + 150px)',
-                            top: 'calc(2% - 10px)',
+                            left: '93.6%',
+                            top: '0.8%',
                             zIndex: 7000,
                             pointerEvents: 'auto'
                         }}>
@@ -6443,7 +6444,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                         {!showSpellChart && !gameOver && (
                             <>
                                 {/* Yellow player's spell book */}
-                                <div style={{ position: 'absolute', left: 'calc(3.4% - 50px)', top: 'calc(22% + 32px)', width: '8.8%', maxWidth: '132px', zIndex: 9000 }}>
+                                <div style={{ position: 'absolute', left: '0.2%', top: '25.5%', width: '8.8%', maxWidth: '132px', zIndex: 9000 }}>
                                 {/* Late Blight cloud poof on yellow book (fires when blue casts blight) */}
                                 {(() => { const flash = window._blightBookFlash && localPlayer === 'blue' && (Date.now() - window._blightBookFlash < 700); return flash ? (
                                     <div className="hw-cloud" style={{ position: 'absolute', left: '15%', top: '5%', '--dx': '0px', '--dy': '-100px', '--s0': '0.7', '--s1': '1.1', zIndex: 9001, pointerEvents: 'none' }} />
@@ -6499,7 +6500,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        left: 'calc(77% - 30px)',
+                                        left: '74.9%',
                                         bottom: '10px',
                                         width: '22px',
                                         height: '22px',
@@ -6554,7 +6555,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        left: 'calc(77% - 2px)', // 28px to the right of music button (which is now at 77% - 30px)
+                                        left: '76.9%',n (which is now at 77% - 30px)
                                         bottom: '10px',
                                         width: '22px',
                                         height: '22px',
@@ -6601,7 +6602,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                 )}
                                 
                                 {/* Blue player's spell book */}
-                                <div style={{ position: 'absolute', right: 'calc(3.4% - 45px)', top: 'calc(22% + 32px)', width: '8.8%', maxWidth: '132px', zIndex: 9000 }}>
+                                <div style={{ position: 'absolute', right: '0.5%', top: '25.5%', width: '8.8%', maxWidth: '132px', zIndex: 9000 }}>
                                 {/* Late Blight cloud poof on blue book (fires when yellow casts blight) */}
                                 {(() => { const flash = window._blightBookFlash && localPlayer === 'yellow' && (Date.now() - window._blightBookFlash < 700); return flash ? (
                                     <div className="hw-cloud" style={{ position: 'absolute', left: '15%', top: '5%', '--dx': '0px', '--dy': '-100px', '--s0': '0.7', '--s1': '1.1', zIndex: 9001, pointerEvents: 'none' }} />
@@ -6657,7 +6658,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        right: 'calc(77% - 30px)',
+                                        right: '74.9%',
                                         bottom: '10px',
                                         width: '22px',
                                         height: '22px',
@@ -6712,7 +6713,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
                                     }}
                                     style={{
                                         position: 'absolute',
-                                        right: 'calc(77% - 2px)', // 28px to the left of music button (which is now at 77% - 30px)
+                                        right: '76.9%',n (which is now at 77% - 30px)
                                         bottom: '10px',
                                         width: '22px',
                                         height: '22px',
@@ -6873,7 +6874,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
         if(!b) {
           b = document.createElement('div');
           b.id = 'mp-badge';
-          b.style.cssText = 'position:fixed;bottom:10px;left:calc(77% + 26px);padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;z-index:7001;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:'+(isHost?'rgba(250,204,21,0.9)':'rgba(96,165,250,0.9)')+';color:white;height:22px;display:flex;align-items:center;';
+          b.style.cssText = 'position:fixed;bottom:10px;left:77.5%;padding:4px 8px;border-radius:4px;font-size:11px;font-weight:bold;z-index:7001;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:'+(isHost?'rgba(250,204,21,0.9)':'rgba(96,165,250,0.9)')+';color:white;height:22px;display:flex;align-items:center;';
           document.body.appendChild(b);
         }
         b.textContent = (ok?'🟢':'🔴')+(isHost?'HOST':'GUEST');
