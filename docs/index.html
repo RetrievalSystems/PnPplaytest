@@ -4928,9 +4928,9 @@ return (
                 <div style={{
                     position: 'absolute',
                     left: 0, right: 0,
-                    top: `${(hpHits.yellow || 0) * 18.5 + 35}px`,
-                    transform: 'translateX(17px)',
-                    height: '20px',
+                    top: `${((hpHits.yellow || 0) * 18.5 + 35) / (hudRect.h * 0.21) * 100}%`,
+                    transform: 'translateX(13.5%)',
+                    height: '11.3%',
                     background: 'rgba(250, 204, 21, 0.65)',
                     
                     borderRadius: '6px'
@@ -4941,9 +4941,9 @@ return (
                 <div style={{
                     position: 'absolute',
                     left: 0, right: 0,
-                    top: `${(hpHits.blue || 0) * 18.5 + 35}px`,
-                    transform: 'translateX(-10px)',
-                    height: '20px',
+                    top: `${((hpHits.blue || 0) * 18.5 + 35) / (hudRect.h * 0.21) * 100}%`,
+                    transform: 'translateX(-7.9%)',
+                    height: '11.3%',
                     background: 'rgba(120,190,255,0.65)',
                                             borderRadius: '6px'
                 }} />
@@ -4979,7 +4979,7 @@ return (
                         <div style={{
                             position: 'absolute',
                             right: '22.7%',
-                            bottom: '22.3%',
+                            bottom: '21.1%',
                             width: '22%',
                             height: '22%',
                             cursor: 'default',
@@ -5615,7 +5615,7 @@ return (
                                         position: 'absolute',
                                         left: '-4.8%',
                                         top: '64.0%',
-                                        width: '60%',
+                                        width: '58.9%',
                                         height: '22.5%',
                                         zIndex: 5200,
                                         pointerEvents: 'none'
@@ -6165,8 +6165,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             alt="Yellow wizard portrait"
                             style={{
                                 position: 'absolute',
-                                left: 'calc(3.5% - 65px)',
-                                top: 'calc(8% - 5px)',
+                                left: '3.7%',
+                                top: '7.4%',
                                 width: '12.075%',
                                 height: 'auto',
                                 aspectRatio: '1',
@@ -6183,8 +6183,8 @@ const renderGrid = (playerKey, spells, styleBase) => {
                             alt="Blue wizard portrait"
                             style={{
                                 position: 'absolute',
-                                right: 'calc(3.5% - 65px)',
-                                top: 'calc(8% - 10px)',
+                                right: '3.7%',
+                                top: '7.4%',
                                 width: '12.075%',
                                 height: 'auto',
                                 aspectRatio: '1',
