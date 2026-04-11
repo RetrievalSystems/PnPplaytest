@@ -5063,35 +5063,6 @@ return (
                             gap: '2px'
                         }}>
                         
-{(() => {
-                            const cp = gameState.currentPlayer;
-                            const player = gameState.players[cp];
-                            const abode = ABODES[cp];
-                            const adj = ABODE_ADJ[abode] || [];
-                            const canEnter = (!player.inAbode) && selectedSpace && !gameState.hasMovedThisTurn && validMoves.some(s => adj.includes(s));
-                            const canUseAbode = canEnter || player.inAbode;
-                            if (!canUseAbode) return null;
-                            const c = spaceCenterPx(abode);
-                            const size = CELL_PX * 1.55;
-                            const biasX = (cp === 'yellow') ? -28 : 8;
-                            const biasY = (cp === 'yellow') ? 8 : -28;
-                            return (
-                                <div
-                                    onClick={() => handleSpaceClick(abode)}
-                                    style={{
-                                        position: 'absolute',
-                                        left: (c.x + biasX - 35) + 'px',
-                                        top: (c.y + biasY - 35) + 'px',
-                                        width: size + 'px',
-                                        height: size + 'px',
-                                        cursor: 'pointer',
-                                        zIndex: 40,
-                                        background: 'transparent',
-                                        border: 'none'
-                                    }}
-                                />
-                            );
-                        })()}
 {cloudFx && (() => {
                             const a = spaceCenterPx(cloudFx.from);
                             const b = spaceCenterPx(cloudFx.to);
@@ -5471,6 +5442,36 @@ return (
                                     );
                                 })
                             )}
+                        {/* Abode click target - sibling of grid, high zIndex */}
+                        {(() => {
+                            const cp = gameState.currentPlayer;
+                            const player = gameState.players[cp];
+                            const abode = ABODES[cp];
+                            const adj = ABODE_ADJ[abode] || [];
+                            const canEnter = (!player.inAbode) && selectedSpace && !gameState.hasMovedThisTurn && validMoves.some(s => adj.includes(s));
+                            const canUseAbode = canEnter || player.inAbode;
+                            if (!canUseAbode) return null;
+                            const c = spaceCenterPx(abode);
+                            const size = CELL_PX * 1.55;
+                            const biasX = (cp === 'yellow') ? -28 : 8;
+                            const biasY = (cp === 'yellow') ? 8 : -28;
+                            return (
+                                <div
+                                    onClick={() => handleSpaceClick(abode)}
+                                    style={{
+                                        position: 'absolute',
+                                        left: (c.x + biasX - 35) + 'px',
+                                        top: (c.y + biasY - 35) + 'px',
+                                        width: size + 'px',
+                                        height: size + 'px',
+                                        cursor: 'pointer',
+                                        zIndex: 5500,
+                                        background: 'transparent',
+                                        border: 'none'
+                                    }}
+                                />
+                            );
+                        })()}
                         {/* Target selection overlay (hover reticle) */}
                         {pendingSpellTarget && pendingSpellTarget.targets && pendingSpellTarget.targets.map((t, i) => {
                             const c = spaceCenterPx(t.space);
