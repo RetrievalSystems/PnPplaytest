@@ -5442,7 +5442,7 @@ return (
                                     );
                                 })
                             )}
-                        {/* Abode click target - sibling of grid, high zIndex */}
+                        {/* Abode highlight + click target - inside grid so coords are correct */}
                         {(() => {
                             const cp = gameState.currentPlayer;
                             const player = gameState.players[cp];
@@ -5452,23 +5452,26 @@ return (
                             const canUseAbode = canEnter || player.inAbode;
                             if (!canUseAbode) return null;
                             const c = spaceCenterPx(abode);
-                            const size = CELL_PX * 1.55;
-                            const biasX = (cp === 'yellow') ? -CELL_PX * 0.446 : CELL_PX * 0.128;
-                            const biasY = (cp === 'yellow') ? CELL_PX * 0.128 : -CELL_PX * 0.446;
-                            const abodeOff = CELL_PX * 0.558;
+                            const hlColor = cp === 'yellow' ? 'rgba(250,204,21,0.45)' : 'rgba(96,165,250,0.45)';
+                            const hlBorder = cp === 'yellow' ? '2.5px solid rgba(250,204,21,0.9)' : '2.5px solid rgba(96,165,250,0.9)';
+                            const hlShadow = cp === 'yellow' ? '0 0 14px rgba(250,204,21,0.6)' : '0 0 14px rgba(96,165,250,0.6)';
+                            const size = CELL_PX * 1.6;
                             return (
                                 <div
                                     onClick={() => handleSpaceClick(abode)}
                                     style={{
                                         position: 'absolute',
-                                        left: (c.x + biasX - abodeOff) + 'px',
-                                        top: (c.y + biasY - abodeOff) + 'px',
+                                        left: (c.x - size / 2) + 'px',
+                                        top: (c.y - size / 2) + 'px',
                                         width: size + 'px',
                                         height: size + 'px',
+                                        background: hlColor,
+                                        border: hlBorder,
+                                        boxShadow: hlShadow,
+                                        borderRadius: '10px',
                                         cursor: 'pointer',
                                         zIndex: 5500,
-                                        background: 'transparent',
-                                        border: 'none'
+                                        pointerEvents: 'auto'
                                     }}
                                 />
                             );
