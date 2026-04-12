@@ -5453,15 +5453,16 @@ return (
                             if (!canUseAbode) return null;
                             const c = spaceCenterPx(abode);
                             const size = CELL_PX * 1.55;
-                            const biasX = (cp === 'yellow') ? -28 : 8;
-                            const biasY = (cp === 'yellow') ? 8 : -28;
+                            const biasX = (cp === 'yellow') ? -CELL_PX * 0.446 : CELL_PX * 0.128;
+                            const biasY = (cp === 'yellow') ? CELL_PX * 0.128 : -CELL_PX * 0.446;
+                            const abodeOff = CELL_PX * 0.558;
                             return (
                                 <div
                                     onClick={() => handleSpaceClick(abode)}
                                     style={{
                                         position: 'absolute',
-                                        left: (c.x + biasX - 35) + 'px',
-                                        top: (c.y + biasY - 35) + 'px',
+                                        left: (c.x + biasX - abodeOff) + 'px',
+                                        top: (c.y + biasY - abodeOff) + 'px',
                                         width: size + 'px',
                                         height: size + 'px',
                                         cursor: 'pointer',
