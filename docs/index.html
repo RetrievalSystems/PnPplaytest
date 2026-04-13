@@ -3833,6 +3833,8 @@ if (selectingTeleport) {
                         // remove zombie after attack (same as vs opponent)
                         newState.zombies.splice(zombieIdx, 1);
                         setZombieAttackReady(null);
+                        setSelectedZombie(null);
+                        setZombieValidMoves([]);
                         setGameState(newState);
                         
                         // Sync zombie removal and state after attack
@@ -5416,6 +5418,8 @@ return (
                                                         if (!zombieHasMoved && selectedZombie === i && mobColoc) {
                                                             setZombieAttackReady(i);
                                                             setZombieHasMoved(true);
+                                                            setSelectedZombie(null);
+                                                            setZombieValidMoves([]);
                                                             moveZombie(i, z.position, { commandAttack: true });
                                                             return;
                                                         }
@@ -5463,7 +5467,7 @@ return (
                             const baseCy = (rowIdx + 0.5) / 11 * 100;
                             const cx = cp === 'yellow' ? baseCx - 5 : baseCx + 5;
                             const cy = cp === 'yellow' ? baseCy + 5 : baseCy - 5;
-                            const sz = 1.6 / 11 * 100;
+                            const sz = 1.92 / 11 * 100;
                             const hlColor = cp === 'yellow' ? 'rgba(250,204,21,0.45)' : 'rgba(96,165,250,0.45)';
                             const hlBorder = cp === 'yellow' ? '2.5px solid rgba(250,204,21,0.9)' : '2.5px solid rgba(96,165,250,0.9)';
                             const hlShadow = cp === 'yellow' ? '0 0 14px rgba(250,204,21,0.6)' : '0 0 14px rgba(96,165,250,0.6)';
