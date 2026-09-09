@@ -17,13 +17,6 @@
             from { transform: rotate(0deg); }
             to { transform: rotate(360deg); }
         }
-        /* HOVER MAGNIFY: enlarge a crop on the board when the cursor is over its tile */
-        .relative.flex.items-center.justify-center.cursor-pointer:hover .hw-crop-live {
-            transform: scale(1.9) !important;
-            z-index: 60 !important;
-            transition: transform 0.15s ease-out !important;
-            filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.6)) drop-shadow(0 0 16px rgba(255,255,255,0.55)) !important;
-        }
         @keyframes pulse {
             0%, 100% { opacity: 0.8; transform: scale(1); }
             50% { opacity: 1; transform: scale(1.05); }
@@ -671,18 +664,6 @@ const CropIcon = ({ type, style, className }) => {
             protection: { name: 'Protection', ingredients: ['S', 'B'], desc: 'Block attacks next turn' }
         };
 
-        // Full rules text shown in the hover tooltip on the spell chart (see SpellChartModal).
-        const SPELL_RULES = {
-            freeze: "Chosen opponent loses their next turn and does not move from their current space. May be used on the angry mob in the same way.",
-            heal: "Player health moves back up 5 spaces (though cannot exceed the initial 9 HP).",
-            teleport: "Player can teleport to any space on the board, including their own abode. They can also teleport to and from their abode.",
-            deathsBreath: "Player must be on at least an adjacent space to an opponent - saps 4 health from opponent(s). Affects all opponents in the same space or adjacent to the conjurer.",
-            fieryBlast: "Player must be within at least 3 spaces of opponent(s) to use - saps 3 health. Affects all opponents within any 3-space vicinity.",
-            zombification: "A zombie is conjured from the graveyard, starting in the town square. This zombie may then also be moved up to 3 spaces in any chosen direction during the player's turn. It can stop to collect crops just like the player, but similarly its turn ends there. Also like the player, it must always move at least one space each turn. It can also be used to attack an opponent, taking 3 health as it reaches the opponent's space (only if an attack is commanded) - whereupon it will return to the grave. An opponent can undo the spell and send the zombie back to the grave by casting a protection spell.",
-            lateBlight: "Choose one of an opponent's crop tokens to remove from their spell chart.",
-            lateBloom: "Player picks any 2 crop tokens for vacant slots on their spell chart.",
-            protection: "Repels and cancels any attacks or ill effects for the next round. Sends an opponent's zombie back to the grave, and if the angry mob attacks, no damage is taken and the mob abates."
-        };
 
         // Spell card sprite-sheet order (3x3 grid) matches the SPELLS definition order above.
         const SPELL_CARD_ORDER = Object.keys(SPELLS);
@@ -784,9 +765,6 @@ const ABODE_BYPASS = {
             const [bloomCornerHolding, setBloomCornerHolding] = useState(false);
             const bloomCornerHoldTimer = useRef(null);
             const bloomCornerTapPending = useRef(false);
-
-            // HOVER HELP: which spell's rules tooltip is currently showing (null = none)
-            const [hoveredSpellKey, setHoveredSpellKey] = useState(null);
 
             const spellKeyByName = useMemo(() => {
                 const m = {};
@@ -1083,46 +1061,12 @@ const ABODE_BYPASS = {
                                         onClick={() => {
                                             if (clickable) onCraftSpell(sk);
                                         }}
-                                        onMouseEnter={() => setHoveredSpellKey(sk)}
-                                        onMouseLeave={() => setHoveredSpellKey(null)}
                                         title={isHeld ? "Spell already held (cast it to allow drafting again)" : (craftable ? (canCraftNow ? "Click to craft" : "Return to your Abode (and move) to craft") : "Not enough ingredients")}
                                     >
                                         <span className="sr-only">{s.name}</span>
                                     </button>
                                 );
                             })}
-
-                            {/* HOVER HELP: rules tooltip for whichever spell is currently hovered.
-                                Fixed positioning so it always stays on-screen and is never clipped
-                                by this chart's own overflow-hidden container. */}
-                            {hoveredSpellKey && SPELL_RULES[hoveredSpellKey] && (
-                                <div
-                                    style={{
-                                        position: 'fixed',
-                                        left: '50%',
-                                        bottom: '18px',
-                                        transform: 'translateX(-50%)',
-                                        maxWidth: '520px',
-                                        width: '92vw',
-                                        zIndex: 9700,
-                                        pointerEvents: 'none',
-                                        background: 'rgba(20,14,8,0.96)',
-                                        color: '#f3e6c8',
-                                        border: '2px solid #b89457',
-                                        borderRadius: '10px',
-                                        padding: '12px 18px',
-                                        fontSize: '0.92rem',
-                                        lineHeight: 1.45,
-                                        boxShadow: '0 10px 30px rgba(0,0,0,0.55)',
-                                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
-                                    }}
-                                >
-                                    <div style={{ fontWeight: 800, marginBottom: '4px', color: '#facc15' }}>
-                                        {SPELLS[hoveredSpellKey]?.name}
-                                    </div>
-                                    {SPELL_RULES[hoveredSpellKey]}
-                                </div>
-                            )}
                         </div>
                         {mode === 'view' && !canCraftNow && (
                             <div className="mt-3 text-center text-white/90 text-sm bg-black py-2 px-4 rounded" style={{ zIndex: 10000, position: 'relative' }}>
@@ -3536,34 +3480,25 @@ setPickRemaining(count);
                     snap.cropWheel = 1;
                     Object.keys(snap.crops).forEach(p => { snap.crops[p].collected = false; delete snap.crops[p].wither; }); // REGROW FIX
 
-                    // STANDING-ON-REGROW FIX: per the written rules ("If a player is standing on a
-                    // space when a crop reappears there, they may pick it up... If two or more players
-                    // are standing on a space when a crop reappears, they all receive it"), anyone
-                    // standing on a tile at the moment of a mass regrow should get first crack at it.
-                    // handleTurnStartCropCollection only ever checks the INCOMING player's position at
-                    // the start of THEIR turn, so a player standing on a tile that regrows was silently
-                    // skipped -- most commonly the outgoing player (since they're the one who just
-                    // advanced the wheel past 12), but check both positions for correctness since a
-                    // mass regrow resets the whole board regardless of whose turn it is.
-                    ['yellow', 'blue'].forEach(pk => {
-                        const standingPos = snap.players[pk].position;
-                        if (snap.crops[standingPos] && !snap.crops[standingPos].collected) {
-                            const regrowCropType = snap.crops[standingPos].type;
-                            const regrowCropCount = snap.players[pk].inventory[regrowCropType] || 0;
-                            const regrowCropMax = CROPS[regrowCropType].slots;
-                            // Always claim the tile (denies it to the other player even when capped --
-                            // matches the rules' "stop an opponent from claiming it later" allowance),
-                            // but only actually gain a token if there's room in that slot.
-                            if (regrowCropCount < regrowCropMax) {
-                                snap.players[pk].inventory[regrowCropType] = regrowCropCount + 1;
-                            }
+                    // STANDING-ON-REGROW FIX: the player who is ending their turn (and thus triggering
+                    // this mass regrow) never gets checked by handleTurnStartCropCollection -- that only
+                    // ever looks at the INCOMING player's position at the start of THEIR turn. So if the
+                    // outgoing player happens to be standing on a tile whose crop just regrew, it was
+                    // silently missed. Auto-collect it for them now (if they have inventory room; if
+                    // they're already capped, leave it as-is -- a future landing on the tile will still
+                    // trigger the normal Pick it/Leave it prompt).
+                    const standingPos = snap.players[playerKey].position;
+                    if (snap.crops[standingPos] && !snap.crops[standingPos].collected) {
+                        const regrowCropType = snap.crops[standingPos].type;
+                        const regrowCropCount = snap.players[playerKey].inventory[regrowCropType] || 0;
+                        const regrowCropMax = CROPS[regrowCropType].slots;
+                        if (regrowCropCount < regrowCropMax) {
+                            snap.players[playerKey].inventory[regrowCropType] = regrowCropCount + 1;
                             snap.crops[standingPos].collected = true;
-                            if (pk === playerKey) {
-                                setCollectedMessage(CROPS[regrowCropType]?.name || regrowCropType);
-                                setTempMessage(`${CROPS[regrowCropType]?.name || regrowCropType} regrew right under you -- collected!`, 2200);
-                            }
+                            setCollectedMessage(CROPS[regrowCropType]?.name || regrowCropType);
+                            setTempMessage(`${CROPS[regrowCropType]?.name || regrowCropType} regrew right under you -- collected!`, 2200);
                         }
-                    });
+                    }
 
                     setTempMessage('A new season — the crops re-emerge.', 2400);
                     playSfxFile('newseason', { volume: 0.7 });
@@ -3689,34 +3624,25 @@ const handleWheelClick = (e) => {
                     snap.cropWheel = 1;
                     Object.keys(snap.crops).forEach(p => { snap.crops[p].collected = false; delete snap.crops[p].wither; }); // REGROW FIX
 
-                    // STANDING-ON-REGROW FIX: per the written rules ("If a player is standing on a
-                    // space when a crop reappears there, they may pick it up... If two or more players
-                    // are standing on a space when a crop reappears, they all receive it"), anyone
-                    // standing on a tile at the moment of a mass regrow should get first crack at it.
-                    // handleTurnStartCropCollection only ever checks the INCOMING player's position at
-                    // the start of THEIR turn, so a player standing on a tile that regrows was silently
-                    // skipped -- most commonly the outgoing player (since they're the one who just
-                    // advanced the wheel past 12), but check both positions for correctness since a
-                    // mass regrow resets the whole board regardless of whose turn it is.
-                    ['yellow', 'blue'].forEach(pk => {
-                        const standingPos = snap.players[pk].position;
-                        if (snap.crops[standingPos] && !snap.crops[standingPos].collected) {
-                            const regrowCropType = snap.crops[standingPos].type;
-                            const regrowCropCount = snap.players[pk].inventory[regrowCropType] || 0;
-                            const regrowCropMax = CROPS[regrowCropType].slots;
-                            // Always claim the tile (denies it to the other player even when capped --
-                            // matches the rules' "stop an opponent from claiming it later" allowance),
-                            // but only actually gain a token if there's room in that slot.
-                            if (regrowCropCount < regrowCropMax) {
-                                snap.players[pk].inventory[regrowCropType] = regrowCropCount + 1;
-                            }
+                    // STANDING-ON-REGROW FIX: the player who is ending their turn (and thus triggering
+                    // this mass regrow) never gets checked by handleTurnStartCropCollection -- that only
+                    // ever looks at the INCOMING player's position at the start of THEIR turn. So if the
+                    // outgoing player happens to be standing on a tile whose crop just regrew, it was
+                    // silently missed. Auto-collect it for them now (if they have inventory room; if
+                    // they're already capped, leave it as-is -- a future landing on the tile will still
+                    // trigger the normal Pick it/Leave it prompt).
+                    const standingPos = snap.players[playerKey].position;
+                    if (snap.crops[standingPos] && !snap.crops[standingPos].collected) {
+                        const regrowCropType = snap.crops[standingPos].type;
+                        const regrowCropCount = snap.players[playerKey].inventory[regrowCropType] || 0;
+                        const regrowCropMax = CROPS[regrowCropType].slots;
+                        if (regrowCropCount < regrowCropMax) {
+                            snap.players[playerKey].inventory[regrowCropType] = regrowCropCount + 1;
                             snap.crops[standingPos].collected = true;
-                            if (pk === playerKey) {
-                                setCollectedMessage(CROPS[regrowCropType]?.name || regrowCropType);
-                                setTempMessage(`${CROPS[regrowCropType]?.name || regrowCropType} regrew right under you -- collected!`, 2200);
-                            }
+                            setCollectedMessage(CROPS[regrowCropType]?.name || regrowCropType);
+                            setTempMessage(`${CROPS[regrowCropType]?.name || regrowCropType} regrew right under you -- collected!`, 2200);
                         }
-                    });
+                    }
 
                     setTempMessage('A new season — the crops re-emerge.', 2400);
                     playSfxFile('newseason', { volume: 0.7 });
@@ -5395,7 +5321,7 @@ return (
 
                                             {crop && (
                                                 <CropIcon
-                                                    className={"absolute" + (crop.collected ? "" : " hw-crop-live")}
+                                                    className="absolute"
                                                     type={crop.type}
                                                     style={{
                                                         width: '120%',

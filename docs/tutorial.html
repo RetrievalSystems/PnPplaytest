@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Potions &amp; Pitchforks — How to Play</title>
+<style>
+  :root{
+    --parchment:#f3e6c8;
+    --parchment-dark:#e6d4a8;
+    --ink:#3b2a1a;
+    --ink-soft:#6b5638;
+    --wood:#5b3d24;
+    --wood-dark:#3b2717;
+    --yellow:#facc15;
+    --yellow-dim:rgba(250,204,21,0.25);
+    --blue:#60a5fa;
+    --blue-dim:rgba(96,165,250,0.25);
+    --cell:46px;
+    --good:#4f9d5a;
+    --bad:#b5432e;
+    --shadow: 0 8px 24px rgba(0,0,0,0.25);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background: radial-gradient(ellipse at top, #2a1c10 0%, #140d07 70%);
+    color: var(--ink);
+    font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+    min-height:100vh;
+    padding: 24px 14px 60px;
+  }
+  .wrap{ max-width: 980px; margin: 0 auto; }
+
+  header.hero{
+    text-align:center;
+    color:#f3e6c8;
+    margin-bottom: 22px;
+  }
+  header.hero h1{
+    font-size: 2.1rem;
+    margin: 0 0 6px;
+    letter-spacing: 0.5px;
+    text-shadow: 0 3px 10px rgba(0,0,0,0.6);
+  }
+  header.hero p{
+    margin:0; color:#cbb98c; font-size:0.98rem;
+  }
+
+  .card{
+    background: var(--parchment);
+    border: 1px solid var(--wood-dark);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+    padding: 26px 28px 22px;
+    position: relative;
+    overflow:hidden;
+  }
+  .card::before{
+    content:"";
+    position:absolute; inset:0;
+    background-image: radial-gradient(rgba(90,60,20,0.05) 1px, transparent 1px);
+    background-size: 4px 4px;
+    pointer-events:none;
+  }
+
+  .progress{
+    display:flex; justify-content:center; gap:7px; margin: 16px 0 26px;
+  }
+  .progress .dot{
+    width:9px; height:9px; border-radius:50%;
+    background: rgba(243,230,200,0.25);
+    border: 1px solid rgba(243,230,200,0.4);
+    cursor:pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .progress .dot.active{ background: var(--yellow); transform: scale(1.25); }
+  .progress .dot:hover{ background: rgba(250,204,21,0.6); }
+
+  h2.step-title{
+    margin: 0 0 4px;
+    font-size: 1.5rem;
+    color: var(--ink);
+  }
+  .step-kicker{
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    font-size: 0.72rem;
+    color: var(--ink-soft);
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    margin-bottom: 8px;
+  }
+  .step-body{
+    font-size: 1.02rem;
+    line-height: 1.55;
+    color: var(--ink);
+    max-width: 62ch;
+  }
+  .step-body p{ margin: 0 0 12px; }
+  .step-body strong{ color:#5b3d24; }
+
+  .layout{
+    display:flex; gap: 28px; flex-wrap: wrap; margin-top: 18px;
+  }
+  .layout .text-col{ flex: 1 1 300px; min-width: 260px; }
+  .layout .board-col{ flex: 0 0 auto; margin: 0 auto; }
+
+  /* ---------- Board ---------- */
+  .board-frame{
+    background: var(--wood);
+    border: 6px solid var(--wood-dark);
+    border-radius: 10px;
+    padding: 14px;
+    box-shadow: inset 0 0 30px rgba(0,0,0,0.4);
+  }
+  .board-grid{
+    position: relative;
+    display: grid;
+    grid-template-columns: repeat(11, var(--cell));
+    grid-template-rows: repeat(11, var(--cell));
+    gap: 2px;
+    background: #2c1c10;
+  }
+  .tile{
+    position: relative;
+    background: var(--parchment-dark);
+    border: 1px solid rgba(59,42,26,0.35);
+    display:flex; align-items:center; justify-content:center;
+    font-size: 0.55rem;
+    overflow: hidden;
+  }
+  .tile.empty{ background: transparent; border: none; }
+  .tile.path{ background: #ddc79a; }
+  .tile.village{
+    background: radial-gradient(circle, #f3d9a4 0%, #ddc79a 70%);
+    border: 1px solid #8a6a3a;
+  }
+  .tile.crop img{ width: 76%; height: 76%; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.4)); }
+  .tile.crop.collected{ background:#c9b183; }
+  .tile.crop.collected img{ opacity: 0.18; filter: grayscale(1); }
+  .tile.crop.withered img{ opacity: 0.25; filter: grayscale(1) sepia(0.4); }
+  .tile.abode-yellow{ background: linear-gradient(160deg, #fde68a, #facc15); border: 2px solid #a5760a; }
+  .tile.abode-blue{ background: linear-gradient(160deg, #bfdbfe, #60a5fa); border: 2px solid #1d4ed8; }
+  .tile.abode-yellow, .tile.abode-blue{
+    font-family: -apple-system, sans-serif; font-weight: 700; color: #3b2a1a; font-size: 0.62rem; text-align:center;
+  }
+  .tile.unused{ background: repeating-linear-gradient(45deg, #cbb896, #cbb896 4px, #bfa87e 4px, #bfa87e 8px); opacity:0.5; }
+  .tile.highlight{ outline: 3px solid #22c55e; outline-offset: -3px; box-shadow: 0 0 10px rgba(34,197,94,0.8) inset; z-index: 3; }
+  .tile.pulse{ animation: pulseTile 1.1s ease-in-out infinite; }
+  @keyframes pulseTile{
+    0%,100%{ box-shadow: 0 0 0 rgba(250,204,21,0.0) inset; }
+    50%{ box-shadow: 0 0 14px rgba(250,204,21,0.9) inset; }
+  }
+
+  .token{
+    position: absolute;
+    width: calc(var(--cell) * 0.82);
+    height: calc(var(--cell) * 0.82);
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    transition: left 0.55s ease, top 0.55s ease;
+    z-index: 5;
+    border: 2px solid rgba(255,255,255,0.85);
+  }
+  .token.yellow{ border-color: #a5760a; }
+  .token.blue{ border-color: #1d4ed8; }
+
+  .fx-smoke{
+    position:absolute; width: var(--cell); height: var(--cell);
+    border-radius:50%;
+    background: radial-gradient(circle, rgba(150,150,150,0.9), rgba(150,150,150,0));
+    animation: smokeOut 0.9s ease-out forwards;
+    z-index: 6; pointer-events:none;
+  }
+  @keyframes smokeOut{
+    0%{ transform: scale(0.3); opacity:0.9; }
+    100%{ transform: scale(1.8); opacity:0; }
+  }
+
+  .legend{
+    display:flex; flex-wrap:wrap; gap:8px; margin-top:14px;
+  }
+  .legend button{
+    font-family: -apple-system, sans-serif;
+    font-size: 0.78rem;
+    background: #fff8e6;
+    border: 1px solid #b89457;
+    border-radius: 20px;
+    padding: 5px 12px;
+    cursor:pointer;
+    color: var(--ink);
+    transition: background 0.15s;
+  }
+  .legend button:hover, .legend button.active{ background: var(--yellow); }
+
+  /* ---------- Controls ---------- */
+  .action-row{
+    margin-top: 18px;
+    display:flex; gap:10px; flex-wrap:wrap; align-items:center;
+  }
+  .btn{
+    font-family: -apple-system, 'Segoe UI', sans-serif;
+    font-size: 0.92rem;
+    font-weight: 600;
+    padding: 9px 18px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.12s, box-shadow 0.12s;
+  }
+  .btn:active{ transform: translateY(1px); }
+  .btn-primary{ background: var(--yellow); color:#3b2a1a; box-shadow: 0 3px 0 #a5760a; }
+  .btn-primary:hover{ box-shadow: 0 4px 0 #a5760a; }
+  .btn-primary:disabled{ opacity:0.4; cursor:not-allowed; box-shadow:none; }
+  .btn-ghost{ background: transparent; border: 1px solid var(--ink-soft); color: var(--ink); }
+  .btn-ghost:hover{ background: rgba(59,42,26,0.06); }
+  .hint-msg{ font-family:-apple-system, sans-serif; font-size:0.85rem; color:var(--ink-soft); font-style:italic; }
+
+  nav.stepnav{
+    display:flex; justify-content: space-between; align-items:center;
+    margin-top: 28px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(59,42,26,0.25);
+  }
+  nav.stepnav .step-count{ font-family:-apple-system, sans-serif; font-size:0.8rem; color: var(--ink-soft); }
+
+  /* ---------- Mood gauge ---------- */
+  .mood-gauge{ display:flex; gap:4px; margin: 10px 0; }
+  .mood-seg{ width: 26px; height: 14px; border-radius:3px; background:#d8c9a0; border:1px solid #8a6a3a; }
+  .mood-seg.filled{ background: linear-gradient(90deg, var(--good), var(--bad)); }
+  .mood-label{ font-family:-apple-system, sans-serif; font-size:0.78rem; color:var(--ink-soft); }
+
+  /* ---------- Occurrence wheel ---------- */
+  .wheel-area{ display:flex; flex-direction:column; align-items:center; gap: 14px; }
+  .wheel-pointer{
+    width:0;height:0;
+    border-left: 10px solid transparent;
+    border-right: 10px solid transparent;
+    border-top: 16px solid #b5432e;
+    margin-bottom: -4px; z-index: 2;
+  }
+  .wheel-outer{
+    width: 230px; height: 230px; border-radius:50%;
+    border: 8px solid var(--wood-dark);
+    box-shadow: var(--shadow);
+    position:relative;
+    background: #2c1c10;
+  }
+  .wheel{
+    position:absolute; inset:6px; border-radius:50%;
+    transition: transform 3.1s cubic-bezier(0.12,0.8,0.15,1);
+  }
+  .wheel .slot{
+    position:absolute; left:50%; top:50%;
+    width: 70px;
+    text-align:center;
+    transform-origin: 0 0;
+    font-family:-apple-system, sans-serif; font-size:0.62rem; font-weight:700;
+    color: #3b2a1a;
+    line-height: 1.15;
+  }
+  .wheel .slot img{ width:30px; height:30px; display:block; margin: 0 auto 3px; filter: drop-shadow(0 1px 1px rgba(0,0,0,0.5)); }
+  .wheel-hub{
+    position:absolute; left:50%; top:50%; width:34px; height:34px;
+    background: var(--wood-dark); border-radius:50%;
+    transform: translate(-50%,-50%);
+    box-shadow: 0 0 0 3px #cbb896;
+  }
+  .occ-result{
+    min-height: 90px;
+  }
+  .occ-badge{
+    display:inline-flex; align-items:center; gap:8px;
+    background:#fff8e6; border:1px solid #b89457; border-radius:20px;
+    padding: 6px 14px; font-family:-apple-system, sans-serif; font-weight:700; font-size:0.85rem;
+  }
+  .occ-badge img{ width:22px; height:22px; }
+
+  /* crop wheel dial */
+  .cropdial{ display:flex; align-items:center; gap:14px; margin-top:10px; }
+  .cropdial-face{
+    width:64px; height:64px; border-radius:50%;
+    background: conic-gradient(from -90deg, #d8c9a0 0deg calc(var(--dial-pct,8%)), #8a6a3a 0deg);
+    border: 3px solid var(--wood-dark);
+    display:flex; align-items:center; justify-content:center;
+    font-family:-apple-system, sans-serif; font-weight:700; font-size:0.9rem;
+    transition: background 0.6s;
+  }
+
+  .inv-strip{ display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; min-height: 34px; }
+  .inv-chip{
+    width:30px;height:30px;border-radius:6px; background:#fff8e6; border:1px solid #b89457;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .inv-chip img{ width:80%; height:80%; object-fit:contain; }
+
+  figure.ref-shot{ margin: 0 0 16px; text-align:center; }
+  figure.ref-shot img{ max-width: 320px; width:100%; border-radius:8px; border:3px solid var(--wood-dark); box-shadow: var(--shadow); }
+  figure.ref-shot figcaption{ font-family:-apple-system, sans-serif; font-size:0.76rem; color: var(--ink-soft); margin-top:6px; }
+
+  .callout{
+    background: rgba(181,67,46,0.08);
+    border-left: 3px solid var(--bad);
+    padding: 10px 14px;
+    border-radius: 6px;
+    font-size: 0.92rem;
+    margin-top: 12px;
+  }
+  .callout.good{ background: rgba(79,157,90,0.1); border-left-color: var(--good); }
+
+  @media (max-width: 640px){
+    :root{ --cell: 30px; }
+    .layout{ flex-direction: column; }
+    .board-col{ margin: 0 auto; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Potions &amp; Pitchforks</h1>
+    <p>An interactive, step-by-step guide for new players — built from the live game.</p>
+  </header>
+
+  <div class="card">
+    <div id="stepContent"></div>
+
+    <nav class="stepnav">
+      <button class="btn btn-ghost" id="btnBack">&larr; Back</button>
+      <span class="step-count" id="stepCount"></span>
+      <button class="btn btn-primary" id="btnNext">Next &rarr;</button>
+    </nav>
+  </div>
+
+  <div class="progress" id="progressDots"></div>
+
+</div>
+
+<script>
+/* =========================================================================
+   POTIONS & PITCHFORKS — INTERACTIVE TUTORIAL (v1 draft)
+   -------------------------------------------------------------------------
+   Standalone page, separate from index.html (the live game). Reuses the
+   real board geometry / crop list / occurrence list from the game's source
+   so the diagrams here are accurate, but the board itself is drawn as a
+   clean schematic (not a pixel overlay on the photographed board art) so
+   it's easy for us to keep editing.
+
+   This is a first pass covering exactly what was asked for: the board
+   layout, the very first move, and the crop-wheel + occurrence-wheel turn
+   cycle with the wheel spinning and landing on each outcome. Spells,
+   zombies, the angry mob's full chase, and combat are flagged at the end
+   as the natural next sections rather than crammed in shallowly here.
+   ========================================================================= */
+
+  // ---- Real board geometry, taken from the live game's source ----------
+  const COLS = ['A','B','C','D','E','F','G','H','I','J','K'];
+  const ABODES = { yellow: '11A', blue: '1K' };
+  const UNUSED_ABODES = ['1A','11K'];
+  const VILLAGE_SQUARE = '6F';
+
+  function buildValidSpaces(){
+    const spaces = [];
+    [1,6,11].forEach(row => COLS.forEach(col => spaces.push(`${row}${col}`)));
+    [2,3,4,5,7,8,9,10].forEach(row => ['A','F','K'].forEach(col => spaces.push(`${row}${col}`)));
+    return spaces.filter(s => s !== ABODES.yellow && s !== ABODES.blue);
+  }
+  const VALID_SPACES = buildValidSpaces();
+
+  // The 13 crop plots (12 shuffle-able crops + the fixed Foxglove at the
+  // village square). Real game shuffles these randomly each match; this
+  // tutorial fixes one arrangement so the walkthrough is repeatable.
+  const CROP_POSITIONS = ['1D','1G','1I','3A','5A','8A','6F','7K','9K','4K','11C','11E','11H'];
+  const CROP_AT = {
+    '1D':'G', '1G':'M', '1I':'N', '3A':'C', '5A':'V', '8A':'O',
+    '6F':'F', '7K':'P', '9K':'L', '4K':'S', '11C':'A', '11E':'B', '11H':'E'
+  };
+  const CROPS = {
+    A:{ name:'Aloe', img:'images/aloe.png' },
+    B:{ name:'Balm', img:'images/balm.png' },
+    C:{ name:'Chamomile', img:'images/chamomile.png' },
+    E:{ name:'Eucalyptus', img:'images/eucalyptus.png' },
+    F:{ name:'Foxglove', img:'images/foxglove.png' },
+    G:{ name:'Ginseng', img:'images/ginseng.png' },
+    L:{ name:'Lily of the Valley', img:'images/lily.png' },
+    M:{ name:'Marigold', img:'images/marigold.png' },
+    N:{ name:'Nasturtium', img:'images/nasturtium.png' },
+    O:{ name:'Oleander', img:'images/oleander.png' },
+    P:{ name:'Peppermint', img:'images/peppermint.png' },
+    S:{ name:"St John's Wort", img:'images/St_Johns_Wort.png' },
+    V:{ name:'Valerian', img:'images/valerian.png' }
+  };
+
+  const OCCURRENCES = [
+    { id:'nothing', name:'Nothing', img:'images/nothing.png' },
+    { id:'upset',   name:'Villager Upset', img:'images/villagerupset.png' },
+    { id:'blight',  name:'Blight', img:'images/blight.png' },
+    { id:'bloom',   name:'Bloom', img:'images/bloom.png' },
+    { id:'vitality',name:'Vitality', img:'images/vitality.png' },
+    { id:'lethargy',name:'Lethargy', img:'images/lethargy.png' }
+  ];
+
+  function colIdx(col){ return COLS.indexOf(col); }
+  function parseSpace(sp){
+    const m = String(sp).match(/^(\d+)([A-K])$/);
+    return { row: parseInt(m[1],10), col: m[2] };
+  }
+  function dist(a,b){
+    const pa = parseSpace(a), pb = parseSpace(b);
+    return Math.abs(pa.row-pb.row) + Math.abs(colIdx(pa.col)-colIdx(pb.col));
+  }
+
+  // ---- Fresh board-state factory ---------------------------------------
+  function freshState(){
+    const crops = {};
+    CROP_POSITIONS.forEach(p => { crops[p] = { type: CROP_AT[p], collected:false, withered:false }; });
+    return {
+      yellowPos: ABODES.yellow,
+      bluePos: ABODES.blue,
+      crops,
+      mood: 1,            // 1 = happy, 5 = mob storms out
+      cropWheel: 1,        // 1..12
+      inventory: { yellow: [], blue: [] },
+      highlights: []
+    };
+  }
+
+  // ---- Board renderer ----------------------------------------------------
+  // Draws `state` into `container`. Returns handles for animating later.
+  function renderBoard(container, state, opts){
+    opts = opts || {};
+    container.innerHTML = '';
+    const frame = document.createElement('div'); frame.className = 'board-frame';
+    const grid = document.createElement('div'); grid.className = 'board-grid';
+    frame.appendChild(grid);
+    container.appendChild(frame);
+
+    const tileEls = {};
+    for(let row=1; row<=11; row++){
+      for(let ci=0; ci<11; ci++){
+        const col = COLS[ci];
+        const sp = `${row}${col}`;
+        const el = document.createElement('div');
+        el.style.gridRow = row; el.style.gridColumn = ci+1;
+        el.dataset.space = sp;
+
+        if(sp === ABODES.yellow){
+          el.className = 'tile abode-yellow'; el.textContent = 'Yellow Shelter';
+        } else if(sp === ABODES.blue){
+          el.className = 'tile abode-blue'; el.textContent = 'Blue Shelter';
+        } else if(UNUSED_ABODES.includes(sp)){
+          el.className = 'tile unused';
+        } else if(!VALID_SPACES.includes(sp)){
+          el.className = 'tile empty';
+        } else if(sp === VILLAGE_SQUARE){
+          el.className = 'tile village';
+          const c = state.crops[sp];
+          if(c){
+            const img = document.createElement('img');
+            img.src = CROPS[c.type].img;
+            if(c.collected || c.withered) el.classList.add(c.withered ? 'withered':'collected');
+            el.appendChild(img);
+          }
+        } else if(state.crops[sp]){
+          el.className = 'tile crop';
+          const c = state.crops[sp];
+          const img = document.createElement('img');
+          img.src = CROPS[c.type].img;
+          el.appendChild(img);
+          if(c.collected) el.classList.add('collected');
+          if(c.withered) el.classList.add('withered');
+        } else {
+          el.className = 'tile path';
+        }
+
+        if(state.highlights && state.highlights.includes(sp)){
+          el.classList.add('highlight');
+        }
+
+        grid.appendChild(el);
+        tileEls[sp] = el;
+      }
+    }
+
+    // Tokens (absolutely positioned over the grid using the same cell math)
+    const cellPx = getComputedStyle(document.documentElement).getPropertyValue('--cell').trim();
+    const cell = parseFloat(cellPx);
+    function tileXY(sp){
+      const p = parseSpace(sp);
+      const x = colIdx(p.col) * (cell+2);
+      const y = (p.row-1) * (cell+2);
+      return {x,y};
+    }
+    function makeToken(cls, sp, img){
+      const t = document.createElement('div');
+      t.className = 'token ' + cls;
+      t.style.backgroundImage = `url(${img})`;
+      const {x,y} = tileXY(sp);
+      t.style.left = (x + 2) + 'px';
+      t.style.top  = (y + 2) + 'px';
+      grid.appendChild(t);
+      return t;
+    }
+    const yellowToken = makeToken('yellow', state.yellowPos, 'images/yellow-wizard.png');
+    const blueToken   = makeToken('blue', state.bluePos, 'images/blue-wizard.png');
+
+    return {
+      grid, tileEls, yellowToken, blueToken,
+      moveToken(which, sp){
+        const tok = which === 'yellow' ? yellowToken : blueToken;
+        const {x,y} = tileXY(sp);
+        tok.style.left = (x+2)+'px';
+        tok.style.top = (y+2)+'px';
+      },
+      smokeAt(sp){
+        const {x,y} = tileXY(sp);
+        const puff = document.createElement('div');
+        puff.className = 'fx-smoke';
+        puff.style.left = x+'px'; puff.style.top = y+'px';
+        grid.appendChild(puff);
+        setTimeout(()=>puff.remove(), 950);
+      }
+    };
+  }
+
+  function renderInventory(container, list){
+    container.innerHTML = '';
+    if(!list.length){
+      const span = document.createElement('span');
+      span.className = 'hint-msg'; span.textContent = 'Nothing collected yet.';
+      container.appendChild(span);
+      return;
+    }
+    list.forEach(letter => {
+      const chip = document.createElement('div'); chip.className = 'inv-chip';
+      const img = document.createElement('img'); img.src = CROPS[letter].img; img.title = CROPS[letter].name;
+      chip.appendChild(img);
+      container.appendChild(chip);
+    });
+  }
+
+  function sleep(ms){ return new Promise(r => setTimeout(r, ms)); }
+
+  // =========================================================================
+  //  STEP DEFINITIONS
+  //  Each step gets a container element and builds whatever it needs into
+  //  it. Keeping every step self-contained (own mini board state) makes it
+  //  easy to add / reorder / edit steps later without state bleeding
+  //  between them.
+  // =========================================================================
+  const steps = [];
+
+  // ---- Step 0: Welcome ---------------------------------------------------
+  steps.push({
+    kicker: 'Welcome',
+    title: 'Potions & Pitchforks',
+    build(el){
+      el.innerHTML = `
+        <div class="step-body">
+          <p>Two sorcerers move into the same small hamlet looking for a quiet life. It doesn't stay quiet: quarrels break out, and the local villagers grow steadily less thrilled about the mystical chaos on their doorstep.</p>
+          <p>Gather crops, brew potions, and cast spells — the last sorcerer standing gets to go home and put the kettle on.</p>
+          <p>This guide walks through the board, your very first move, and the turn cycle every move after that runs on. It's an early draft — more sections (spells, the angry mob, zombies, combat) are coming as we build it out further.</p>
+        </div>`;
+      const figWrap = document.createElement('div');
+      figWrap.innerHTML = `
+        <figure class="ref-shot">
+          <img src="images/boardresize.jpg" alt="The Potions and Pitchforks board" />
+          <figcaption>The actual game board, for reference — the diagrams below are a simplified version of this.</figcaption>
+        </figure>`;
+      el.appendChild(figWrap);
+    }
+  });
+
+  // ---- Step 1: The board -------------------------------------------------
+  steps.push({
+    kicker: 'The Board',
+    title: 'How the board is laid out',
+    build(el){
+      const state = freshState();
+      el.innerHTML = `<div class="step-body"><p>The board is shaped like a hash mark <strong>#</strong> — you can only walk along three full rows and three full columns. Everywhere else is just empty space in between; you can't cut across it.</p></div>`;
+
+      const layout = document.createElement('div'); layout.className = 'layout';
+      const textCol = document.createElement('div'); textCol.className = 'text-col';
+      const boardCol = document.createElement('div'); boardCol.className = 'board-col';
+      layout.appendChild(textCol); layout.appendChild(boardCol);
+      el.appendChild(layout);
+
+      const boardHandle = renderBoard(boardCol, state);
+
+      const legendItems = [
+        { label: 'Yellow shelter', match: [ABODES.yellow] },
+        { label: 'Blue shelter', match: [ABODES.blue] },
+        { label: 'Village square (Foxglove grows here)', match: [VILLAGE_SQUARE] },
+        { label: 'Crop plots (13 total)', match: CROP_POSITIONS.filter(p=>p!==VILLAGE_SQUARE) },
+        { label: 'Corners no one uses', match: UNUSED_ABODES }
+      ];
+      const legend = document.createElement('div'); legend.className = 'legend';
+      textCol.innerHTML = `<p class="hint-msg" style="margin-bottom:8px;">Click a row below to see where it is on the board.</p>`;
+      textCol.appendChild(legend);
+
+      legendItems.forEach(item => {
+        const b = document.createElement('button');
+        b.textContent = item.label;
+        b.onclick = () => {
+          Array.from(legend.children).forEach(c=>c.classList.remove('active'));
+          b.classList.add('active');
+          Object.values(boardHandle.tileEls).forEach(t=>t.classList.remove('highlight'));
+          item.match.forEach(sp => boardHandle.tileEls[sp] && boardHandle.tileEls[sp].classList.add('highlight'));
+        };
+        legend.appendChild(b);
+      });
+
+      const note = document.createElement('div'); note.className = 'callout good';
+      note.innerHTML = `Each sorcerer starts tucked inside their own shelter (top-right for Blue, bottom-left for Yellow). Every other crop plot on the board starts face-up and pickable — nothing is hidden.`;
+      textCol.appendChild(note);
+    }
+  });
+
+  // ---- Step 2: The first move --------------------------------------------
+  steps.push({
+    kicker: 'Turn One',
+    title: 'Your very first move',
+    build(el){
+      const state = freshState();
+      el.innerHTML = `
+        <div class="step-body">
+          <p>On your first turn there's no wheel to spin yet — you simply <strong>leave your shelter and move up to 3 spaces in a single straight line</strong>.</p>
+          <p>If that move happens to land you on a crop, you may harvest it: the crop flips face-down and a token goes onto your spell board. Landing on a crop also <strong>ends your turn</strong> right there, even if you had spaces left to use.</p>
+        </div>`;
+
+      const layout = document.createElement('div'); layout.className = 'layout';
+      const textCol = document.createElement('div'); textCol.className = 'text-col';
+      const boardCol = document.createElement('div'); boardCol.className = 'board-col';
+      layout.appendChild(textCol); layout.appendChild(boardCol);
+      el.appendChild(layout);
+
+      const boardHandle = renderBoard(boardCol, state);
+      boardHandle.tileEls['8A'].classList.add('pulse');
+
+      const btnRow = document.createElement('div'); btnRow.className = 'action-row';
+      const playBtn = document.createElement('button'); playBtn.className = 'btn btn-primary';
+      playBtn.textContent = '▶ Play Yellow\'s first move';
+      const msg = document.createElement('span'); msg.className = 'hint-msg';
+      btnRow.appendChild(playBtn); btnRow.appendChild(msg);
+      textCol.appendChild(btnRow);
+
+      const invLabel = document.createElement('div'); invLabel.className='hint-msg'; invLabel.style.marginTop='14px';
+      invLabel.textContent = "Yellow's spell board:";
+      const invStrip = document.createElement('div'); invStrip.className = 'inv-strip';
+      textCol.appendChild(invLabel); textCol.appendChild(invStrip);
+      renderInventory(invStrip, []);
+
+      playBtn.onclick = async () => {
+        playBtn.disabled = true;
+        const path = ['10A','9A','8A'];
+        msg.textContent = 'Moving north, one space at a time…';
+        for(const sp of path){
+          await sleep(430);
+          boardHandle.moveToken('yellow', sp);
+        }
+        await sleep(500);
+        boardHandle.tileEls['8A'].classList.remove('pulse');
+        boardHandle.tileEls['8A'].classList.add('collected');
+        boardHandle.smokeAt('8A');
+        msg.textContent = 'Landed on Oleander — harvested! Turn over.';
+        renderInventory(invStrip, ['O']);
+      };
+    }
+  });
+
+  // ---- Step 3: The turn cycle / crop wheel -------------------------------
+  steps.push({
+    kicker: 'Every Turn After That',
+    title: 'The three-step turn, and the Crop Wheel',
+    build(el){
+      el.innerHTML = `
+        <div class="step-body">
+          <p>From your second turn onward, every turn follows the same three steps, in this order:</p>
+          <p style="font-family:-apple-system,sans-serif; font-weight:700;">1. Turn the Crop Wheel one notch &nbsp;→&nbsp; 2. Reveal &amp; apply the Occurrence &nbsp;→&nbsp; 3. Move</p>
+          <p>The <strong>Crop Wheel</strong> is a quiet 12-step background clock that just ticks forward once per turn — it's not something you choose, it just advances. Once it completes a full lap, every crop anyone has already picked grows back and becomes pickable again by anyone (even the player who's currently standing on it).</p>
+        </div>`;
+
+      const layout = document.createElement('div'); layout.className='layout';
+      const textCol = document.createElement('div'); textCol.className='text-col';
+      layout.appendChild(textCol);
+      el.appendChild(layout);
+
+      const dialRow = document.createElement('div'); dialRow.className='cropdial';
+      const face = document.createElement('div'); face.className='cropdial-face';
+      const label = document.createElement('div'); label.className='hint-msg';
+      dialRow.appendChild(face); dialRow.appendChild(label);
+      textCol.appendChild(dialRow);
+
+      const btnRow = document.createElement('div'); btnRow.className='action-row';
+      const btn = document.createElement('button'); btn.className='btn btn-primary';
+      btn.textContent = '▶ Advance the Crop Wheel';
+      btnRow.appendChild(btn);
+      textCol.appendChild(btnRow);
+
+      let tick = 1;
+      function paint(){
+        face.style.setProperty('--dial-pct', (tick/12*100)+'%');
+        face.textContent = tick;
+        label.textContent = tick === 1 ? 'Turn 1 of this 12-turn cycle.' : `Turn ${tick} of 12 this cycle.`;
+      }
+      paint();
+      btn.onclick = () => {
+        tick = tick >= 12 ? 1 : tick+1;
+        paint();
+        if(tick === 1){
+          label.textContent = 'Wheel completed a lap — every picked crop just grew back!';
+        }
+      };
+
+      const note = document.createElement('div'); note.className='callout good';
+      note.innerHTML = 'This is why a crop you grabbed early on isn\'t gone for good — treat the board as refilling on a slow cycle, not a one-shot resource.';
+      textCol.appendChild(note);
+    }
+  });
+
+  // ---- Step 4: Occurrence wheel ------------------------------------------
+  steps.push({
+    kicker: 'Every Turn After That',
+    title: 'Spin for your Occurrence',
+    build(el){
+      const state = freshState();
+      // Give the board a little life for the demo: a couple of crops already gone.
+      state.crops['1D'].collected = true;
+      state.crops['1G'].collected = true;
+      state.yellowPos = '9A';
+      state.mood = 2;
+
+      el.innerHTML = `
+        <div class="step-body">
+          <p>After the wheel ticks, you spin for an <strong>Occurrence</strong> — one of six random events that shapes what you can do this turn. Give it a spin below and see what each one does.</p>
+        </div>`;
+
+      const layout = document.createElement('div'); layout.className='layout';
+      const wheelCol = document.createElement('div'); wheelCol.className='text-col';
+      const boardCol = document.createElement('div'); boardCol.className='board-col';
+      layout.appendChild(wheelCol); layout.appendChild(boardCol);
+      el.appendChild(layout);
+
+      // Wheel UI
+      const wheelArea = document.createElement('div'); wheelArea.className='wheel-area';
+      wheelArea.innerHTML = `
+        <div class="wheel-pointer"></div>
+        <div class="wheel-outer">
+          <div class="wheel" id="occWheel"></div>
+          <div class="wheel-hub"></div>
+        </div>
+        <button class="btn btn-primary" id="spinBtn">🎡 Spin the wheel</button>
+        <div class="occ-result" id="occResult"></div>
+      `;
+      wheelCol.appendChild(wheelArea);
+
+      const wheelEl = wheelArea.querySelector('#occWheel');
+      const n = OCCURRENCES.length;
+      OCCURRENCES.forEach((occ, i) => {
+        const angle = i * (360/n);
+        const slot = document.createElement('div');
+        slot.className = 'slot';
+        // translate first (in local, unrotated space) both centers this 70px-wide
+        // box on its slot AND pushes it out to the wheel's radius; rotate then
+        // swings that already-centered box rigidly around the true wheel center,
+        // so every slot ends up the same distance out no matter its angle.
+        slot.style.transform = `rotate(${angle}deg) translate(-35px, -62px)`;
+        slot.innerHTML = `<img src="${occ.img}" alt=""><div>${occ.name}</div>`;
+        wheelEl.appendChild(slot);
+      });
+
+      const boardHandle = renderBoard(boardCol, state);
+      const moodWrap = document.createElement('div');
+      moodWrap.innerHTML = `<div class="mood-label">Villager Mood</div><div class="mood-gauge" id="moodGauge"></div>`;
+      boardCol.appendChild(moodWrap);
+      function paintMood(){
+        const gauge = moodWrap.querySelector('#moodGauge');
+        gauge.innerHTML = '';
+        for(let i=1;i<=5;i++){
+          const seg = document.createElement('div');
+          seg.className = 'mood-seg' + (i<=state.mood ? ' filled' : '');
+          gauge.appendChild(seg);
+        }
+      }
+      paintMood();
+
+      const spinBtn = wheelArea.querySelector('#spinBtn');
+      const resultBox = wheelArea.querySelector('#occResult');
+      let spinning = false;
+      let currentRotation = 0;
+
+      const EXPLAIN = {
+        nothing: 'A quiet turn — nothing happens. Just move up to 3 spaces as normal.',
+        upset: 'The villagers get a little angrier. Enough of these in a row (with no mob already out) and an angry mob eventually storms out after whoever\'s turn it is.',
+        blight: 'The crop plot(s) nearest to you (within 3 spaces) wither and can\'t be picked until they regrow later.',
+        bloom: 'A crop grows somewhere unexpected — you get to choose a free crop token straight onto your spell board, no walking required.',
+        vitality: 'A burst of energy: move up to 6 spaces in one line, and you automatically harvest every crop you pass over, not just the one you land on.',
+        lethargy: 'You\'re sluggish — you may only move a single space this turn. You still harvest normally if that one space happens to be a crop.'
+      };
+
+      async function playOutcome(occ){
+        resultBox.innerHTML = `<span class="occ-badge"><img src="${occ.img}"> ${occ.name}</span>`;
+        const p = document.createElement('p'); p.style.marginTop='8px'; p.textContent = EXPLAIN[occ.id];
+        resultBox.appendChild(p);
+
+        // Reset any transient highlight state between demos
+        Object.values(boardHandle.tileEls).forEach(t=>t.classList.remove('highlight','pulse'));
+
+        if(occ.id === 'upset'){
+          state.mood = Math.min(5, state.mood+1);
+          paintMood();
+          if(state.mood === 5){
+            const note = document.createElement('p'); note.className='callout';
+            note.textContent = 'Mood just hit its worst level — an angry mob would storm out right now in a real game!';
+            resultBox.appendChild(note);
+          }
+        } else if(occ.id === 'blight'){
+          // nearest uncollected crop(s) to Yellow's current position
+          let nearest = 999, targets = [];
+          Object.keys(state.crops).forEach(sp=>{
+            const c = state.crops[sp];
+            if(c.collected || c.withered) return;
+            const d = dist(state.yellowPos, sp);
+            if(d<=3){
+              if(d<nearest){ nearest=d; targets=[sp]; }
+              else if(d===nearest) targets.push(sp);
+            }
+          });
+          targets.forEach(sp=>{
+            state.crops[sp].withered = true;
+            boardHandle.tileEls[sp].classList.add('withered');
+            boardHandle.smokeAt(sp);
+          });
+          if(!targets.length){
+            const note = document.createElement('p'); note.className='hint-msg';
+            note.textContent = '(No crop within 3 spaces of Yellow right now to wither.)';
+            resultBox.appendChild(note);
+          }
+        } else if(occ.id === 'bloom'){
+          const note = document.createElement('p'); note.className='callout good';
+          note.textContent = 'In the real game a picker opens here so you choose which crop to take — this draft just shows the idea.';
+          resultBox.appendChild(note);
+        } else if(occ.id === 'vitality'){
+          // A real move must stay in a single straight line — this sweeps straight
+          // up column A, so it stays rules-accurate while still crossing 3 crops.
+          const path = ['8A','7A','6A','5A','4A','3A'];
+          for(const sp of path){
+            await sleep(320);
+            boardHandle.moveToken('yellow', sp);
+            if(state.crops[sp] && !state.crops[sp].collected){
+              state.crops[sp].collected = true;
+              boardHandle.tileEls[sp].classList.add('collected');
+            }
+          }
+          state.yellowPos = path[path.length-1];
+        } else if(occ.id === 'lethargy'){
+          await sleep(300);
+          const dest = '8A';
+          boardHandle.moveToken('yellow', dest);
+          if(state.crops[dest] && !state.crops[dest].collected){
+            state.crops[dest].collected = true;
+            boardHandle.tileEls[dest].classList.add('collected');
+          }
+          state.yellowPos = dest;
+          const note = document.createElement('p'); note.className='hint-msg';
+          note.textContent = 'Only one space this turn — but still worth it, since it happened to be a crop.';
+          resultBox.appendChild(note);
+        }
+      }
+
+      spinBtn.onclick = () => {
+        if(spinning) return;
+        spinning = true;
+        spinBtn.disabled = true;
+        resultBox.innerHTML = '<span class="hint-msg">Spinning…</span>';
+        const idx = Math.floor(Math.random()*n);
+        const slotAngle = idx * (360/n);
+        const fullSpins = 4 + Math.floor(Math.random()*2);
+        const target = fullSpins*360 + (360 - slotAngle);
+        currentRotation += target - (currentRotation % 360);
+        wheelEl.style.transform = `rotate(${currentRotation}deg)`;
+        setTimeout(async () => {
+          await playOutcome(OCCURRENCES[idx]);
+          spinning = false;
+          spinBtn.disabled = false;
+        }, 3200);
+      };
+    }
+  });
+
+  // ---- Step 5: Recap / what's next ---------------------------------------
+  steps.push({
+    kicker: 'Recap',
+    title: 'That\'s the core loop',
+    build(el){
+      el.innerHTML = `
+        <div class="step-body">
+          <p><strong>First turn:</strong> leave your shelter, move up to 3 spaces, harvest if you land on a crop.</p>
+          <p><strong>Every turn after:</strong> the Crop Wheel ticks forward one notch → you spin for an Occurrence and apply it → then you move (however many spaces that Occurrence allowed).</p>
+          <p>That's enough to sit down and play a basic round. Still to come in a later draft of this guide: crafting and casting spells from your shelter, what happens once the angry mob actually spawns and starts hunting, zombies, and combo attacks.</p>
+        </div>
+        <div class="callout good">This is a first draft — happy to keep reshaping any of the wording, pacing, or animations from here.</div>
+      `;
+    }
+  });
+
+  // =========================================================================
+  //  Step engine wiring
+  // =========================================================================
+  let current = 0;
+  const contentEl = document.getElementById('stepContent');
+  const dotsEl = document.getElementById('progressDots');
+  const btnBack = document.getElementById('btnBack');
+  const btnNext = document.getElementById('btnNext');
+  const stepCount = document.getElementById('stepCount');
+
+  function paintDots(){
+    dotsEl.innerHTML = '';
+    steps.forEach((s,i) => {
+      const d = document.createElement('div');
+      d.className = 'dot' + (i===current ? ' active':'');
+      d.onclick = () => goTo(i);
+      dotsEl.appendChild(d);
+    });
+  }
+
+  function goTo(i){
+    current = Math.max(0, Math.min(steps.length-1, i));
+    const step = steps[current];
+    contentEl.innerHTML = `<div class="step-kicker">${step.kicker}</div><h2 class="step-title">${step.title}</h2>`;
+    const body = document.createElement('div');
+    contentEl.appendChild(body);
+    step.build(body);
+    btnBack.disabled = current === 0;
+    btnNext.textContent = current === steps.length-1 ? 'Done ✓' : 'Next →';
+    stepCount.textContent = `Step ${current+1} of ${steps.length}`;
+    paintDots();
+    window.scrollTo({top:0, behavior:'smooth'});
+  }
+
+  btnBack.onclick = () => goTo(current-1);
+  btnNext.onclick = () => { if(current < steps.length-1) goTo(current+1); };
+
+  goTo(0);
+</script>
+</body>
+</html>
