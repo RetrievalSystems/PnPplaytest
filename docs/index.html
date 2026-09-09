@@ -19,7 +19,7 @@
         }
         /* HOVER MAGNIFY: enlarge a crop on the board when the cursor is over its tile */
         .relative.flex.items-center.justify-center.cursor-pointer:hover .hw-crop-live {
-            transform: scale(1.9) !important;
+            transform: scale(2.1) !important;
             z-index: 60 !important;
             transition: transform 0.15s ease-out !important;
             filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.6)) drop-shadow(0 0 16px rgba(255,255,255,0.55)) !important;
@@ -1079,7 +1079,6 @@ const ABODE_BYPASS = {
                                             clickable ? "cursor-pointer hover:scale-[1.02] transition" : "cursor-default"
                                         ].join(" ")}
                                         style={style}
-                                        disabled={!clickable}
                                         onClick={() => {
                                             if (clickable) onCraftSpell(sk);
                                         }}
