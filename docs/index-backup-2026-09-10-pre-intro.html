@@ -371,38 +371,13 @@
   mix-blend-mode: screen;
 }
 
-/* --- Splash / Cover Screen (shown first -- the existing slow pan/scroll) --- */
+/* --- Splash / Cover Screen --- */
 #splash {
   position: fixed;
   inset: 0;
   background: #000;
   z-index: 999999;
   overflow: hidden;
-}
-
-/* --- Story / Prologue Screen (paper with story text; shown second, faded in via JS) --- */
-#splashStory {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  z-index: 999999;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-#splashStory img {
-  max-width: 88%;
-  max-height: 78%;
-  width: auto;
-  height: auto;
-  object-fit: contain;
-}
-
-/* Game board / app root: hidden until the story screen is dismissed, then faded in via JS. */
-#root {
-  opacity: 0;
 }
 
 #splash img {
@@ -491,14 +466,9 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 </head>
 <body>
     
-    <!-- Splash / Cover Screen (plays first -- click/key skips ahead, or it auto-advances) -->
+    <!-- Splash / Cover Screen (click anywhere or press any key to continue) -->
     <div id="splash" aria-hidden="true">
       <img src="./PnPfront4.jpg" alt="Potions & Pitchforks cover" draggable="false" />
-    </div>
-
-    <!-- Story / Prologue Screen (paper with story text; click anywhere or press any key to continue) -->
-    <div id="splashStory" aria-hidden="true" style="opacity:0;">
-      <img src="./images/intro-story.png" alt="Potions & Pitchforks prologue" draggable="false" />
     </div>
 
     <script>
@@ -519,14 +489,13 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
     } catch (e) {}
   };
 
-  // Fade SV out and stop it for good -- used once the story/cover sequence is gone,
-  // since the music should only ever be heard on those two screens.
+  // Fade SV out and stop it for good -- used once the title screen is gone,
+  // since the music should only ever be heard on the splash/cover screen.
   let svFadeTimer = null;
-  const fadeOutAndStopSv = (totalMs) => {
+  const fadeOutAndStopSv = () => {
     try { if (svFadeTimer) clearInterval(svFadeTimer); } catch (e) {}
-    const durationMs = totalMs || 540;
+    const steps = 12;
     const stepMs = 45;
-    const steps = Math.max(1, Math.round(durationMs / stepMs));
     const startVol = svAudio.volume;
     let i = 0;
     svFadeTimer = setInterval(() => {
@@ -546,89 +515,34 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
     }, stepMs);
   };
 
-  // Try to start immediately when the story screen appears.
+  // Try to start immediately when the splash appears.
   // Note: some browsers block autoplay audio until a user gesture; if so, we'll retry on first click/key.
   tryStartSv();
 
-  // --- Screens: cover (slow pan) -> story (paper text) -> game board ---
+  // --- Splash dismissal ---
   const splash = document.getElementById('splash');
-  const story = document.getElementById('splashStory');
-  // #root is parsed AFTER this script tag, so it doesn't exist yet -- look it up lazily.
-  const getRoot = () => document.getElementById('root');
+  if (!splash) return;
 
-  const fadeTo = (el, opacity, ms) => {
-    if (!el) return;
-    el.style.transition = `opacity ${ms}ms ease`;
-    void el.offsetWidth; // force reflow so the transition always applies
-    el.style.opacity = String(opacity);
+  const dismiss = () => {
+    // Ensure SV is definitely running once a gesture happens.
+    tryStartSv();
+
+    splash.style.transition = 'opacity 280ms ease';
+    splash.style.opacity = '0';
+    setTimeout(() => splash.remove(), 280);
+
+    // SV only plays on the title screen -- fade it out now that it's gone.
+    fadeOutAndStopSv();
+
+    window.removeEventListener('pointerdown', dismiss, true);
+    window.removeEventListener('keydown', dismiss, true);
   };
 
-  let storyShown = false;
+  // Any click/tap OR any key dismisses the splash.
+  window.addEventListener('pointerdown', dismiss, true);
+  window.addEventListener('keydown', dismiss, true);
 
-  const attachStoryDismiss = () => {
-    if (!story) {
-      const root = getRoot();
-      if (root) fadeTo(root, 1, 900);
-      return;
-    }
-    const dismiss = () => {
-      // Ensure SV is definitely running once a gesture happens.
-      tryStartSv();
-
-      // Fade the story screen to black and fade the music out together.
-      fadeTo(story, 0, 500);
-      fadeOutAndStopSv(500);
-
-      setTimeout(() => {
-        try { story.remove(); } catch (e) {}
-        const root = getRoot();
-        if (root) fadeTo(root, 1, 900);
-      }, 500);
-
-      window.removeEventListener('pointerdown', dismiss, true);
-      window.removeEventListener('keydown', dismiss, true);
-    };
-
-    // Any click/tap OR any key dismisses the story screen and reveals the board.
-    window.addEventListener('pointerdown', dismiss, true);
-    window.addEventListener('keydown', dismiss, true);
-  };
-
-  const showStory = () => {
-    if (storyShown) return;
-    storyShown = true;
-    if (story) fadeTo(story, 1, 900);
-    attachStoryDismiss();
-  };
-
-  if (splash) {
-    let coverAdvanced = false;
-    const advanceFromCover = () => {
-      if (coverAdvanced) return;
-      coverAdvanced = true;
-      window.removeEventListener('pointerdown', advanceFromCover, true);
-      window.removeEventListener('keydown', advanceFromCover, true);
-
-      // Fade the cover screen to black; music keeps playing throughout.
-      fadeTo(splash, 0, 700);
-      setTimeout(() => {
-        try { splash.remove(); } catch (e) {}
-        showStory();
-      }, 700);
-    };
-
-    // Click/tap or any key skips ahead early.
-    window.addEventListener('pointerdown', advanceFromCover, true);
-    window.addEventListener('keydown', advanceFromCover, true);
-
-    // Otherwise auto-advance once the existing slow pan/scroll has had time to play out.
-    setTimeout(advanceFromCover, 13500);
-  } else {
-    // No cover screen present -- go straight to the story screen.
-    showStory();
-  }
-
-  // Also retry SV on first gesture even if nothing above catches it yet (belt & braces).
+  // Also retry SV on first gesture even if they don't dismiss (belt & braces).
   const prime = () => { tryStartSv(); };
   window.addEventListener('pointerdown', prime, { once: true, capture: true });
   window.addEventListener('keydown', prime, { once: true, capture: true });
@@ -1210,6 +1124,7 @@ const ABODE_BYPASS = {
                                         }}
                                         onMouseEnter={() => setHoveredSpellKey(sk)}
                                         onMouseLeave={() => setHoveredSpellKey(null)}
+                                        title={isHeld ? "Spell already held (cast it to allow drafting again)" : (craftable ? (canCraftNow ? "Click to craft" : "Return to your Abode (and move) to craft") : "Not enough ingredients")}
                                     >
                                         <span className="sr-only">{s.name}</span>
                                     </button>
@@ -1224,7 +1139,7 @@ const ABODE_BYPASS = {
                             free to spill into the margin on either side without being clipped. */}
                         {hoveredSpellKey && SPELL_RULES[hoveredSpellKey] && spellSlotByKey[hoveredSpellKey] && (() => {
                             const slot = spellSlotByKey[hoveredSpellKey];
-                            const onLeft = slot.rect[0] < 0.3;
+                            const onLeft = slot.rect[0] < 0.5;
                             const topPct = slot.rect[1] * 100;
                             const anchorStyle = onLeft
                                 ? { right: `calc(${(1 - slot.rect[0]) * 100}% + 10px)` }

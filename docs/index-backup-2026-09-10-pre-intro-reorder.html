@@ -371,16 +371,7 @@
   mix-blend-mode: screen;
 }
 
-/* --- Splash / Cover Screen (shown first -- the existing slow pan/scroll) --- */
-#splash {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  z-index: 999999;
-  overflow: hidden;
-}
-
-/* --- Story / Prologue Screen (paper with story text; shown second, faded in via JS) --- */
+/* --- Story / Prologue Screen (shown first; auto-advances to the cover screen) --- */
 #splashStory {
   position: fixed;
   inset: 0;
@@ -398,9 +389,24 @@
   width: auto;
   height: auto;
   object-fit: contain;
+  animation: introStoryReveal 1.1s ease-out both;
 }
 
-/* Game board / app root: hidden until the story screen is dismissed, then faded in via JS. */
+@keyframes introStoryReveal {
+  from { opacity: 0; transform: translateY(26px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* --- Splash / Cover Screen --- */
+#splash {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  z-index: 999999;
+  overflow: hidden;
+}
+
+/* Game board / app root: hidden until the cover screen is dismissed, then faded in via JS. */
 #root {
   opacity: 0;
 }
@@ -491,14 +497,14 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
 </head>
 <body>
     
-    <!-- Splash / Cover Screen (plays first -- click/key skips ahead, or it auto-advances) -->
-    <div id="splash" aria-hidden="true">
-      <img src="./PnPfront4.jpg" alt="Potions & Pitchforks cover" draggable="false" />
+    <!-- Story / Prologue Screen (plays first; auto-advances, or click/key to skip) -->
+    <div id="splashStory" aria-hidden="true">
+      <img src="./images/intro-story.jpg" alt="Potions & Pitchforks prologue" draggable="false" />
     </div>
 
-    <!-- Story / Prologue Screen (paper with story text; click anywhere or press any key to continue) -->
-    <div id="splashStory" aria-hidden="true" style="opacity:0;">
-      <img src="./images/intro-story.png" alt="Potions & Pitchforks prologue" draggable="false" />
+    <!-- Splash / Cover Screen (click anywhere or press any key to continue) -->
+    <div id="splash" aria-hidden="true" style="opacity:0;">
+      <img src="./PnPfront4.jpg" alt="Potions & Pitchforks cover" draggable="false" />
     </div>
 
     <script>
@@ -550,9 +556,9 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   // Note: some browsers block autoplay audio until a user gesture; if so, we'll retry on first click/key.
   tryStartSv();
 
-  // --- Screens: cover (slow pan) -> story (paper text) -> game board ---
-  const splash = document.getElementById('splash');
+  // --- Screens: story (prologue) -> cover -> game board ---
   const story = document.getElementById('splashStory');
+  const splash = document.getElementById('splash');
   // #root is parsed AFTER this script tag, so it doesn't exist yet -- look it up lazily.
   const getRoot = () => document.getElementById('root');
 
@@ -563,10 +569,10 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
     el.style.opacity = String(opacity);
   };
 
-  let storyShown = false;
+  let coverShown = false;
 
-  const attachStoryDismiss = () => {
-    if (!story) {
+  const attachCoverDismiss = () => {
+    if (!splash) {
       const root = getRoot();
       if (root) fadeTo(root, 1, 900);
       return;
@@ -575,12 +581,12 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       // Ensure SV is definitely running once a gesture happens.
       tryStartSv();
 
-      // Fade the story screen to black and fade the music out together.
-      fadeTo(story, 0, 500);
+      // Fade the cover screen to black and fade the music out together.
+      fadeTo(splash, 0, 500);
       fadeOutAndStopSv(500);
 
       setTimeout(() => {
-        try { story.remove(); } catch (e) {}
+        try { splash.remove(); } catch (e) {}
         const root = getRoot();
         if (root) fadeTo(root, 1, 900);
       }, 500);
@@ -589,43 +595,43 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       window.removeEventListener('keydown', dismiss, true);
     };
 
-    // Any click/tap OR any key dismisses the story screen and reveals the board.
+    // Any click/tap OR any key dismisses the cover screen.
     window.addEventListener('pointerdown', dismiss, true);
     window.addEventListener('keydown', dismiss, true);
   };
 
-  const showStory = () => {
-    if (storyShown) return;
-    storyShown = true;
-    if (story) fadeTo(story, 1, 900);
-    attachStoryDismiss();
+  const showCover = () => {
+    if (coverShown) return;
+    coverShown = true;
+    if (splash) fadeTo(splash, 1, 900);
+    attachCoverDismiss();
   };
 
-  if (splash) {
-    let coverAdvanced = false;
-    const advanceFromCover = () => {
-      if (coverAdvanced) return;
-      coverAdvanced = true;
-      window.removeEventListener('pointerdown', advanceFromCover, true);
-      window.removeEventListener('keydown', advanceFromCover, true);
+  if (story) {
+    let storyAdvanced = false;
+    const advanceFromStory = () => {
+      if (storyAdvanced) return;
+      storyAdvanced = true;
+      window.removeEventListener('pointerdown', advanceFromStory, true);
+      window.removeEventListener('keydown', advanceFromStory, true);
 
-      // Fade the cover screen to black; music keeps playing throughout.
-      fadeTo(splash, 0, 700);
+      // Fade the story screen to black; music keeps playing throughout.
+      fadeTo(story, 0, 700);
       setTimeout(() => {
-        try { splash.remove(); } catch (e) {}
-        showStory();
+        try { story.remove(); } catch (e) {}
+        showCover();
       }, 700);
     };
 
-    // Click/tap or any key skips ahead early.
-    window.addEventListener('pointerdown', advanceFromCover, true);
-    window.addEventListener('keydown', advanceFromCover, true);
+    // Click/tap or any key skips straight to the cover screen.
+    window.addEventListener('pointerdown', advanceFromStory, true);
+    window.addEventListener('keydown', advanceFromStory, true);
 
-    // Otherwise auto-advance once the existing slow pan/scroll has had time to play out.
-    setTimeout(advanceFromCover, 13500);
+    // Otherwise auto-advance once there's been time to read it.
+    setTimeout(advanceFromStory, 8500);
   } else {
-    // No cover screen present -- go straight to the story screen.
-    showStory();
+    // No story screen present -- go straight to the cover screen.
+    showCover();
   }
 
   // Also retry SV on first gesture even if nothing above catches it yet (belt & braces).
