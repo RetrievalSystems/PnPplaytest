@@ -380,37 +380,29 @@
   overflow: hidden;
 }
 
-/* --- Story / Prologue Screen (full-scene art with story text; shown second, faded in via JS) --- */
+/* --- Story / Prologue Screen (paper with story text; shown second, faded in via JS) --- */
 #splashStory {
   position: fixed;
   inset: 0;
   background: #000;
   z-index: 999999;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 #splashStory img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  /* object-position is computed in JS so the story text box is never cropped out */
+  max-width: 88%;
+  max-height: 78%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
 }
 
 /* Game board / app root: hidden until the story screen is dismissed, then faded in via JS. */
 #root {
   opacity: 0;
-}
-
-/* One-shot black overlay used to mask the character-selection -> game-board handoff. */
-#charSelectFade {
-  position: fixed;
-  inset: 0;
-  background: #000;
-  z-index: 999998;
-  opacity: 0;
-  pointer-events: none;
 }
 
 #splash img {
@@ -504,13 +496,10 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       <img src="./PnPfront4.jpg" alt="Potions & Pitchforks cover" draggable="false" />
     </div>
 
-    <!-- Story / Prologue Screen (full-scene art with story text; click anywhere or press any key to continue) -->
+    <!-- Story / Prologue Screen (paper with story text; click anywhere or press any key to continue) -->
     <div id="splashStory" aria-hidden="true" style="opacity:0;">
-      <img id="splashStoryImg" src="./images/intro-scene.jpg" alt="Potions & Pitchforks prologue" draggable="false" />
+      <img src="./images/intro-story.png" alt="Potions & Pitchforks prologue" draggable="false" />
     </div>
-
-    <!-- Fades to black over the character-select screen, then back out once the board is showing. -->
-    <div id="charSelectFade" aria-hidden="true"></div>
 
     <script>
 (function () {
@@ -561,61 +550,11 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   // Note: some browsers block autoplay audio until a user gesture; if so, we'll retry on first click/key.
   tryStartSv();
 
-  // --- Screens: cover (slow pan) -> story (full scene) -> character select -> game board ---
+  // --- Screens: cover (slow pan) -> story (paper text) -> game board ---
   const splash = document.getElementById('splash');
   const story = document.getElementById('splashStory');
-  const storyImg = document.getElementById('splashStoryImg');
   // #root is parsed AFTER this script tag, so it doesn't exist yet -- look it up lazily.
   const getRoot = () => document.getElementById('root');
-
-  // Keep the story image's story-text box on screen under object-fit:cover,
-  // no matter the window's aspect ratio, by computing object-position live.
-  const STORY_TEXT_BOX = { x0: 0.15, y0: 0.55, x1: 0.60, y1: 0.92 }; // fraction of natural image size
-  const updateStoryObjectPosition = () => {
-    if (!storyImg || !storyImg.naturalWidth || !storyImg.naturalHeight) return;
-    const natW = storyImg.naturalWidth, natH = storyImg.naturalHeight;
-    const viewW = window.innerWidth, viewH = window.innerHeight;
-    const scale = Math.max(viewW / natW, viewH / natH);
-    const renderedW = natW * scale, renderedH = natH * scale;
-    const overflowX = renderedW - viewW;
-    const overflowY = renderedH - viewH;
-    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
-
-    let posX = 50, posY = 50;
-
-    if (overflowX > 0.5) {
-      const boxX0px = STORY_TEXT_BOX.x0 * renderedW, boxX1px = STORY_TEXT_BOX.x1 * renderedW;
-      const lo = Math.max(0, boxX1px - viewW);
-      const hi = Math.min(overflowX, boxX0px);
-      const offsetX = lo <= hi ? (lo + hi) / 2 : clamp((boxX0px + boxX1px) / 2 - viewW / 2, 0, overflowX);
-      posX = (offsetX / overflowX) * 100;
-    }
-    if (overflowY > 0.5) {
-      const boxY0px = STORY_TEXT_BOX.y0 * renderedH, boxY1px = STORY_TEXT_BOX.y1 * renderedH;
-      const lo = Math.max(0, boxY1px - viewH);
-      const hi = Math.min(overflowY, boxY0px);
-      const offsetY = lo <= hi ? (lo + hi) / 2 : clamp((boxY0px + boxY1px) / 2 - viewH / 2, 0, overflowY);
-      posY = (offsetY / overflowY) * 100;
-    }
-
-    try { storyImg.style.objectPosition = `${posX}% ${posY}%`; } catch (e) {}
-  };
-  if (storyImg) {
-    if (storyImg.complete) updateStoryObjectPosition();
-    storyImg.addEventListener('load', updateStoryObjectPosition);
-    window.addEventListener('resize', updateStoryObjectPosition);
-  }
-
-  // --- Character-select -> game-board handoff: fade to black, fade the music
-  // out, then fade the (now-rendered) board back in. Called from the React
-  // character-portrait click handler. ---
-  window.__playCharSelectTransition = () => {
-    const overlay = document.getElementById('charSelectFade');
-    if (!overlay) return;
-    fadeTo(overlay, 1, 450);
-    fadeOutAndStopSv(450);
-    setTimeout(() => { fadeTo(overlay, 0, 700); }, 500);
-  };
 
   const fadeTo = (el, opacity, ms) => {
     if (!el) return;
@@ -636,8 +575,9 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       // Ensure SV is definitely running once a gesture happens.
       tryStartSv();
 
-      // Fade the story screen to black -- music keeps playing into character selection.
+      // Fade the story screen to black and fade the music out together.
       fadeTo(story, 0, 500);
+      fadeOutAndStopSv(500);
 
       setTimeout(() => {
         try { story.remove(); } catch (e) {}
@@ -649,7 +589,7 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       window.removeEventListener('keydown', dismiss, true);
     };
 
-    // Any click/tap OR any key dismisses the story screen and reveals character selection.
+    // Any click/tap OR any key dismisses the story screen and reveals the board.
     window.addEventListener('pointerdown', dismiss, true);
     window.addEventListener('keydown', dismiss, true);
   };
@@ -5150,7 +5090,7 @@ if (travel.length > 0) {
                             return (
                                 <div
                                     key={i}
-                                    onClick={() => { setCharSelected(src); window._myCharSelected = src; if (window.syncAction) window.syncAction('char_select', { player: _isHost ? 'yellow' : 'blue', src: src }); if (window.__playCharSelectTransition) window.__playCharSelectTransition(); }}
+                                    onClick={() => { setCharSelected(src); window._myCharSelected = src; if (window.syncAction) window.syncAction('char_select', { player: _isHost ? 'yellow' : 'blue', src: src }); }}
                                     onMouseEnter={() => setCharHoverIdx(i)}
                                     onMouseLeave={() => setCharHoverIdx(null)}
                                     style={{
