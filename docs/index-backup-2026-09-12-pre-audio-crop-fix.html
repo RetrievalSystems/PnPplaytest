@@ -387,17 +387,15 @@
   background: #000;
   z-index: 999999;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 #splashStory img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;
-  height: auto;
-  object-fit: contain; /* show the whole image, uncropped -- text is always on screen */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* object-position is computed in JS so the story text box is never cropped out */
 }
 
 /* Game board / app root: hidden until the story screen is dismissed, then faded in via JS. */
@@ -522,10 +520,6 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   svAudio.loop = true;
   svAudio.preload = 'auto';
   svAudio.volume = 0.32;
-  // Start muted -- browsers reliably allow autoplay when muted, even before
-  // any user gesture, so the track is already running by the time we unmute
-  // it on the player's first click/keypress (see unmuteSv below).
-  svAudio.muted = true;
   // expose for debugging / future control
   window.__SV_AUDIO__ = svAudio;
 
@@ -534,15 +528,6 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       const p = svAudio.play();
       if (p && typeof p.catch === 'function') p.catch(() => {});
     } catch (e) {}
-  };
-
-  // Called on the player's very first click/keypress anywhere on the page:
-  // unmutes the (already silently playing) track so it becomes audible with
-  // no further delay, and re-attempts play() as a fallback in case the
-  // muted autoplay itself never actually started.
-  const unmuteSv = () => {
-    try { svAudio.muted = false; } catch (e) {}
-    tryStartSv();
   };
 
   // Fade SV out and stop it for good -- used once the story/cover sequence is gone,
@@ -579,17 +564,56 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   // --- Screens: cover (slow pan) -> story (full scene) -> character select -> game board ---
   const splash = document.getElementById('splash');
   const story = document.getElementById('splashStory');
+  const storyImg = document.getElementById('splashStoryImg');
   // #root is parsed AFTER this script tag, so it doesn't exist yet -- look it up lazily.
   const getRoot = () => document.getElementById('root');
 
+  // Keep the story image's story-text box on screen under object-fit:cover,
+  // no matter the window's aspect ratio, by computing object-position live.
+  const STORY_TEXT_BOX = { x0: 0.15, y0: 0.55, x1: 0.60, y1: 0.92 }; // fraction of natural image size
+  const updateStoryObjectPosition = () => {
+    if (!storyImg || !storyImg.naturalWidth || !storyImg.naturalHeight) return;
+    const natW = storyImg.naturalWidth, natH = storyImg.naturalHeight;
+    const viewW = window.innerWidth, viewH = window.innerHeight;
+    const scale = Math.max(viewW / natW, viewH / natH);
+    const renderedW = natW * scale, renderedH = natH * scale;
+    const overflowX = renderedW - viewW;
+    const overflowY = renderedH - viewH;
+    const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+    let posX = 50, posY = 50;
+
+    if (overflowX > 0.5) {
+      const boxX0px = STORY_TEXT_BOX.x0 * renderedW, boxX1px = STORY_TEXT_BOX.x1 * renderedW;
+      const lo = Math.max(0, boxX1px - viewW);
+      const hi = Math.min(overflowX, boxX0px);
+      const offsetX = lo <= hi ? (lo + hi) / 2 : clamp((boxX0px + boxX1px) / 2 - viewW / 2, 0, overflowX);
+      posX = (offsetX / overflowX) * 100;
+    }
+    if (overflowY > 0.5) {
+      const boxY0px = STORY_TEXT_BOX.y0 * renderedH, boxY1px = STORY_TEXT_BOX.y1 * renderedH;
+      const lo = Math.max(0, boxY1px - viewH);
+      const hi = Math.min(overflowY, boxY0px);
+      const offsetY = lo <= hi ? (lo + hi) / 2 : clamp((boxY0px + boxY1px) / 2 - viewH / 2, 0, overflowY);
+      posY = (offsetY / overflowY) * 100;
+    }
+
+    try { storyImg.style.objectPosition = `${posX}% ${posY}%`; } catch (e) {}
+  };
+  if (storyImg) {
+    if (storyImg.complete) updateStoryObjectPosition();
+    storyImg.addEventListener('load', updateStoryObjectPosition);
+    window.addEventListener('resize', updateStoryObjectPosition);
+  }
+
   // --- Character-select -> game-board handoff: fade to black, fade the music
-  // out (slowly), then fade the (now-rendered) board back in. Called from the
-  // React character-portrait click handler.
+  // out, then fade the (now-rendered) board back in. Called from the React
+  // character-portrait click handler. ---
   window.__playCharSelectTransition = () => {
     const overlay = document.getElementById('charSelectFade');
     if (!overlay) return;
     fadeTo(overlay, 1, 450);
-    fadeOutAndStopSv(1350); // ~3x slower than the original 450ms fade
+    fadeOutAndStopSv(450);
     setTimeout(() => { fadeTo(overlay, 0, 700); }, 500);
   };
 
@@ -609,8 +633,8 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
       return;
     }
     const dismiss = () => {
-      // Ensure SV is definitely unmuted and running once a gesture happens.
-      unmuteSv();
+      // Ensure SV is definitely running once a gesture happens.
+      tryStartSv();
 
       // Fade the story screen to black -- music keeps playing into character selection.
       fadeTo(story, 0, 500);
@@ -664,8 +688,8 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
     showStory();
   }
 
-  // Unmute (and retry) SV on the player's first gesture, whichever screen it lands on.
-  const prime = () => { unmuteSv(); };
+  // Also retry SV on first gesture even if nothing above catches it yet (belt & braces).
+  const prime = () => { tryStartSv(); };
   window.addEventListener('pointerdown', prime, { once: true, capture: true });
   window.addEventListener('keydown', prime, { once: true, capture: true });
 })();
