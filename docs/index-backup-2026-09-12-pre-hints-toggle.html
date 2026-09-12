@@ -398,7 +398,6 @@
   width: auto;
   height: auto;
   object-fit: contain; /* show the whole image, uncropped -- text is always on screen */
-  transform: scale(1.04); /* small zoom-in to trim the letterbox margin a touch */
 }
 
 /* Game board / app root: hidden until the story screen is dismissed, then faded in via JS. */
@@ -414,12 +413,6 @@
   z-index: 999998;
   opacity: 0;
   pointer-events: none;
-}
-
-/* Spell-chart rules tooltips ("Hints") -- hidden entirely when the player
-   toggles them off via the Hints button (bottom-right, next to HOST/GUEST). */
-body.pnp-hints-off .spell-tooltip-box {
-  display: none !important;
 }
 
 #splash img {
@@ -1268,21 +1261,15 @@ const ABODE_BYPASS = {
                         {hoveredSpellKey && SPELL_RULES[hoveredSpellKey] && spellSlotByKey[hoveredSpellKey] && (() => {
                             const slot = spellSlotByKey[hoveredSpellKey];
                             const onLeft = slot.rect[0] < 0.3;
-                            // Bottom-row slots (e.g. Fiery Beam) anchor from the bottom and grow
-                            // upward instead, so the box doesn't spill past the chart's bottom
-                            // edge and get covered by text underneath.
-                            const bottomAnchored = slot.rect[1] > 0.75;
-                            const vertStyle = bottomAnchored
-                                ? { bottom: `${(1 - (slot.rect[1] + slot.rect[3])) * 100}%` }
-                                : { top: `${slot.rect[1] * 100}%` };
+                            const topPct = slot.rect[1] * 100;
                             const anchorStyle = onLeft
                                 ? { right: `calc(${(1 - slot.rect[0]) * 100}% + 10px)` }
                                 : { left: `calc(${(slot.rect[0] + slot.rect[2]) * 100}% + 10px)` };
                             return (
                                 <div
-                                    className="spell-tooltip-box"
                                     style={{
                                         position: 'absolute',
+                                        top: `${topPct}%`,
                                         width: '230px',
                                         zIndex: 50,
                                         pointerEvents: 'none',
@@ -1296,7 +1283,6 @@ const ABODE_BYPASS = {
                                         lineHeight: 1.4,
                                         filter: 'drop-shadow(0 8px 18px rgba(0,0,0,0.5))',
                                         fontFamily: 'Georgia, "Iowan Old Style", serif',
-                                        ...vertStyle,
                                         ...anchorStyle
                                     }}
                                 >
@@ -7099,38 +7085,7 @@ const renderGrid = (playerKey, spells, styleBase) => {
       const room = url.get('room') || 'default';
       const role = url.get('role') || 'host';
       const isHost = role === 'host';
-
-      // --- Hints toggle: shows/hides the spell-chart rules tooltips ("Hints") ---
-      (function setupHintsToggle() {
-        if (document.getElementById('hints-toggle-btn')) return; // idempotent
-        let enabled = true;
-        try {
-          const stored = localStorage.getItem('pnp_hints_enabled');
-          if (stored !== null) enabled = stored !== 'false';
-        } catch (e) {}
-
-        const applyState = () => {
-          try {
-            document.body.classList.toggle('pnp-hints-off', !enabled);
-          } catch (e) {}
-          if (btn) {
-            btn.textContent = enabled ? 'Hints: On' : 'Hints: Off';
-            btn.style.background = enabled ? 'rgba(96, 165, 250, 0.9)' : 'rgba(120, 120, 120, 0.7)';
-          }
-        };
-
-        const btn = document.createElement('button');
-        btn.id = 'hints-toggle-btn';
-        btn.style.cssText = 'position:fixed;bottom:10px;right:10px;padding:4px 10px;border:none;border-radius:4px;font-size:11px;font-weight:bold;z-index:7001;box-shadow:0 2px 8px rgba(0,0,0,0.3);color:white;height:22px;display:flex;align-items:center;cursor:pointer;font-family:inherit;';
-        btn.addEventListener('click', () => {
-          enabled = !enabled;
-          try { localStorage.setItem('pnp_hints_enabled', String(enabled)); } catch (e) {}
-          applyState();
-        });
-        document.body.appendChild(btn);
-        applyState();
-      })();
-
+      
       let ws = null;
       let reconnecting = false;
       
