@@ -23,7 +23,6 @@
             z-index: 60 !important;
             transition: transform 0.15s ease-out !important;
             filter: drop-shadow(2px 2px 4px rgba(0,0,0,0.6)) drop-shadow(0 0 16px rgba(255,255,255,0.55)) !important;
-            clip-path: inset(0 0 0% 0) !important;
         }
         @keyframes pulse {
             0%, 100% { opacity: 0.8; transform: scale(1); }
@@ -1038,10 +1037,6 @@ const ABODE_BYPASS = {
             };
 
             const onBackdrop = (e) => {
-                // Don't let a Bloom crop-pick be dismissed with no way back in --
-                // the spell's already been consumed, and picking is the only way
-                // to finish it. Every other mode still closes normally.
-                if (mode === 'bloomPickCrop') return;
                 if (e.target === e.currentTarget) onClose();
             };
 
@@ -4652,7 +4647,7 @@ setTempMessage(`${(player === 'yellow') ? 'Yellow' : 'Blue'} — click your port
                     }
                 });
                 
-if (newState.angryMob && newState.angryMob.target === player && !newState.angryMob.retreating) {
+if (newState.angryMob && newState.angryMob.target === player) {
                     const targetPos = newState.players[player].position;
 const stepLimit = 4;
 let travel = [];
@@ -5843,23 +5838,14 @@ return (
 
                                             {crop && (
                                                 <CropIcon
-                                                    className="absolute hw-crop-live"
+                                                    className={"absolute" + (crop.collected ? "" : " hw-crop-live")}
                                                     type={crop.type}
                                                     style={{
                                                         width: '120%',
                                                         height: '120%',
                                                         left: '-10%',
-                                                        top: '-10%',
-                                                        opacity: 1,
-                                                        transform: 'scale(1)',
-                                                        // Picked crops don't vanish -- they sink into their space,
-                                                        // leaving just the title peeking up. clip-path reveals only
-                                                        // the top ~22% of the card (every crop image's title sits
-                                                        // there); the hover-magnify rule below overrides this back
-                                                        // to fully revealed so hovering still shows the whole card,
-                                                        // purely visually -- it never touches crop.collected, so a
-                                                        // buried crop can be previewed but never becomes pickable.
-                                                        clipPath: crop.collected ? 'inset(0 0 78% 0)' : 'inset(0 0 0% 0)',
+                                                        top: crop.collected ? '120%' : '-10%',                                                        opacity: crop.collected ? 0 : 1,
+                                                        transform: crop.collected ? 'scale(0.3)' : 'scale(1)',
                                                         transition: (crop.wither && String(crop.wither).startsWith('blight')) ? 'all 1.8s ease-out' : 'all 0.6s ease-out',
                                                         animation: 'none',
                                                         pointerEvents: 'none',

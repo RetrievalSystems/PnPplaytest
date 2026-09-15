@@ -1038,10 +1038,6 @@ const ABODE_BYPASS = {
             };
 
             const onBackdrop = (e) => {
-                // Don't let a Bloom crop-pick be dismissed with no way back in --
-                // the spell's already been consumed, and picking is the only way
-                // to finish it. Every other mode still closes normally.
-                if (mode === 'bloomPickCrop') return;
                 if (e.target === e.currentTarget) onClose();
             };
 
