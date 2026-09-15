@@ -1364,7 +1364,7 @@ const ABODE_BYPASS = {
 
 	function HerbalistWizards() {
 	            // Determine local player from URL
-	            const localPlayerKey = (new URLSearchParams(window.location.search).get('role') || 'host') === 'host' ? 'yellow' : 'blue';
+	            const localPlayerKey = new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue';
 	            
 const [charSelected, setCharSelected] = useState(null);
 const [charHoverIdx, setCharHoverIdx] = useState(null);
@@ -1578,7 +1578,7 @@ useEffect(() => {
                 if (isFirst) return;
 
                 // Only spin if it's YOUR turn
-                const isHost = (new URLSearchParams(window.location.search).get('role') || 'host') === 'host';
+                const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
                 const myPlayer = isHost ? 'yellow' : 'blue';
                 if (pkey !== myPlayer) return;
 
@@ -3941,7 +3941,7 @@ const handleSpaceClick = (space) => {
                     return;
                 }
              // Only allow controlling your own player
-const isHost = (new URLSearchParams(window.location.search).get('role') || 'host') === 'host';
+const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
 const myPlayer = isHost ? 'yellow' : 'blue';
 console.log('Click debug:', {isHost, myPlayer, currentPlayer: gameState.currentPlayer, space});
 // Only block if it's definitely NOT your turn
@@ -5749,7 +5749,7 @@ return (
                                                         e.stopPropagation();
                                                         
                                                         // Only allow controlling your own player's zombie
-                                                        const isHost = (new URLSearchParams(window.location.search).get('role') || 'host') === 'host';
+                                                        const isHost = new URLSearchParams(window.location.search).get('role') === 'host';
                                                         const myPlayer = isHost ? 'yellow' : 'blue';
                                                         if (z.owner !== myPlayer) return;
                                                         
@@ -5981,7 +5981,7 @@ return (
                     mode={spellChartMode}
                     pickRemaining={pickRemaining}
                     targetPlayerKey={chartTargetPlayer}
-                    localPlayerKey={(new URLSearchParams(window.location.search).get('role') || 'host') === 'host' ? 'yellow' : 'blue'}
+                    localPlayerKey={new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue'}
                     onPickCrop={handleChartPickCrop}
                     onRemoveCrop={handleCropRemoval}
                     onCraftSpell={(spellKey) => { craftSpell(spellKey); }}
@@ -5994,7 +5994,7 @@ return (
                         {/* Spell cards in the dark wooden bays (crafted/held spells) */}
             {(() => {
                 // Determine local player from URL
-                const localPlayerKey = (new URLSearchParams(window.location.search).get('role') || 'host') === 'host' ? 'yellow' : 'blue';
+                const localPlayerKey = new URLSearchParams(window.location.search).get('role') === 'host' ? 'yellow' : 'blue';
                 
                 const yellowSpells = (gameState.players.yellow.spells || gameState.players.yellow.spellCards || gameState.players.yellow.craftedSpells || gameState.players.yellow.crafted || []).slice(0, 9);
                 const blueSpells = (gameState.players.blue.spells || gameState.players.blue.spellCards || gameState.players.blue.craftedSpells || gameState.players.blue.crafted || []).slice(0, 9);
@@ -7383,7 +7383,7 @@ if (data.type === 'move') {
           const newState = window.latestStateRef?.current;
           if (newState) {
             // Only show moves if it's the local player's turn
-            const localPlayerKey = ((new URLSearchParams(window.location.search).get('role') || 'host') === 'host') ? 'yellow' : 'blue';
+            const localPlayerKey = (new URLSearchParams(window.location.search).get('role') === 'host') ? 'yellow' : 'blue';
             if (newState.currentPlayer === localPlayerKey) {
               window.autoShowCurrentMoves(newState, 3);
             }
@@ -7421,7 +7421,7 @@ if (data.type === 'move') {
     }
     // Also send our character choice so guest can see our portrait
     if (window._myCharSelected && window.syncAction) {
-      const myPlayer = ((new URLSearchParams(window.location.search).get('role') || 'host') === 'host') ? 'yellow' : 'blue';
+      const myPlayer = (new URLSearchParams(window.location.search).get('role') === 'host') ? 'yellow' : 'blue';
       window.syncAction('char_select', { player: myPlayer, src: window._myCharSelected });
     }
   }
