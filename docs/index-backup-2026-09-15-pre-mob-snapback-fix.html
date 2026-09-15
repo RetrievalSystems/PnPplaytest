@@ -4727,15 +4727,11 @@ if (travel.length > 0) {
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
     
-    // Don't commit the mob's position here. The mobAnimPath effect (see its
-    // own useEffect above) already owns the real position -- it steps
-    // gameState.angryMob.position through every space in the walk via its
-    // own functional setGameState calls, 180ms apart, ending on this same
-    // mobEnd value. Committing it again here raced against that: the mob
-    // would snap straight to mobEnd the instant the turn ended, then jump
-    // back to its start square 180ms later when the animation's first step
-    // ran, and re-walk forward -- visible as the mob appearing right next to
-    // the player before "resetting" and walking up from town square.
+    // Commit the mob's real position immediately -- this is the authoritative
+    // game-logic position (matches the "game logic uses the final position"
+    // comment above). The mobAnimPath effect plays a purely cosmetic
+    // step-by-step walk on top of this; it no longer owns the real state.
+    newState.angryMob = { ...newState.angryMob, position: mobEnd };
     
     // Sync mob movement immediately so guest sees animation
     if (window.syncAction && !window._syncingState) {
