@@ -583,38 +583,6 @@ to   { transform: translateY(-20%); } /* adjust pan amount if needed */
   // Note: some browsers block autoplay audio until a user gesture; if so, we'll retry on first click/key.
   tryStartSv();
 
-  // --- Preload the heavier board/wizard/crop images in the background while
-  // the cover art is scrolling, so they're already cached by the time the
-  // player reaches character select and the board. Low priority + plain
-  // Image() prefetching so it never competes with the cover art/music. ---
-  (function preloadGameImages() {
-    const PRELOAD_PATHS = [
-      // Wizard portraits (character select + in-game HUD)
-      './images/yellow-wizard.png', './images/blue-wizard.png',
-      './images/yellowwizard1.png', './images/yellowwizard2.png', './images/yellowwizard3.png', './images/yellowwizard4.png',
-      './images/bluewizard1.png', './images/bluewizard2.png', './images/bluewizard3.png', './images/bluewizard4.png',
-      // Board / HUD
-      './images/board.jpg', './images/HUDs.jpg', './images/HUDs with board marked.jpg',
-      './images/yellow-hp.jpg', './images/blue-hp.jpg', './images/hp-bars.jpg',
-      // Zombies
-      './images/yellow-zombie.png', './images/blue-zombie.png',
-      // Occurrence / event icons
-      './images/villagerupset.png', './images/vitality.png', './images/blight.png', './images/bloom.png', './images/lethargy.png', './images/nothing.png',
-      // Crop icons
-      './images/aloe.png', './images/balm.png', './images/chamomile.png', './images/eucalyptus.png',
-      './images/foxglove.png', './images/ginseng.png', './images/lily.png', './images/marigold.png',
-      './images/nasturtium.png', './images/oleander.png', './images/peppermint.png', './images/valerian.png',
-      './images/St_Johns_Wort.png',
-    ];
-    try {
-      PRELOAD_PATHS.forEach((src) => {
-        const img = new Image();
-        try { img.fetchPriority = 'low'; } catch (e) {}
-        img.src = src;
-      });
-    } catch (e) {}
-  })();
-
   // --- Screens: cover (slow pan) -> story (full scene) -> character select -> game board ---
   const splash = document.getElementById('splash');
   const story = document.getElementById('splashStory');
