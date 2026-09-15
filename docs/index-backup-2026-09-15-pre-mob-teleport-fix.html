@@ -4001,17 +4001,6 @@ if (selectingTeleport) {
                     const newState = {...gameState};
                     const player = newState.currentPlayer;
 
-                    // Safety net: a spell crafted this turn (other than Heal/Late Bloom/
-                    // Late Blight) can't be used until the caster's next turn. The spell
-                    // card click already checks this before entering teleport-select mode,
-                    // but re-check here too since this is the step that actually moves the
-                    // player -- it should never fire on a just-crafted teleport.
-                    if (!canUseSpellNow(player, 'teleport')) {
-                        setSelectingTeleport(false);
-                        setTempMessage("That spell was just crafted -- it can be used starting next turn.", 2200);
-                        return;
-                    }
-
                     // Teleport does NOT consume your move phase. It simply relocates you.
                     const fromPos = newState.players[player].position;
                     triggerTeleportBeam(fromPos, space);
@@ -4722,11 +4711,8 @@ if (travel.length > 0) {
     setMobAnimPath([mobStart, ...travel]);
     const mobEnd = travel[travel.length - 1];
     
-    // Commit the mob's real position immediately -- this is the authoritative
-    // game-logic position (matches the "game logic uses the final position"
-    // comment above). The mobAnimPath effect plays a purely cosmetic
-    // step-by-step walk on top of this; it no longer owns the real state.
-    newState.angryMob = { ...newState.angryMob, position: mobEnd };
+    // DON'T update mob position in newState - let animation handle it
+    // newState.angryMob.position = mobEnd;
     
     // Sync mob movement immediately so guest sees animation
     if (window.syncAction && !window._syncingState) {
@@ -4946,319 +4932,107 @@ if (travel.length > 0) {
 
             const endTurn = () => endTurnFromSnapshot(gameState);
 
-                        // ===== AI PLAYER =====
-            // Add ?ai=true to the URL to enable AI opponent (plays as Blue).
-            //
-            // Design notes (multi-phase, one action per tick):
-            // Every helper below (movePlayer/craftSpell/castSpellAction/moveZombie/
-            // aiTeleportTo) reads `gameState` from THIS render's closure and calls the
-            // plain (non-functional) setGameState(obj). Calling two of them back-to-back
-            // in the same synchronous tick is unsafe -- the second would overwrite the
-            // first's change using stale pre-update state. So this effect always takes
-            // AT MOST ONE state-changing action per firing, then returns; the resulting
-            // gameState/zombieHasMoved/zombieAttackReady change re-triggers a fresh
-            // invocation (fresh closure) for the next step, exactly like the rest of the
-            // codebase already relies on for phase-to-phase sequencing.
+            // ===== AI PLAYER =====
+            // Add ?ai=true to the URL to enable AI opponent (plays as Blue)
             const aiEnabled = new URLSearchParams(window.location.search).get('ai') === 'true';
-
-            // --- crop helpers -------------------------------------------------------
-            const aiCropIsWorthGrabbing = (state, space, ownerInventory) => {
-                const c = state.crops[space];
-                if (!c || c.collected) return false;
-                const count = ownerInventory[c.type] || 0;
-                return count < CROPS[c.type].slots;
-            };
-
-            const aiNearestSpace = (from, candidates) => {
-                if (!candidates.length) return null;
-                const sorted = candidates.slice().sort((a, b) => {
-                    const da = getDistance(from, a), db = getDistance(from, b);
-                    if (da !== db) return da - db;
-                    return a.localeCompare(b); // deterministic tie-break, no randomness
-                });
-                return sorted[0];
-            };
-
-            // Which spell Blue would craft next, in priority order: attack spells
-            // first, then heal (whenever it's not already at full health), then the
-            // "in-between" utility spells.
-            const AI_SPELL_PRIORITY = ['deathsBreath', 'fieryBlast', 'heal', 'zombification', 'teleport'];
-
-            const aiPickWantedSpell = (blueP) => {
-                for (const spellKey of AI_SPELL_PRIORITY) {
-                    if ((blueP.spells || []).includes(spellKey)) continue;
-                    if (spellKey === 'heal' && blueP.hp >= 9) continue;
-                    if (canCraftSpell(spellKey, blueP.inventory)) return spellKey;
-                }
-                return null;
-            };
-
-            // Nearest uncollected crop matching an ingredient Blue is still missing for
-            // its next most-wanted (not-yet-held) spell -- lets movement drift toward
-            // what it actually needs instead of wandering aimlessly.
-            const aiNearestNeededIngredientSpace = (state, blueP) => {
-                for (const spellKey of AI_SPELL_PRIORITY) {
-                    if ((blueP.spells || []).includes(spellKey)) continue;
-                    const missing = SPELLS[spellKey].ingredients.filter(ing => (blueP.inventory[ing] || 0) <= 0);
-                    if (!missing.length) continue;
-                    const candidates = Object.keys(state.crops || {}).filter(s =>
-                        state.crops[s] && !state.crops[s].collected && missing.includes(state.crops[s].type));
-                    if (candidates.length) return aiNearestSpace(blueP.position, candidates);
-                }
-                return null;
-            };
-
-            // --- threat / teleport helpers -------------------------------------------
-            // Yellow's held spells are unknown to Blue -- any card in hand is treated as
-            // a presumed threat, not just the ones Blue could identify.
-            const aiYellowIsThreat = (yellowP) => (yellowP.spells || []).length > 0;
-
-            const aiFindSafeTeleportSpace = (state, yellowP) => {
-                let best = null, bestDist = -1;
-                VALID_SPACES.slice().sort().forEach(s => {
-                    if (isAbodeSpace(s)) return; // hiding in the abode forfeits the rest of the turn -- last resort only
-                    if (s === yellowP.position) return;
-                    const d = getDistance(s, yellowP.position);
-                    if (d > bestDist) { bestDist = d; best = s; }
-                });
-                return best;
-            };
-
-            const aiFindAttackApproachSpace = (blueP, yellowP) => {
-                if (yellowP.protected || yellowP.inAbode) return null;
-                const canDeathsBreath = (blueP.spells || []).includes('deathsBreath') && canUseSpellNow('blue', 'deathsBreath');
-                const canFieryBlast = (blueP.spells || []).includes('fieryBlast') && canUseSpellNow('blue', 'fieryBlast');
-                if (!canDeathsBreath && !canFieryBlast) return null;
-                const range = canDeathsBreath ? 1 : 3;
-                if (getDistance(blueP.position, yellowP.position) <= range) return null; // already in range
-                let best = null, bestDist = Infinity;
-                VALID_SPACES.slice().sort().forEach(s => {
-                    if (isAbodeSpace(s)) return;
-                    if (getDistance(s, yellowP.position) > range) return;
-                    const d = getDistance(blueP.position, s);
-                    if (d < bestDist) { bestDist = d; best = s; }
-                });
-                return best;
-            };
-
-            // Executes a teleport for Blue exactly the way the board-click handler does
-            // (mirrors that code so the AI gets identical rules/effects/sync), since the
-            // AI can't go through the click handler itself -- that handler is gated to
-            // whichever player the local browser's URL role resolves to, which is always
-            // the human/yellow side in ?ai=true mode.
-            const aiTeleportTo = (space) => {
-                if (!canUseSpellNow('blue', 'teleport')) return;
-                const newState = {...gameState};
-                const player = 'blue';
-                const fromPos = newState.players[player].position;
-                try { triggerTeleportBeam(fromPos, space); } catch (e) {}
-                try { playSfxFileTail('spellcrafted', 3, { volume: 0.75 }); } catch (e) {}
-                newState.players[player].position = space;
-                newState.players[player].inAbode = (space === ABODES[player]);
-
-                if (newState.crops[space] && !newState.crops[space].collected) {
-                    const crop = newState.crops[space].type;
-                    const count = newState.players[player].inventory[crop] || 0;
-                    if (count < CROPS[crop].slots) {
-                        newState.players[player].inventory[crop] = count + 1;
-                        newState.crops[space].collected = true;
-                        try { setCollectedMessage(CROPS[crop]?.name || crop); } catch (e) {}
-                    }
-                    // If the inventory is already full, the human flow pauses for a
-                    // pick/leave decision. The AI has no UI to answer that, so it just
-                    // leaves the crop there rather than getting stuck.
-                }
-
-                newState.players[player].spells = newState.players[player].spells.filter(s => s !== 'teleport');
-                setGameState(newState);
-
-                if (newState.players[player].inAbode) {
-                    window.setTimeout(() => { try { endTurnByPortrait(); } catch (e) {} }, 200);
-                }
-                if (window.syncAction && !window._syncingState) {
-                    try { window.syncAction('teleport', { player, from: fromPos, to: space }); } catch (e) {}
-                }
-            };
-
-            // --- zombie helper: farm crops, switch to hunting once it can reach Yellow -
-            const aiPickZombieMove = (state, zombie) => {
-                const reachable = getValidMoves(zombie.position, 3, { mode: 'zombie', actorKey: 'blue' });
-                if (!reachable.length) return null;
-
-                const yellowP = state.players.yellow;
-                if (reachable.includes(yellowP.position) && !yellowP.inAbode) {
-                    return yellowP.position; // close enough to hunt -- go land the attack
-                }
-
-                const blueInv = state.players.blue.inventory;
-
-                // Never deliberately land the zombie on a crop it can't actually collect
-                // (full inventory) -- that opens a pick/leave dialog the AI can't answer.
-                const safeReachable = reachable.filter(s => {
-                    const c = state.crops[s];
-                    if (!c || c.collected) return true;
-                    return (blueInv[c.type] || 0) < CROPS[c.type].slots;
-                });
-                const pool = safeReachable.length ? safeReachable : reachable;
-
-                const reachableCrops = pool.filter(s => aiCropIsWorthGrabbing(state, s, blueInv));
-                if (reachableCrops.length) return aiNearestSpace(zombie.position, reachableCrops);
-
-                // No crop within this move -- drift toward the nearest uncollected crop
-                // anywhere on the board so future moves make progress.
-                const allCrops = Object.keys(state.crops || {}).filter(s => aiCropIsWorthGrabbing(state, s, blueInv));
-                if (!allCrops.length) return null;
-                const target = aiNearestSpace(zombie.position, allCrops);
-                return aiNearestSpace(target, pool);
-            };
-
-            // --- wizard movement: always grab a reachable crop; otherwise stay wary of
-            // Yellow's unknown cards, close in when Blue is ready to attack, or drift
-            // toward whatever ingredient its next spell still needs ----------------------
-            const aiPickBlueMove = (state, blueP, yellowP) => {
-                const reachable = getValidMoves(blueP.position, maxMoveDistance, { mode: 'player', actorKey: 'blue', allowEnterOwnAbode: true });
-                if (!reachable.length) return null;
-
-                // Never deliberately step onto a crop we can't actually collect (full
-                // inventory) -- that just opens a pick/leave dialog the AI can't answer.
-                const safeMoves = reachable.filter(s => {
-                    const c = state.crops[s];
-                    if (!c || c.collected) return true;
-                    return (blueP.inventory[c.type] || 0) < CROPS[c.type].slots;
-                });
-                const pool = safeMoves.length ? safeMoves : reachable;
-
-                const cropMoves = pool.filter(s => aiCropIsWorthGrabbing(state, s, blueP.inventory));
-                if (cropMoves.length) return aiNearestSpace(blueP.position, cropMoves);
-
-                const threat = aiYellowIsThreat(yellowP);
-                const readyToAttack = ['deathsBreath', 'fieryBlast'].some(sp =>
-                    (blueP.spells || []).includes(sp) && canUseSpellNow('blue', sp));
-                const needSpace = aiNearestNeededIngredientSpace(state, blueP);
-
-                let best = null, bestScore = -Infinity;
-                pool.slice().sort().forEach(s => {
-                    let score = 0;
-                    const distToYellow = getDistance(s, yellowP.position);
-
-                    if (readyToAttack && !yellowP.protected && !yellowP.inAbode) {
-                        score += (20 - distToYellow); // close the gap to land an attack
-                    } else if (threat && distToYellow <= 2) {
-                        score -= (5 - distToYellow) * 8; // stay wary -- don't wander toward an armed opponent
-                    }
-
-                    if (needSpace) score += (20 - getDistance(s, needSpace));
-
-                    if (score > bestScore) { bestScore = score; best = s; }
-                });
-                return best || pool[0];
-            };
-
-            // Which held, usable-now spell Blue should cast after moving, if any.
-            const aiPickSpellToCast = (state, blueP, yellowP) => {
-                if ((blueP.spells || []).includes('heal') && blueP.hp < 9 && canUseSpellNow('blue', 'heal')) {
-                    return 'heal';
-                }
-
-                const dist = getDistance(blueP.position, yellowP.position);
-                const yellowHittable = !yellowP.protected && !yellowP.inAbode;
-                const mobPos = state.angryMob?.position;
-                const mobAlsoInRange = !!(mobPos && getDistance(blueP.position, mobPos) <= 1 && !state.angryMob?.retreating);
-
-                // Skip deathsBreath when the mob is ALSO in range at the same moment --
-                // that's the one case the game opens a target-choice UI for, which the
-                // AI can't answer, so it waits rather than risk casting into that UI.
-                if ((blueP.spells || []).includes('deathsBreath') && canUseSpellNow('blue', 'deathsBreath') &&
-                    yellowHittable && dist <= 1 && !mobAlsoInRange) {
-                    return 'deathsBreath';
-                }
-                if ((blueP.spells || []).includes('fieryBlast') && canUseSpellNow('blue', 'fieryBlast') &&
-                    yellowHittable && dist <= 3) {
-                    return 'fieryBlast';
-                }
-                if ((blueP.spells || []).includes('zombification') && canUseSpellNow('blue', 'zombification') &&
-                    !(state.zombies || []).some(z => z.owner === 'blue')) {
-                    return 'zombification';
-                }
-                return null;
-            };
-
+            
             useEffect(() => {
                 if (!aiEnabled || !gameState || gameOver) return;
                 if (gameState.currentPlayer !== 'blue') return;
-                if (spinning || showSpellChart || showOccurrence || showCropPickOption || selectingTeleport ||
-                    pendingSpellTarget || gameState.awaitingCropPickDecision) return;
-
+                if (spinning || showSpellChart || showOccurrence) return;
+                
+                // AI takes its turn after a short delay
                 const aiDelay = setTimeout(() => {
                     try {
-                        const blue = gameState.players.blue;
-                        const yellow = gameState.players.yellow;
-
-                        // PHASE 1: a moved zombie that's now attack-ready commands its attack.
-                        if (zombieAttackReady !== null && gameState.zombies && gameState.zombies[zombieAttackReady] &&
-                            gameState.zombies[zombieAttackReady].owner === 'blue') {
-                            const z = gameState.zombies[zombieAttackReady];
-                            moveZombie(zombieAttackReady, z.position, { commandAttack: true });
-                            return;
-                        }
-
-                        // PHASE 2: an unmoved zombie farms crops, or hunts once it can reach Yellow.
-                        const zombieIdx = (gameState.zombies || []).findIndex(z => z.owner === 'blue');
-                        if (zombieIdx !== -1 && !zombieHasMoved) {
-                            const zombie = gameState.zombies[zombieIdx];
-                            const dest = aiPickZombieMove(gameState, zombie);
-                            if (dest && dest !== zombie.position) {
-                                moveZombie(zombieIdx, dest);
-                            } else {
-                                setZombieHasMoved(true); // nothing useful to do -- let the turn continue
-                            }
-                            return;
-                        }
-
+                        // AI MOVE LOGIC
                         if (!gameState.hasMovedThisTurn) {
-                            // PHASE 3: teleport first if it's the right call -- escape danger,
-                            // or close the distance for an attack. Teleport doesn't consume the
-                            // move phase, so Blue still gets a normal move afterward either way.
-                            if (canUseSpellNow('blue', 'teleport')) {
-                                if (aiYellowIsThreat(yellow) && getDistance(blue.position, yellow.position) <= 2) {
-                                    const safe = aiFindSafeTeleportSpace(gameState, yellow);
-                                    if (safe) { aiTeleportTo(safe); return; }
+                            const bluePos = gameState.players.blue.position;
+                            const validMoves = getValidMoves(bluePos, maxMoveDistance, { mode: 'player', actorKey: 'blue', allowEnterOwnAbode: true });
+                            
+                            if (validMoves.length > 0) {
+                                // Simple AI: prioritize crops, then move toward yellow, or random
+                                let bestMove = null;
+                                let bestScore = -1;
+                                
+                                validMoves.forEach(move => {
+                                    let score = 0;
+                                    
+                                    // Prioritize uncollected crops
+                                    if (gameState.crops[move] && !gameState.crops[move].collected) {
+                                        const crop = gameState.crops[move].type;
+                                        const count = gameState.players.blue.inventory[crop] || 0;
+                                        if (count < CROPS[crop].slots) {
+                                            score += 100;
+                                        }
+                                    }
+                                    
+                                    // Move toward opponent if low on crops
+                                    const yellowPos = gameState.players.yellow.position;
+                                    const distToYellow = getDistance(move, yellowPos);
+                                    if (distToYellow <= 3) score += 30;
+                                    
+                                    // Slight randomness
+                                    score += Math.random() * 10;
+                                    
+                                    if (score > bestScore) {
+                                        bestScore = score;
+                                        bestMove = move;
+                                    }
+                                });
+                                
+                                if (bestMove) {
+                                    movePlayer(bestMove);
+                                    
+                                    // Sync the AI move
+                                    if (window.syncAction) {
+                                        window.syncAction('move', {
+                                            space: bestMove,
+                                            player: 'blue',
+                                            position: bestMove
+                                        });
+                                    }
                                 }
-                                const approach = aiFindAttackApproachSpace(blue, yellow);
-                                if (approach) { aiTeleportTo(approach); return; }
                             }
-
-                            // PHASE 4: normal movement.
-                            const dest = aiPickBlueMove(gameState, blue, yellow);
-                            if (dest) {
-                                movePlayer(dest);
-                                if (window.syncAction) {
-                                    window.syncAction('move', { space: dest, player: 'blue', position: dest });
+                        }
+                        
+                        // AI SPELL CASTING
+                        setTimeout(() => {
+                            if (gameState.hasMovedThisTurn && gameState.currentPlayer === 'blue') {
+                                const blueSpells = gameState.players.blue.spells || [];
+                                
+                                // Try to cast useful spells
+                                for (const spell of blueSpells) {
+                                    if (canUseSpellNow('blue', spell)) {
+                                        // Heal if low HP
+                                        if (spell === 'heal' && gameState.players.blue.hp < 6) {
+                                            castSpellAction(spell);
+                                            break;
+                                        }
+                                        
+                                        // Attack spells if in range
+                                        if (['deathsBreath', 'fieryBlast'].includes(spell)) {
+                                            castSpellAction(spell);
+                                            break;
+                                        }
+                                    }
                                 }
+                                
+                                // End turn after a brief pause
+                                setTimeout(() => {
+                                    if (gameState.currentPlayer === 'blue' && gameState.hasMovedThisTurn) {
+                                        endTurnByPortrait();
+                                    }
+                                }, 800);
                             }
-                            return;
-                        }
-
-                        // PHASE 5: craft whatever's next on the wishlist, if Blue is home and able to.
-                        if (blue.inAbode) {
-                            const want = aiPickWantedSpell(blue);
-                            if (want) { craftSpell(want); return; }
-                        }
-
-                        // PHASE 6: cast a held spell if there's a good reason to.
-                        const cast = aiPickSpellToCast(gameState, blue, yellow);
-                        if (cast) { castSpellAction(cast); return; }
-
-                        // PHASE 7: nothing left to do -- end the turn.
-                        endTurnByPortrait();
+                        }, 600);
+                        
                     } catch (e) {
                         console.error('AI error:', e);
                     }
-                }, 900);
-
+                }, 1200); // Wait 1.2s before AI acts
+                
                 return () => clearTimeout(aiDelay);
-            }, [gameState, zombieAttackReady, zombieHasMoved, spinning, showSpellChart, showOccurrence,
-                showCropPickOption, selectingTeleport, pendingSpellTarget, gameOver]);
+            }, [gameState?.currentPlayer, gameState?.hasMovedThisTurn, gameState?.turn, spinning, showSpellChart, showOccurrence, gameOver]);
 
 
             if (!gameState) return <div className="flex items-center justify-center h-screen bg-gradient-to-br from-amber-900 via-yellow-800 to-amber-700 text-white text-2xl">Loading...</div>;
