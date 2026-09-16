@@ -5122,47 +5122,12 @@ if (travel.length > 0) {
                 return aiNearestSpace(target, pool);
             };
 
-            // --- wizard movement: retreat home when in real danger, head home to
-            // craft once ingredients are ready, otherwise grab a reachable crop, stay
-            // wary of Yellow's unknown cards, close in when Blue is ready to attack, or
-            // drift toward whatever ingredient its next spell still needs ------------
+            // --- wizard movement: always grab a reachable crop; otherwise stay wary of
+            // Yellow's unknown cards, close in when Blue is ready to attack, or drift
+            // toward whatever ingredient its next spell still needs ----------------------
             const aiPickBlueMove = (state, blueP, yellowP) => {
                 const reachable = getValidMoves(blueP.position, maxMoveDistance, { mode: 'player', actorKey: 'blue', allowEnterOwnAbode: true });
                 if (!reachable.length) return null;
-
-                // Entering your own abode is never a normal reachable move (it's treated
-                // as a wall for BFS purposes) -- it's a separate option offered whenever
-                // one of THIS turn's reachable spaces lands adjacent to it, exactly like
-                // the human 'larger abode square' click. movePlayer already has full
-                // abode-entry handling built in, so returning the abode itself as a
-                // destination works the same way it does for a human click.
-                const abode = ABODES.blue;
-                const abodeAdj = ABODE_ADJ[abode] || [];
-                const abodeReachableNow = !blueP.inAbode && reachable.some(s => abodeAdj.includes(s));
-
-                const threat = aiYellowIsThreat(yellowP);
-                const readyToAttack = ['deathsBreath', 'fieryBlast'].some(sp =>
-                    (blueP.spells || []).includes(sp) && canUseSpellNow('blue', sp));
-
-                // Danger check: the angry mob actively hunting Blue, an opponent-owned
-                // zombie, or Yellow itself (any held spell is a presumed threat, same as
-                // the wariness check below) within striking distance.
-                const mobThreatDist = (state.angryMob && state.angryMob.target === 'blue' && !state.angryMob.retreating)
-                    ? getDistance(blueP.position, state.angryMob.position) : Infinity;
-                const yellowZombieDist = (state.zombies || []).filter(z => z.owner === 'yellow')
-                    .reduce((min, z) => Math.min(min, getDistance(blueP.position, z.position)), Infinity);
-                const yellowDist = threat ? getDistance(blueP.position, yellowP.position) : Infinity;
-                const inSeriousDanger = !blueP.inAbode && Math.min(mobThreatDist, yellowZombieDist, yellowDist) <= 2;
-
-                const attackRange = ((blueP.spells || []).includes('deathsBreath') && canUseSpellNow('blue', 'deathsBreath')) ? 1 : 3;
-                const canFightBackNow = readyToAttack && !yellowP.protected && !yellowP.inAbode &&
-                    getDistance(blueP.position, yellowP.position) <= attackRange;
-                const shouldFlee = inSeriousDanger && !canFightBackNow;
-
-                // PRIORITY 1: real danger with no good way to fight back -- run home.
-                // The abode is a genuine safe haven (players and the mob can't reach
-                // someone inside one), so this outranks even a free crop.
-                if (shouldFlee && abodeReachableNow) return abode;
 
                 // Never deliberately step onto a crop we can't actually collect (full
                 // inventory) -- that just opens a pick/leave dialog the AI can't answer.
@@ -5176,11 +5141,9 @@ if (travel.length > 0) {
                 const cropMoves = pool.filter(s => aiCropIsWorthGrabbing(state, s, blueP.inventory));
                 if (cropMoves.length) return aiNearestSpace(blueP.position, cropMoves);
 
-                // PRIORITY: already holds enough ingredients to craft something new --
-                // finish the trip home and craft it instead of wandering forever.
-                const wantsToCraft = aiPickWantedSpell(blueP) !== null;
-                if (wantsToCraft && abodeReachableNow) return abode;
-
+                const threat = aiYellowIsThreat(yellowP);
+                const readyToAttack = ['deathsBreath', 'fieryBlast'].some(sp =>
+                    (blueP.spells || []).includes(sp) && canUseSpellNow('blue', sp));
                 const needSpace = aiNearestNeededIngredientSpace(state, blueP);
 
                 let best = null, bestScore = -Infinity;
@@ -5195,15 +5158,6 @@ if (travel.length > 0) {
                     }
 
                     if (needSpace) score += (20 - getDistance(s, needSpace));
-
-                    // Make steady multi-turn progress toward the abode even when it isn't
-                    // reachable yet this turn -- a strong pull while fleeing for safety,
-                    // a lighter one while just saving up to craft.
-                    if (shouldFlee) {
-                        score += (30 - getDistance(s, abode)) * 3;
-                    } else if (wantsToCraft) {
-                        score += (20 - getDistance(s, abode));
-                    }
 
                     if (score > bestScore) { bestScore = score; best = s; }
                 });
