@@ -2830,10 +2830,6 @@ const castSpellAction = (spellKey) => {
 
 
                 if (spellKey === 'teleport') {
-                    // Defense in depth: handleSpellCardClick already checks this before
-                    // calling us, but check again here too so a just-crafted teleport can
-                    // never be used this turn no matter how this gets called.
-                    if (!canUseSpellNow(caster, 'teleport')) return;
                     setSelectingTeleport(true);
                     return;
                 }
@@ -6082,16 +6078,12 @@ return (
                                                         
                                                         if (z.owner !== gameState.currentPlayer) return;
 
-                                                        // MOB COLOC: if the zombie is already standing on the mob (e.g. both
-                                                        // spawned on the same space), don't force an attack on the very first
-                                                        // click -- that denied the player any chance to move it instead. If
-                                                        // it's already selected (this is the second click) and still on the
-                                                        // mob, command the attack in place; otherwise fall through and select
-                                                        // it for movement like any other zombie.
+                                                        // MOB COLOC FIX: if zombie already at mob position (e.g. both spawn at 6F)
+                                                        // first click makes it attack-ready so player can immediately command attack.
                                                         const zombieMobPos = gameState.angryMob?.position || null;
-                                                        const colocatedWithMob = !!(zombieMobPos && z.position === zombieMobPos && !gameState.angryMob?.retreating);
-                                                        if (!zombieHasMoved && selectedZombie === i && colocatedWithMob) {
-                                                            moveZombie(i, z.position, { commandAttack: true });
+                                                        if (!zombieHasMoved && zombieMobPos && z.position === zombieMobPos && !gameState.angryMob?.retreating) {
+                                                            setZombieAttackReady(i);
+                                                            setZombieHasMoved(true);
                                                             setSelectedZombie(null);
                                                             setZombieValidMoves([]);
                                                             return;
@@ -6105,14 +6097,9 @@ return (
                                                             return;
                                                         }
 
-                                                        // Otherwise: select it for movement (once per turn). If it's
-                                                        // standing on the mob, clicking it again -- above -- commands an
-                                                        // attack in place instead of moving it.
+                                                        // Otherwise: select it for movement (once per turn).
                                                         setSelectedZombie(i);
                                                         setZombieValidMoves(getValidMoves(space, 3, { mode: 'zombie', actorKey: gameState.currentPlayer }));
-                                                        if (colocatedWithMob) {
-                                                            setTempMessage('Zombie is on the mob -- move it, or click it again to attack.', 2400);
-                                                        }
                                                     }}
                                                 >
                                                     <img
